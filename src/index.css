@@ -128,3 +128,29 @@
     @apply font-sans;
     }
 }
+
+@keyframes rise {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes bar {
+  from { transform: scaleY(0.2); }
+  to { transform: scaleY(1); }
+}
+
+.landing-rise {
+  animation: rise 0.7s ease both;
+}
+
+.landing-bar {
+  transform-origin: bottom;
+  animation: bar 1.1s ease both;
+}
+
+.chart-note { display: none; }
+
+@media (max-width: 767px) {
+  .chart-wide { display: none; }
+  .chart-note { display: block; }
+}

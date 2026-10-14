@@ -5,6 +5,7 @@ export type UserProfile = {
   email: string
   role_id: string
   role_name: string | null
+  identity_overridden: boolean
 }
 
 export type RoleRecord = {
@@ -69,7 +70,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
     const csrf = csrfToken()
     if (csrf) headers.set("X-CSRF-Token", csrf)
-    if (options.body && !headers.has("Content-Type")) {
+    if (options.body && !(options.body instanceof FormData) && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json")
     }
   }
@@ -110,6 +111,12 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
+}
+
+export async function uploadFile(file: File): Promise<{ id: string }> {
+  const body = new FormData()
+  body.append("file", file)
+  return api<{ id: string }>("/api/attachments", { method: "POST", body })
 }
 
 export function errorMessage(error: unknown): string {

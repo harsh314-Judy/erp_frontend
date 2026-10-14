@@ -8,12 +8,14 @@ import {
 } from "react"
 
 import { api, type UserProfile } from "@/lib/api"
+import { roleCan } from "@/lib/access"
 
 type AuthState = {
   user: UserProfile | null
   ready: boolean
   setUser: (user: UserProfile | null) => void
-  canManageMembers: boolean
+  canAccessAdmin: boolean
+  can: (capability: string) => boolean
 }
 
 const AuthContext = createContext<AuthState | null>(null)
@@ -44,8 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       ready,
       setUser,
-      canManageMembers:
-        user?.role_name === "admin" || user?.role_name === "super_admin",
+      canAccessAdmin: user?.role_name === "admin" || user?.role_name === "super_admin",
+      can: (capability: string) => roleCan(user?.role_name, capability),
     }),
     [user, ready],
   )
