@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 
 import { useAuth } from "@/auth/AuthContext"
 import { AuthCard } from "@/components/AuthCard"
+import { FormBusy } from "@/components/PlantLoader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,6 +17,7 @@ export function AcceptInvitePage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState(token ? "" : "This invite link is missing a token.")
   const [pending, setPending] = useState(false)
+  const lock = useRef(false)
 
   useEffect(() => {
     if (params.get("token")) setParams({}, { replace: true })
@@ -23,6 +25,8 @@ export function AcceptInvitePage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
+    if (lock.current) return
+    lock.current = true
     setPending(true)
     setError("")
     try {
@@ -35,6 +39,7 @@ export function AcceptInvitePage() {
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
+      lock.current = false
       setPending(false)
     }
   }
@@ -44,7 +49,8 @@ export function AcceptInvitePage() {
       title="Accept invite"
       description="Choose a password to finish creating your account."
     >
-      <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
+      <form className="relative grid gap-4" onSubmit={(event) => void onSubmit(event)}>
+        <FormBusy show={pending} label="Creating account" />
         <div className="grid gap-1.5">
           <Label htmlFor="password" className="text-xs font-semibold text-slate-300">Choose a Secure Password (Min 8 Characters)</Label>
           <Input

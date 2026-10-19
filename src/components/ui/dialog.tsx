@@ -37,7 +37,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-slate-950/50 backdrop-blur-xs duration-150 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 isolate z-50 bg-slate-950/75 backdrop-blur-xs duration-150 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
         className
       )}
       {...props}
@@ -53,31 +53,39 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  const sanitizedClassName = className
+    ? className.replace(/\b(relative|fixed)\b/g, "").trim()
+    : ""
+  const hasCustomMaxWidth = sanitizedClassName && /\b(sm:|md:|lg:)?max-w-/.test(sanitizedClassName)
+
   return (
     <DialogPortal>
       <DialogOverlay />
-      <DialogPrimitive.Content
-        data-slot="dialog-content"
-        className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border border-[#2c364b] bg-[#1c2230] p-6 text-sm text-slate-200 shadow-2xl ring-1 ring-white/5 duration-150 outline-none sm:max-w-xl data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className
-        )}
-        {...props}
-      >
-        {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close data-slot="dialog-close" asChild>
-            <Button
-              variant="ghost"
-              className="absolute top-4 right-4 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl"
-              size="icon-sm"
-            >
-              <XIcon className="size-4" />
-              <span className="sr-only">Close</span>
-            </Button>
-          </DialogPrimitive.Close>
-        )}
-      </DialogPrimitive.Content>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto pointer-events-none">
+        <DialogPrimitive.Content
+          data-slot="dialog-content"
+          className={cn(
+            "pointer-events-auto relative w-full max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-2rem)] sm:max-h-[88vh] flex flex-col gap-4 overflow-y-auto rounded-2xl border border-[#2b3447] bg-[#1a1f2b] p-5 sm:p-6 text-sm text-slate-200 shadow-2xl ring-1 ring-white/10 outline-none form-scroll duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            !hasCustomMaxWidth && "sm:max-w-xl",
+            sanitizedClassName
+          )}
+          {...props}
+        >
+          {children}
+          {showCloseButton && (
+            <DialogPrimitive.Close data-slot="dialog-close" asChild>
+              <Button
+                variant="ghost"
+                className="absolute top-3.5 right-3.5 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl size-8 p-0"
+                size="icon"
+              >
+                <XIcon className="size-4" />
+                <span className="sr-only">Close</span>
+              </Button>
+            </DialogPrimitive.Close>
+          )}
+        </DialogPrimitive.Content>
+      </div>
     </DialogPortal>
   )
 }
@@ -104,7 +112,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        "flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-3 border-t border-[#262e3f]",
         className
       )}
       {...props}

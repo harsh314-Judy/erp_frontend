@@ -8,11 +8,13 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
+import { FormBusy, PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { api, errorMessage } from "@/lib/api"
+import { useFormBusy } from "@/lib/busy"
 
 type Company = {
   company_name: string
@@ -28,11 +30,14 @@ export function SettingsPage() {
   const [form, setForm] = useState<Company | null>(null)
   const [error, setError] = useState("")
   const [saved, setSaved] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const { busy, guard } = useFormBusy()
 
   useEffect(() => {
     api<Company>("/api/company")
       .then(setForm)
       .catch((caught) => setError(errorMessage(caught)))
+      .finally(() => setLoading(false))
   }, [])
 
   if (!can("manage_company")) return <Navigate to="/dashboard" replace />
@@ -42,6 +47,7 @@ export function SettingsPage() {
     if (!form) return
     setError("")
     setSaved(false)
+    await guard(async () => {
     try {
       setForm(await api<Company>("/api/company", { method: "PATCH", body: JSON.stringify(form) }))
       setSaved(true)
@@ -49,6 +55,7 @@ export function SettingsPage() {
     } catch (caught) {
       setError(errorMessage(caught))
     }
+    })
   }
 
   return (
@@ -60,11 +67,13 @@ export function SettingsPage() {
         badge={form?.company_name ?? "Company"}
       />
 
+      {loading ? <PageLoading label="Loading company settings" /> : null}
       {error ? <Notice variant="error">{error}</Notice> : null}
       {saved ? <Notice variant="success">Company settings saved successfully.</Notice> : null}
 
       {form ? (
-        <Card className="max-w-2xl border-[#262e3f] bg-[#1a1f2b] shadow-lg">
+        <Card className="relative max-w-2xl border-[#262e3f] bg-[#1a1f2b] shadow-lg">
+          <FormBusy show={busy} />
           <CardHeader className="border-b border-[#262e3f] pb-3">
             <div className="flex items-center gap-3">
               <div className="grid size-10 place-items-center rounded-xl bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30">
@@ -139,6 +148,7 @@ export function SettingsPage() {
               <div className="flex justify-end border-t border-[#262e3f] pt-3">
                 <Button
                   type="submit"
+                  disabled={busy}
                   className="rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/40"
                 >
                   <Save className="mr-1.5 size-4" />

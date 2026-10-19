@@ -5,9 +5,11 @@ import {
   Wrench,
 } from "lucide-react"
 
+import { PageLoading } from "@/components/PlantLoader"
 import { EmptyState, Notice, PageTitle, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import { api, errorMessage, type Page } from "@/lib/api"
+import { useFormBusy } from "@/lib/busy"
 
 type Job = { id: string; product_name: string | null; quantity: string; status: string }
 type Stage = { id: string; operation_name: string | null; status: string; assigned_user_id: string | null }
@@ -16,9 +18,15 @@ type Detail = Job & { stages: Stage[] }
 export function StaffPage() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(true)
+  const { busy, guard } = useFormBusy()
 
   async function load() {
-    setJobs((await api<Page<Job>>("/api/production-jobs/?page=1&page_size=50")).items)
+    try {
+      setJobs((await api<Page<Job>>("/api/production-jobs/?page=1&page_size=50")).items)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -27,6 +35,7 @@ export function StaffPage() {
 
   async function finish(job: Job) {
     setError("")
+    await guard(async () => {
     try {
       const detail = await api<Detail>(`/api/production-jobs/${job.id}`)
       const active = detail.stages.find((stage) => stage.status === "active")
@@ -43,6 +52,7 @@ export function StaffPage() {
     } catch (caught) {
       setError(errorMessage(caught))
     }
+    })
   }
 
   return (
@@ -56,7 +66,10 @@ export function StaffPage() {
 
       {error ? <Notice variant="error">{error}</Notice> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      {loading ? (
+        <PageLoading label="Loading your jobs" variant="cards" count={2} />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
         {jobs.map((job) => (
           <article
             key={job.id}
@@ -83,6 +96,7 @@ export function StaffPage() {
             <div className="mt-4 pt-3 border-t border-[#262e3f]">
               <Button
                 type="button"
+                disabled={busy}
                 className="w-full rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/40"
                 onClick={() => void finish(job)}
               >
@@ -103,6 +117,7 @@ export function StaffPage() {
           </div>
         ) : null}
       </div>
+      )}
     </div>
   )
 }

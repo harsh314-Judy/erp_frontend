@@ -8,7 +8,8 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
-import { Field, Notice, PageTitle, StatusBadge } from "@/components/plant-ui"
+import { FormBusy, PageLoading } from "@/components/PlantLoader"
+import { CategoryManager, Field, Notice, PageTitle, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -21,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { api, errorMessage, type Page } from "@/lib/api"
+import { useFormBusy } from "@/lib/busy"
 import { canSeePrices } from "@/lib/access"
 
 type Named = { id: string; name: string }
@@ -35,6 +37,7 @@ type Product = {
   stock_status?: string | null
   sale_price_without_gst?: string | null
   gst_percent: number
+  category_id: string
 }
 
 export function ProductsPage() {
@@ -45,6 +48,8 @@ export function ProductsPage() {
   const [categories, setCategories] = useState<Named[]>([])
   const [query, setQuery] = useState("")
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(true)
+  const { busy, guard } = useFormBusy()
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({
     product_name: "",
@@ -60,6 +65,7 @@ export function ProductsPage() {
   })
 
   async function load(search = query) {
+    try {
     const [products, unitPage, categoryPage] = await Promise.all([
       api<Page<Product>>(`/api/products?page=1&page_size=100&q=${encodeURIComponent(search)}`),
       api<Page<Named>>("/api/measurement-units?page=1&page_size=100"),
@@ -73,6 +79,9 @@ export function ProductsPage() {
       measurement_unit_id: current.measurement_unit_id || unitPage.items[0]?.id || "",
       category_id: current.category_id || categoryPage.items[0]?.id || "",
     }))
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -89,9 +98,21 @@ export function ProductsPage() {
     }
   }
 
+  async function removeCategory(id: string) {
+    setError("")
+    try {
+      await api(`/api/product-categories/${id}`, { method: "DELETE" })
+      setForm((current) => ({ ...current, category_id: current.category_id === id ? "" : current.category_id }))
+      await load()
+    } catch (caught) {
+      setError(errorMessage(caught))
+    }
+  }
+
   async function createProduct(event: FormEvent) {
     event.preventDefault()
     setError("")
+    await guard(async () => {
     try {
       await api("/api/products", {
         method: "POST",
@@ -110,6 +131,7 @@ export function ProductsPage() {
     } catch (caught) {
       setError(errorMessage(caught))
     }
+    })
   }
 
   return (
@@ -131,7 +153,8 @@ export function ProductsPage() {
                   Add New Product
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="sm:max-w-3xl">
+                <FormBusy show={busy} />
                 <DialogHeader>
                   <div className="flex items-center gap-2.5">
                     <div className="grid size-9 place-items-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
@@ -142,9 +165,13 @@ export function ProductsPage() {
                 </DialogHeader>
 
                 <div className="space-y-4 pt-2">
-                  <div className="grid gap-3 sm:grid-cols-2 rounded-xl border border-[#262e3f] bg-[#161a25] p-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <MiniCreate label="Unit" onCreate={(name) => addNamed("/api/measurement-units", name)} />
-                    <MiniCreate label="Category" onCreate={(name) => addNamed("/api/product-categories", name)} />
+                    <CategoryManager
+                      categories={categories}
+                      onAdd={(name) => addNamed("/api/product-categories", name)}
+                      onRemove={(id) => void removeCategory(id)}
+                    />
                   </div>
 
                   <form className="grid gap-4 sm:grid-cols-3" onSubmit={(event) => void createProduct(event)}>
@@ -246,6 +273,7 @@ export function ProductsPage() {
                       </Button>
                       <Button
                         type="submit"
+                        disabled={busy}
                         className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/15 hover:from-blue-500 hover:to-indigo-500"
                       >
                         Save Product to Catalog
@@ -283,10 +311,21 @@ export function ProductsPage() {
         </Button>
       </div>
 
+      {can("edit_inventory") ? (
+        <CategoryManager
+          categories={categories}
+          onAdd={(name) => addNamed("/api/product-categories", name)}
+          onRemove={(id) => void removeCategory(id)}
+        />
+      ) : null}
+
       {error ? <Notice variant="error">{error}</Notice> : null}
 
       {/* Products Table */}
-      <div className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] shadow-sm">
+      {loading ? (
+        <PageLoading label="Loading products" variant="table" cols={6} count={5} />
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] shadow-sm">
         <div className="flex items-center justify-between border-b border-[#262e3f] bg-[#161a25] px-5 py-3.5">
           <div className="flex items-center gap-2">
             <Boxes className="size-4 text-blue-400" />
@@ -302,6 +341,7 @@ export function ProductsPage() {
               <TableRow>
                 <TableHead>Product</TableHead>
                 <TableHead>SKU</TableHead>
+                <TableHead>Category</TableHead>
                 <TableHead>Sourcing</TableHead>
                 <TableHead>HSN</TableHead>
                 <TableHead className="text-right">Physical On Hand</TableHead>
@@ -313,7 +353,7 @@ export function ProductsPage() {
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={prices ? 8 : 7} className="py-8 text-center text-xs text-slate-400">
+                  <TableCell colSpan={prices ? 9 : 8} className="py-8 text-center text-xs text-slate-400">
                     No products matching search query.
                   </TableCell>
                 </TableRow>
@@ -322,6 +362,9 @@ export function ProductsPage() {
                   <TableRow key={row.id}>
                     <TableCell className="font-semibold text-slate-200">{row.product_name}</TableCell>
                     <TableCell className="font-mono text-xs text-slate-400">{row.sku_number}</TableCell>
+                    <TableCell className="text-slate-300">
+                      {categories.find((category) => category.id === row.category_id)?.name ?? "—"}
+                    </TableCell>
                     <TableCell>
                       <StatusBadge status={row.product_type} />
                     </TableCell>
@@ -345,6 +388,7 @@ export function ProductsPage() {
           </Table>
         </div>
       </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode, type ComponentType } from "react"
 import { AlertCircle, CheckCircle2, ChevronDown, Info, Search, AlertTriangle } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
@@ -144,13 +145,13 @@ export function StatusBadge({
   let style = "bg-slate-800/80 text-slate-300 border-slate-700/60"
   let dotColor = "bg-slate-400"
 
-  if (["completed", "done", "paid", "verified", "normal", "active"].includes(norm)) {
+  if (["completed", "done", "paid", "verified", "delivered", "normal", "active"].includes(norm)) {
     style = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-xs"
     dotColor = "bg-emerald-400 shadow-xs shadow-emerald-400"
-  } else if (["running", "in_progress", "dispatched", "manufactured"].includes(norm)) {
+  } else if (["running", "in_progress", "process", "in_delivery", "dispatched", "manufactured"].includes(norm)) {
     style = "bg-blue-500/10 text-blue-400 border-blue-500/30 shadow-xs"
     dotColor = "bg-blue-400 animate-pulse shadow-xs shadow-blue-400"
-  } else if (["pending", "ordered", "awaiting_approval", "both", "arrived", "partial"].includes(norm)) {
+  } else if (["pending", "ordered", "initiated", "awaiting_approval", "both", "arrived", "partial"].includes(norm)) {
     style = "bg-amber-500/10 text-amber-300 border-amber-500/30 shadow-xs"
     dotColor = "bg-amber-400"
   } else if (["cancelled", "rejected", "low_stock", "critical", "unpaid"].includes(norm)) {
@@ -265,6 +266,88 @@ export function StatCard({
             </span>
           ) : null}
           {hint ? <span className="truncate">{hint}</span> : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+export function CategoryManager({
+  categories,
+  onAdd,
+  onRemove,
+}: {
+  categories: { id: string; name: string }[]
+  onAdd: (name: string) => void
+  onRemove: (id: string) => void
+}) {
+  const [name, setName] = useState("")
+  const [open, setOpen] = useState(false)
+
+  function add() {
+    const next = name.trim()
+    if (!next) return
+    onAdd(next)
+    setName("")
+  }
+
+  return (
+    <div className="rounded-2xl border border-[#262e3f] bg-[#121826]">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <div>
+          <p className="text-sm font-semibold text-slate-100">Categories</p>
+          <p className="text-xs text-slate-400">
+            {categories.length ? `${categories.length} available` : "Add one before you save an item"}
+          </p>
+        </div>
+        <Button type="button" variant="outline" className="rounded-xl" onClick={() => setOpen((value) => !value)}>
+          {open ? "Hide categories" : "Add or remove"}
+        </Button>
+      </div>
+      {open ? (
+        <div className="space-y-4 border-t border-[#262e3f] p-4">
+          <div className="flex flex-wrap gap-2">
+            {categories.length === 0 ? (
+              <span className="text-sm text-slate-500">No categories yet.</span>
+            ) : (
+              categories.map((category) => (
+                <span
+                  key={category.id}
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#2b3447] bg-[#1a1f2b] px-3 py-2 text-sm text-slate-100"
+                >
+                  {category.name}
+                  <button
+                    type="button"
+                    className="text-slate-400 hover:text-rose-300"
+                    aria-label={`Remove ${category.name}`}
+                    onClick={() => onRemove(category.id)}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))
+            )}
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <Field label="New category name">
+                <Input
+                  value={name}
+                  placeholder="e.g. Stainless coil"
+                  onChange={(event) => setName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault()
+                      add()
+                    }
+                  }}
+                />
+              </Field>
+            </div>
+            <Button type="button" className="rounded-xl" onClick={add}>
+              Save category
+            </Button>
+          </div>
         </div>
       ) : null}
     </div>

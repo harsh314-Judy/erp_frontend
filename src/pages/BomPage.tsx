@@ -9,11 +9,13 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
+import { PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle, SearchSelect } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { api, errorMessage, type Page } from "@/lib/api"
+import { useFormBusy } from "@/lib/busy"
 import { cn } from "@/lib/utils"
 
 type Option = { id: string; label: string }
@@ -38,13 +40,15 @@ export function BomPage() {
   const [route, setRoute] = useState<string[]>([])
   const [line, setLine] = useState({ kind: "material", itemId: "", quantity: "1" })
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(true)
+  const { busy, guard } = useFormBusy()
   const [savedRouteMsg, setSavedRouteMsg] = useState(false)
 
   useEffect(() => {
     async function load() {
       const [productPage, materialPage, operationPage] = await Promise.all([
-        api<Page<Product>>("/api/products?page=1&page_size=100"),
-        api<Page<Material>>("/api/raw-materials/?page=1&page_size=100"),
+        api<Page<Product>>("/api/products?page=1&page_size=100&brief=true"),
+        api<Page<Material>>("/api/raw-materials/?page=1&page_size=100&brief=true"),
         api<Page<Operation>>("/api/operations?page=1&page_size=100"),
       ])
       const productOptions = productPage.items.map((item) => ({ id: item.id, label: item.product_name }))
@@ -53,7 +57,9 @@ export function BomPage() {
       setOperations(operationPage.items.map((item) => ({ id: item.id, label: item.name })))
       setProductId((current) => current || productOptions[0]?.id || "")
     }
-    void load().catch((caught) => setError(errorMessage(caught)))
+    void load()
+      .catch((caught) => setError(errorMessage(caught)))
+      .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
@@ -94,16 +100,19 @@ export function BomPage() {
         item_name: null,
       },
     ]
-    try {
-      await saveRecipe(next)
-    } catch (caught) {
-      setError(errorMessage(caught))
-    }
+    await guard(async () => {
+      try {
+        await saveRecipe(next)
+      } catch (caught) {
+        setError(errorMessage(caught))
+      }
+    })
   }
 
   async function saveRoute() {
     setError("")
     setSavedRouteMsg(false)
+    await guard(async () => {
     try {
       const saved = await api<string[]>(`/api/products/${productId}/route`, {
         method: "PUT",
@@ -115,6 +124,7 @@ export function BomPage() {
     } catch (caught) {
       setError(errorMessage(caught))
     }
+    })
   }
 
   const selectedProduct = products.find((p) => p.id === productId)
@@ -130,8 +140,12 @@ export function BomPage() {
 
       {error ? <Notice variant="error">{error}</Notice> : null}
 
-      {/* Product Selector Card */}
-      <Card className="border-[#262e3f] bg-[#1a1f2b] p-5 shadow-lg">
+      {loading ? (
+        <PageLoading label="Loading recipes" variant="cards" count={2} />
+      ) : (
+        <>
+          {/* Product Selector Card */}
+          <Card className="border-[#262e3f] bg-[#1a1f2b] p-5 shadow-lg">
         <div className="max-w-md">
           <SearchSelect
             label="Select Product to Configure"
@@ -217,6 +231,7 @@ export function BomPage() {
               <Button
                 type="button"
                 className="w-full rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/40"
+                disabled={busy}
                 onClick={() => void addLine()}
               >
                 <PlusCircle className="mr-1.5 size-4" />
@@ -314,6 +329,7 @@ export function BomPage() {
               <Button
                 type="button"
                 className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md shadow-emerald-500/20 hover:from-emerald-500 hover:to-teal-500"
+                disabled={busy}
                 onClick={() => void saveRoute()}
               >
                 <Save className="mr-1.5 size-4" />
@@ -323,6 +339,8 @@ export function BomPage() {
           ) : null}
         </section>
       </div>
+      </>
+      )}
     </div>
   )
 }

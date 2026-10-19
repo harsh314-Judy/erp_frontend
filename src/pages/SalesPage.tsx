@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
+import { FormBusy, PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,6 +25,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { canSeePrices } from "@/lib/access"
 import { api, errorMessage, type Page, uploadFile } from "@/lib/api"
+import { useFormBusy } from "@/lib/busy"
 
 type Option = { id: string; label: string }
 type Customer = { id: string; name: string }
@@ -69,6 +71,8 @@ export function SalesPage() {
   const [products, setProducts] = useState<(Option & { type: string })[]>([])
   const [people, setPeople] = useState<Option[]>([])
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(true)
+  const { busy, guard } = useFormBusy()
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({
@@ -82,10 +86,11 @@ export function SalesPage() {
   const [payment, setPayment] = useState({ amount: "", method: "cash", note: "" })
 
   async function load() {
+    try {
     const [orderRows, customerPage, productPage, userPage] = await Promise.all([
       api<Order[]>("/api/sales/orders"),
       api<Page<Customer>>("/api/customers/?page=1&page_size=100"),
-      api<Page<Product>>("/api/products?page=1&page_size=100"),
+      api<Page<Product>>("/api/products?page=1&page_size=100&brief=true"),
       api<User[]>("/api/users/options"),
     ])
     setOrders(orderRows)
@@ -104,6 +109,9 @@ export function SalesPage() {
       product_id: current.product_id || productOptions[0]?.id || "",
       packaging_user_id: current.packaging_user_id || peopleOptions[0]?.id || "",
     }))
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -115,6 +123,7 @@ export function SalesPage() {
   async function create(event: FormEvent) {
     event.preventDefault()
     setError("")
+    await guard(async () => {
     try {
       await api("/api/sales/orders", {
         method: "POST",
@@ -136,6 +145,7 @@ export function SalesPage() {
     } catch (caught) {
       setError(errorMessage(caught))
     }
+    })
   }
 
   async function showInvoice(order: Order) {
@@ -147,6 +157,7 @@ export function SalesPage() {
     event.preventDefault()
     if (!invoice) return
     setError("")
+    await guard(async () => {
     try {
       const file = (event.currentTarget as HTMLFormElement).querySelector<HTMLInputElement>("input[type=file]")?.files?.[0]
       const attachment = file ? await uploadFile(file) : null
@@ -164,6 +175,7 @@ export function SalesPage() {
     } catch (caught) {
       setError(errorMessage(caught))
     }
+    })
   }
 
   return (
@@ -184,7 +196,8 @@ export function SalesPage() {
                 New Sales Order
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-2xl">
+              <FormBusy show={busy} />
               <DialogHeader>
                 <div className="flex items-center gap-2.5">
                   <div className="grid size-9 place-items-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
@@ -250,6 +263,7 @@ export function SalesPage() {
                   </Button>
                   <Button
                     type="submit"
+                    disabled={busy}
                     className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500"
                   >
                     Confirm & Reserve Stock
@@ -264,7 +278,10 @@ export function SalesPage() {
       {error ? <Notice variant="error">{error}</Notice> : null}
 
       {/* Orders Grid */}
-      <div className="grid gap-4">
+      {loading ? (
+        <PageLoading label="Loading sales orders" variant="cards" count={3} />
+      ) : (
+        <div className="grid gap-4">
         {orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#2b3447] bg-[#1a1f2b]/60 p-10 text-center">
             <Receipt className="mx-auto size-10 text-slate-500" />
@@ -355,6 +372,7 @@ export function SalesPage() {
           })
         )}
       </div>
+      )}
 
       {/* GST Tax Invoice Viewer */}
       {invoice ? (
@@ -480,6 +498,7 @@ export function SalesPage() {
               <Input type="file" accept="image/*,.pdf" className="text-xs" />
               <Button
                 type="submit"
+                disabled={busy}
                 className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md shadow-emerald-500/20 hover:from-emerald-500 hover:to-teal-500"
               >
                 <CreditCard className="mr-1.5 size-4" />

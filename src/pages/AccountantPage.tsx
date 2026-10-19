@@ -10,6 +10,7 @@ import {
   Scale,
 } from "lucide-react"
 
+import { FormBusy, PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { api, errorMessage, type Page } from "@/lib/api"
+import { useFormBusy } from "@/lib/busy"
 
 type Job = { id: string; product_name: string | null; quantity: string; status: string }
 type Invoice = { id: string; number: string; status: string; total_amount: string; amount_paid: string }
@@ -30,6 +32,8 @@ export function AccountantPage() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(true)
+  const { busy, guard } = useFormBusy()
   const [adjustSuccess, setAdjustSuccess] = useState(false)
   const [showAdjustModal, setShowAdjustModal] = useState(false)
   const [adjust, setAdjust] = useState({ product_id: "", quantity_delta: "", reason: "" })
@@ -44,12 +48,14 @@ export function AccountantPage() {
         setInvoices(invoiceRows.filter((invoice) => invoice.status !== "paid"))
       })
       .catch((caught) => setError(errorMessage(caught)))
+      .finally(() => setLoading(false))
   }, [])
 
   async function saveAdjustment(event: FormEvent) {
     event.preventDefault()
     setError("")
     setAdjustSuccess(false)
+    await guard(async () => {
     try {
       await api("/api/inventory/adjustments", {
         method: "POST",
@@ -66,6 +72,7 @@ export function AccountantPage() {
     } catch (caught) {
       setError(errorMessage(caught))
     }
+    })
   }
 
   return (
@@ -84,6 +91,7 @@ export function AccountantPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-xl">
+              <FormBusy show={busy} />
               <DialogHeader>
                 <div className="flex items-center gap-3">
                   <div className="grid size-10 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-500/30">
@@ -137,6 +145,7 @@ export function AccountantPage() {
                   </Button>
                   <Button
                     type="submit"
+                    disabled={busy}
                     className="rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 hover:from-blue-500 hover:to-indigo-500"
                   >
                     <CreditCard className="mr-1.5 size-4" />
@@ -154,7 +163,10 @@ export function AccountantPage() {
         <Notice variant="success">Inventory balance adjustment recorded in audit ledger.</Notice>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {loading ? (
+        <PageLoading label="Loading approvals" variant="cards" count={2} />
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-2">
         {/* Waiting For Approval */}
         <section className="space-y-3 rounded-2xl border border-[#262e3f] bg-[#1a1f2b] p-5 shadow-lg">
           <div className="flex items-center justify-between border-b border-[#262e3f] pb-3">
@@ -246,6 +258,7 @@ export function AccountantPage() {
           </div>
         </section>
       </div>
+      )}
     </div>
   )
 }

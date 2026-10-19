@@ -274,7 +274,7 @@ export function AppShell() {
             </Button>
 
             {bellOpen ? (
-              <div className="absolute right-0 top-full z-40 mt-2 w-84 rounded-2xl border border-[#2c364b] bg-[#1c2230] p-2.5 shadow-2xl ring-1 ring-white/5 animate-in fade-in-50 zoom-in-95 duration-150">
+              <div className="absolute right-0 top-full z-40 mt-2 w-[calc(100vw-2rem)] max-w-sm sm:w-84 rounded-2xl border border-[#2c364b] bg-[#1c2230] p-2.5 shadow-2xl ring-1 ring-white/5 animate-in fade-in-50 zoom-in-95 duration-150">
                 <div className="flex items-center justify-between border-b border-[#242c3d] px-3 py-2">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-300">Notifications</p>
                   {unread > 0 ? (

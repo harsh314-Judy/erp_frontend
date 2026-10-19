@@ -1,7 +1,8 @@
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
 
 import { AuthCard } from "@/components/AuthCard"
+import { FormBusy } from "@/components/PlantLoader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,9 +19,12 @@ export function ResetPasswordPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState(token ? "" : "This reset link is missing a token.")
   const [pending, setPending] = useState(false)
+  const lock = useRef(false)
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
+    if (lock.current) return
+    lock.current = true
     setPending(true)
     setError("")
     try {
@@ -32,6 +36,7 @@ export function ResetPasswordPage() {
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
+      lock.current = false
       setPending(false)
     }
   }
@@ -46,7 +51,8 @@ export function ResetPasswordPage() {
         </Link>
       }
     >
-      <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
+      <form className="relative grid gap-4" onSubmit={(event) => void onSubmit(event)}>
+        <FormBusy show={pending} label="Saving" />
         <div className="grid gap-1.5">
           <Label htmlFor="password" className="text-xs font-semibold text-slate-300">New Password (Min 8 Characters)</Label>
           <Input

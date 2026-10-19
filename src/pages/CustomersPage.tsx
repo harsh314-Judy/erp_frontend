@@ -7,6 +7,7 @@ import {
   UserRound,
 } from "lucide-react"
 
+import { FormBusy, PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { api, errorMessage, type Page } from "@/lib/api"
+import { useFormBusy } from "@/lib/busy"
 
 type Customer = {
   id: string
@@ -35,6 +37,8 @@ type Customer = {
 export function CustomersPage() {
   const [rows, setRows] = useState<Customer[]>([])
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(true)
+  const { busy, guard } = useFormBusy()
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({
     name: "",
@@ -48,8 +52,12 @@ export function CustomersPage() {
   })
 
   async function load() {
-    const page = await api<Page<Customer>>("/api/customers/?page=1&page_size=100")
-    setRows(page.items)
+    try {
+      const page = await api<Page<Customer>>("/api/customers/?page=1&page_size=100")
+      setRows(page.items)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -59,6 +67,7 @@ export function CustomersPage() {
   async function create(event: FormEvent) {
     event.preventDefault()
     setError("")
+    await guard(async () => {
     try {
       await api("/api/customers/", {
         method: "POST",
@@ -76,6 +85,7 @@ export function CustomersPage() {
     } catch (caught) {
       setError(errorMessage(caught))
     }
+    })
   }
 
   return (
@@ -96,7 +106,8 @@ export function CustomersPage() {
                 Add New Customer
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-2xl">
+              <FormBusy show={busy} />
               <DialogHeader>
                 <div className="flex items-center gap-2.5">
                   <div className="grid size-9 place-items-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
@@ -184,6 +195,7 @@ export function CustomersPage() {
                   </Button>
                   <Button
                     type="submit"
+                    disabled={busy}
                     className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/15 hover:from-blue-500 hover:to-indigo-500"
                   >
                     Save Customer Account
@@ -198,7 +210,10 @@ export function CustomersPage() {
       {error ? <Notice variant="error">{error}</Notice> : null}
 
       {/* Customers Table */}
-      <div className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] shadow-sm">
+      {loading ? (
+        <PageLoading label="Loading customers" variant="table" cols={5} count={5} />
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] shadow-sm">
         <div className="border-b border-[#262e3f] bg-[#161a25] px-5 py-3.5">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
             Client Directory
@@ -277,6 +292,7 @@ export function CustomersPage() {
           </Table>
         </div>
       </div>
+      )}
     </div>
   )
 }

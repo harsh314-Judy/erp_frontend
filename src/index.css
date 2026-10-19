@@ -110,6 +110,11 @@
   50% { opacity: 0.6; transform: scale(1.05); }
 }
 
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
 .landing-rise {
   animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -121,6 +126,95 @@
 
 .pulse-glow {
   animation: pulseGlow 2.5s ease-in-out infinite;
+}
+
+.plant-grid {
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(circle at center, black, transparent 72%);
+}
+
+.plant-spin { animation: plant-spin 9s linear infinite; }
+.plant-spin-reverse { animation: plant-spin 5.5s linear infinite reverse; }
+.plant-orbit { animation: plant-spin 2.8s linear infinite; }
+.plant-core { animation: plant-core 2.4s ease-in-out infinite; }
+.plant-scan { animation: plant-scan 2.8s ease-in-out infinite; }
+.plant-melt { animation: plant-melt 1.35s ease-in-out infinite; }
+.plant-glow-blue { animation: plant-drift 7s ease-in-out infinite; }
+.plant-glow-amber { animation: plant-drift 9s ease-in-out infinite reverse; }
+.plant-phrase { animation: plant-phrase 6s ease-in-out infinite; opacity: 0; }
+
+@keyframes plant-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes plant-core {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+@keyframes plant-scan {
+  0% { top: 12%; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { top: 88%; opacity: 0; }
+}
+
+@keyframes plant-melt {
+  0% { transform: translateX(-140%); }
+  100% { transform: translateX(320%); }
+}
+
+@keyframes plant-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(24px, 18px, 0) scale(1.08); }
+}
+
+@keyframes plant-phrase {
+  0%, 8% { opacity: 0; transform: translateY(8px); }
+  14%, 28% { opacity: 1; transform: translateY(0); }
+  36%, 100% { opacity: 0; transform: translateY(-8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plant-spin,
+  .plant-spin-reverse,
+  .plant-orbit,
+  .plant-core,
+  .plant-scan,
+  .plant-melt,
+  .plant-glow-blue,
+  .plant-glow-amber,
+  .plant-phrase {
+    animation: none;
+  }
+
+  .plant-phrase { display: none; }
+  .plant-phrase:first-child { display: block; opacity: 1; transform: none; }
+  .plant-scan { display: none; }
+}
+
+.form-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #e8b15a #121826;
+}
+
+.form-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.form-scroll::-webkit-scrollbar-track {
+  margin: 8px 0;
+  background: #121826;
+  border-radius: 999px;
+}
+
+.form-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid #121826;
+  border-radius: 999px;
+  background: linear-gradient(#f6c56b, #3b82f6);
 }
 
 .chart-note { display: none; }

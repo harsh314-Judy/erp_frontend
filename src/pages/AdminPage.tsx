@@ -11,6 +11,7 @@ import {
 
 import { useAuth } from "@/auth/AuthContext"
 import { IdentityForm, type IdentityValues } from "@/components/IdentityForm"
+import { FormBusy, PageLoading } from "@/components/PlantLoader"
 import { Notice, PageTitle } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
@@ -33,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { api, errorMessage, type Page, type RoleRecord, type UserProfile } from "@/lib/api"
+import { useFormBusy } from "@/lib/busy"
 import { ROLE_NOTES, ROLE_ORDER, canEditIdentity, roleLabel } from "@/lib/roles"
 import { cn } from "@/lib/utils"
 
@@ -46,6 +48,8 @@ export function AdminPage() {
   const [editError, setEditError] = useState("")
   const [notice, setNotice] = useState("")
   const [pending, setPending] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const { busy, guard } = useFormBusy()
   const [form, setForm] = useState({
     email: "",
     first_name: "",
@@ -54,6 +58,7 @@ export function AdminPage() {
   })
 
   async function load() {
+    try {
     const [userPage, rolePage] = await Promise.all([
       api<Page<UserProfile>>("/api/users?page=1&page_size=100"),
       api<Page<RoleRecord>>("/api/roles?page=1&page_size=100"),
@@ -68,10 +73,16 @@ export function AdminPage() {
       ...current,
       role_id: current.role_id || visible.find((role) => role.role_name === "staff")?.id || visible[0]?.id || "",
     }))
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
-    if (!canAccessAdmin) return
+    if (!canAccessAdmin) {
+      setLoading(false)
+      return
+    }
     void load().catch((caught) => setError(errorMessage(caught)))
   }, [canAccessAdmin, user?.role_name])
 
@@ -79,6 +90,7 @@ export function AdminPage() {
     event.preventDefault()
     setError("")
     setNotice("")
+    await guard(async () => {
     try {
       const result = await api<{ message: string }>("/api/auth/invites", {
         method: "POST",
@@ -98,12 +110,14 @@ export function AdminPage() {
     } catch (caught) {
       setError(errorMessage(caught))
     }
+    })
   }
 
   async function saveIdentity(values: IdentityValues) {
     if (!editing || !user) return
-    setPending(true)
     setEditError("")
+    await guard(async () => {
+    setPending(true)
     try {
       const updated = await api<UserProfile>(`/api/users/${editing.id}`, {
         method: "PATCH",
@@ -124,6 +138,7 @@ export function AdminPage() {
     } finally {
       setPending(false)
     }
+    })
   }
 
   if (!canAccessAdmin || !user) {
@@ -158,6 +173,7 @@ export function AdminPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg">
+              <FormBusy show={busy} label="Sending invite" />
               <DialogHeader>
                 <div className="flex items-center gap-3">
                   <div className="grid size-10 place-items-center rounded-xl bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30">
@@ -232,6 +248,7 @@ export function AdminPage() {
                   </Button>
                   <Button
                     type="submit"
+                    disabled={busy}
                     className="rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 hover:from-blue-500 hover:to-indigo-500"
                   >
                     Send Invitation
@@ -272,7 +289,10 @@ export function AdminPage() {
       {error && !inviteOpen ? <Notice variant="error">{error}</Notice> : null}
 
       {/* Members Table */}
-      <div className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] shadow-lg">
+      {loading ? (
+        <PageLoading label="Loading people" variant="table" cols={5} count={5} />
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] shadow-lg">
         <div className="border-b border-[#262e3f] bg-[#161a25]/70 px-5 py-3.5">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
             Active User Directory
@@ -359,6 +379,7 @@ export function AdminPage() {
           </Table>
         </div>
       </div>
+      )}
 
       {/* Edit Profile Modal */}
       <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>

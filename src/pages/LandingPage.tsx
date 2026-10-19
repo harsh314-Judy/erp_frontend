@@ -10,11 +10,12 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
+import { PlantLoader } from "@/components/PlantLoader"
 import { Button } from "@/components/ui/button"
 
 export function LandingPage() {
   const { user, ready } = useAuth()
-  if (!ready) return <p className="p-6 text-sm text-slate-400">Loading...</p>
+  if (!ready) return <PlantLoader />
   if (user) return <Navigate to="/dashboard" replace />
 
   return (

@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { PageLoading } from "@/components/PlantLoader"
 import { Notice, PageTitle, StatCard } from "@/components/plant-ui"
 import { api, errorMessage } from "@/lib/api"
 import { roleCan } from "@/lib/access"
@@ -41,11 +42,13 @@ export function DashboardPage() {
   const { user } = useAuth()
   const [data, setData] = useState<Dashboard | null>(null)
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     api<Dashboard>("/api/dashboard")
       .then(setData)
       .catch((caught) => setError(errorMessage(caught)))
+      .finally(() => setLoading(false))
   }, [])
 
   const chart = data?.production
@@ -84,8 +87,10 @@ export function DashboardPage() {
       />
 
       {error ? <Notice variant="error">{error}</Notice> : null}
+      {loading ? <PageLoading label="Loading the plant" variant="stats" count={4} /> : null}
 
-      {/* KPI Stat Cards Grid */}
+      {!loading ? (
+      <>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <StatCard
           label="My Open Stages"
@@ -281,6 +286,8 @@ export function DashboardPage() {
           </Card>
         </div>
       </div>
+      </>
+      ) : null}
     </div>
   )
 }

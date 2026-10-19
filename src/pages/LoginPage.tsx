@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from "react"
+import { useRef, useState, type FormEvent } from "react"
 import { Link, useNavigate } from "react-router-dom"
 
 import { useAuth } from "@/auth/AuthContext"
 import { AuthCard } from "@/components/AuthCard"
+import { FormBusy } from "@/components/PlantLoader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,9 +16,12 @@ export function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [pending, setPending] = useState(false)
+  const lock = useRef(false)
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
+    if (lock.current) return
+    lock.current = true
     setPending(true)
     setError("")
     try {
@@ -30,6 +34,7 @@ export function LoginPage() {
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
+      lock.current = false
       setPending(false)
     }
   }
@@ -44,7 +49,8 @@ export function LoginPage() {
         </Link>
       }
     >
-      <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
+      <form className="relative grid gap-4" onSubmit={(event) => void onSubmit(event)}>
+        <FormBusy show={pending} label="Signing in" />
         <div className="grid gap-1.5">
           <Label htmlFor="email" className="text-xs font-semibold text-slate-300">Work Email Address</Label>
           <Input

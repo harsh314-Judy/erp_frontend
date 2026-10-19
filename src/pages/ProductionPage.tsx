@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
+import { FormBusy, PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { api, errorMessage, type Page } from "@/lib/api"
+import { useFormBusy } from "@/lib/busy"
 import { cn } from "@/lib/utils"
 
 type Option = { id: string; label: string }
@@ -59,19 +61,25 @@ export function ProductionPage() {
   const [products, setProducts] = useState<Option[]>([])
   const [selected, setSelected] = useState<Detail | null>(null)
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(true)
+  const { busy, guard } = useFormBusy()
   const [form, setForm] = useState({ product_id: "", quantity: "1", estimated_minutes: "60", notes: "" })
   const [cancelReason, setCancelReason] = useState("")
   const [showCreate, setShowCreate] = useState(false)
 
   async function load() {
+    try {
     const [jobPage, productPage] = await Promise.all([
       api<Page<Job>>("/api/production-jobs/?page=1&page_size=50"),
-      api<Page<Product>>("/api/products?page=1&page_size=100"),
+      api<Page<Product>>("/api/products?page=1&page_size=100&brief=true"),
     ])
     setJobs(jobPage.items)
     const options = productPage.items.map((item) => ({ id: item.id, label: item.product_name }))
     setProducts(options)
     setForm((current) => ({ ...current, product_id: current.product_id || options[0]?.id || "" }))
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -85,6 +93,7 @@ export function ProductionPage() {
   async function create(event: FormEvent) {
     event.preventDefault()
     setError("")
+    await guard(async () => {
     try {
       const job = await api<Detail>("/api/production-jobs/", {
         method: "POST",
@@ -96,21 +105,24 @@ export function ProductionPage() {
     } catch (caught) {
       setError(errorMessage(caught))
     }
+    })
   }
 
   async function act(path: string, body?: unknown) {
     if (!selected) return
     setError("")
-    try {
-      const job = await api<Detail>(`/api/production-jobs/${selected.id}${path}`, {
-        method: "POST",
-        body: body ? JSON.stringify(body) : undefined,
-      })
-      setSelected(job)
-      await load()
-    } catch (caught) {
-      setError(errorMessage(caught))
-    }
+    await guard(async () => {
+      try {
+        const job = await api<Detail>(`/api/production-jobs/${selected.id}${path}`, {
+          method: "POST",
+          body: body ? JSON.stringify(body) : undefined,
+        })
+        setSelected(job)
+        await load()
+      } catch (caught) {
+        setError(errorMessage(caught))
+      }
+    })
   }
 
   const active = selected?.stages.find((stage) => stage.status === "active")
@@ -134,7 +146,8 @@ export function ProductionPage() {
                   New Production Job
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="sm:max-w-2xl">
+                <FormBusy show={busy} />
                 <DialogHeader>
                   <div className="flex items-center gap-2.5">
                     <div className="grid size-9 place-items-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
@@ -187,6 +200,7 @@ export function ProductionPage() {
                     </Button>
                     <Button
                       type="submit"
+                      disabled={busy}
                       className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/15 hover:from-blue-500 hover:to-indigo-500"
                     >
                       Confirm & Launch Job
@@ -202,7 +216,10 @@ export function ProductionPage() {
       {error ? <Notice variant="error">{error}</Notice> : null}
 
       {/* Main Grid: Jobs Table + Detail Panel */}
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+      {loading ? (
+        <PageLoading label="Loading production jobs" variant="table" cols={4} count={5} />
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
         {/* Jobs List Table */}
         <div className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] shadow-sm">
           <div className="border-b border-[#262e3f] bg-[#161a25] px-4 py-3">
@@ -444,7 +461,7 @@ export function ProductionPage() {
                   placeholder="Reason for job cancellation..."
                   onChange={(event) => setCancelReason(event.target.value)}
                 />
-                <Button type="submit" variant="destructive" size="sm" className="rounded-xl shrink-0">
+                <Button type="submit" disabled={busy} variant="destructive" size="sm" className="rounded-xl shrink-0">
                   <XCircle className="mr-1 size-3.5" />
                   Cancel Job
                 </Button>
@@ -461,6 +478,7 @@ export function ProductionPage() {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

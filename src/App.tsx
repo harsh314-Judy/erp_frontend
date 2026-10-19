@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom"
 
 import { useAuth } from "@/auth/AuthContext"
 import { AppShell } from "@/components/AppShell"
+import { PlantLoader } from "@/components/PlantLoader"
 import { AcceptInvitePage } from "@/pages/AcceptInvitePage"
 import { AccountantPage } from "@/pages/AccountantPage"
 import { AdminPage } from "@/pages/AdminPage"
@@ -26,14 +27,14 @@ import { SuppliersPage } from "@/pages/SuppliersPage"
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth()
-  if (!ready) return <p className="p-6 text-sm text-muted-foreground">Loading...</p>
+  if (!ready) return <PlantLoader />
   if (!user) return <Navigate to="/login" replace />
   return children
 }
 
 function GuestOnly({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth()
-  if (!ready) return <p className="p-6 text-sm text-muted-foreground">Loading...</p>
+  if (!ready) return <PlantLoader />
   if (user) return <Navigate to="/dashboard" replace />
   return children
 }

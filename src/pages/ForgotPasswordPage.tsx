@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from "react"
+import { useRef, useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 
 import { AuthCard } from "@/components/AuthCard"
+import { FormBusy } from "@/components/PlantLoader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,8 +14,11 @@ export function ForgotPasswordPage() {
   const [error, setError] = useState("")
   const [pending, setPending] = useState(false)
   const [sent, setSent] = useState(false)
+  const lock = useRef(false)
 
   async function send(path: string) {
+    if (lock.current) return
+    lock.current = true
     setPending(true)
     setError("")
     try {
@@ -27,6 +31,7 @@ export function ForgotPasswordPage() {
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
+      lock.current = false
       setPending(false)
     }
   }
@@ -46,7 +51,8 @@ export function ForgotPasswordPage() {
         </Link>
       }
     >
-      <form className="grid gap-4" onSubmit={onSubmit}>
+      <form className="relative grid gap-4" onSubmit={onSubmit}>
+        <FormBusy show={pending} label="Sending" />
         <div className="grid gap-1.5">
           <Label htmlFor="email" className="text-xs font-semibold text-slate-300">Registered Work Email</Label>
           <Input

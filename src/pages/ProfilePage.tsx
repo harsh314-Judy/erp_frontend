@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react"
+import { useRef, useState, type FormEvent } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   KeyRound,
@@ -9,6 +9,7 @@ import {
 
 import { useAuth } from "@/auth/AuthContext"
 import { IdentityForm, type IdentityValues } from "@/components/IdentityForm"
+import { FormBusy } from "@/components/PlantLoader"
 import { Notice, PageTitle } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,9 +28,13 @@ export function ProfilePage() {
   const [notice, setNotice] = useState("")
   const [pending, setPending] = useState(false)
   const [identityPending, setIdentityPending] = useState(false)
+  const identityLock = useRef(false)
+  const passwordLock = useRef(false)
   const locked = Boolean(user?.identity_overridden && user.role_name !== "super_admin")
 
   async function saveIdentity(values: IdentityValues) {
+    if (identityLock.current) return
+    identityLock.current = true
     setIdentityPending(true)
     setIdentityError("")
     setNotice("")
@@ -47,12 +52,15 @@ export function ProfilePage() {
     } catch (caught) {
       setIdentityError(errorMessage(caught))
     } finally {
+      identityLock.current = false
       setIdentityPending(false)
     }
   }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
+    if (passwordLock.current) return
+    passwordLock.current = true
     setPending(true)
     setError("")
     try {
@@ -68,6 +76,7 @@ export function ProfilePage() {
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
+      passwordLock.current = false
       setPending(false)
     }
   }
@@ -109,7 +118,8 @@ export function ProfilePage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Identity Card */}
-        <Card className="border-[#262e3f] bg-[#1a1f2b] shadow-lg">
+        <Card className="relative border-[#262e3f] bg-[#1a1f2b] shadow-lg">
+          <FormBusy show={identityPending} label="Saving" />
           <CardHeader className="border-b border-[#262e3f] pb-3">
             <div className="flex items-center gap-3">
               <div className="grid size-10 place-items-center rounded-xl bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30">
@@ -163,7 +173,8 @@ export function ProfilePage() {
             </div>
           </CardHeader>
           <CardContent className="pt-4">
-            <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
+            <form className="relative grid gap-4" onSubmit={(event) => void onSubmit(event)}>
+              <FormBusy show={pending} label="Updating password" />
               <div className="grid gap-1.5 text-sm">
                 <Label htmlFor="old_password" className="text-xs font-semibold text-slate-300">Current Password</Label>
                 <Input

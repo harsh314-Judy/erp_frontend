@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
+import { PageLoading } from "@/components/PlantLoader"
 import { Notice, PageTitle, StatCard, StatusBadge } from "@/components/plant-ui"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -30,6 +31,7 @@ export function ReportsPage() {
   const [stock, setStock] = useState<Stock[]>([])
   const [movements, setMovements] = useState<Movement[]>([])
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(true)
   const money = roleCan(user?.role_name, "view_financials")
 
   useEffect(() => {
@@ -45,6 +47,7 @@ export function ReportsPage() {
         setMovements(inventory.movements)
       })
       .catch((caught) => setError(errorMessage(caught)))
+      .finally(() => setLoading(false))
   }, [])
 
   const chart = production
@@ -70,8 +73,12 @@ export function ReportsPage() {
 
       {error ? <Notice variant="error">{error}</Notice> : null}
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {loading ? (
+        <PageLoading label="Loading reports" variant="stats" count={4} />
+      ) : (
+        <>
+          {/* KPI Cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Sales Orders"
           value={sales?.total_orders ?? "–"}
@@ -277,6 +284,8 @@ export function ReportsPage() {
           </Table>
         </div>
       </div>
+      </>
+      )}
     </div>
   )
 }
