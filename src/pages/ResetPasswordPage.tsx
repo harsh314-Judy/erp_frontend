@@ -41,14 +41,14 @@ export function ResetPasswordPage() {
       title="Choose a new password"
       description="This replaces the password on your account."
       footer={
-        <Link className="text-sm text-primary underline-offset-4 hover:underline" to="/login">
+        <Link className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline-offset-4 hover:underline" to="/login">
           Back to sign in
         </Link>
       }
     >
       <form className="grid gap-4" onSubmit={(event) => void onSubmit(event)}>
-        <div className="grid gap-2">
-          <Label htmlFor="password">New password</Label>
+        <div className="grid gap-1.5">
+          <Label htmlFor="password" className="text-xs font-semibold text-slate-300">New Password (Min 8 Characters)</Label>
           <Input
             id="password"
             type="password"
@@ -58,8 +58,12 @@ export function ResetPasswordPage() {
             required
           />
         </div>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        <Button type="submit" disabled={pending || !token}>
+        {error ? <p className="rounded-xl border border-rose-500/30 bg-rose-500/15 p-2.5 text-xs font-semibold text-rose-300">{error}</p> : null}
+        <Button
+          type="submit"
+          disabled={pending || !token}
+          className="h-10 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 hover:from-blue-500 hover:to-indigo-500 transition-all"
+        >
           {pending ? "Saving..." : "Update password"}
         </Button>
       </form>

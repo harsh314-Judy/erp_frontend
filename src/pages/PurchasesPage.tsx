@@ -1,11 +1,26 @@
 import { useEffect, useState, type FormEvent } from "react"
+import {
+  CheckCircle2,
+  PlusCircle,
+  ShoppingCart,
+  Truck,
+} from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
-import { Field, Notice, PageTitle, SearchSelect } from "@/components/plant-ui"
+import { Field, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { canSeePrices } from "@/lib/access"
 import { api, errorMessage, type Page, uploadFile } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 type Option = { id: string; label: string }
 type Supplier = { id: string; supplier_company_name: string }
@@ -32,6 +47,7 @@ export function PurchasesPage() {
   const [materials, setMaterials] = useState<Option[]>([])
   const [products, setProducts] = useState<Option[]>([])
   const [error, setError] = useState("")
+  const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({
     supplier_id: "",
     kind: "material",
@@ -84,6 +100,7 @@ export function PurchasesPage() {
           ],
         }),
       })
+      setShowCreate(false)
       await load()
     } catch (caught) {
       setError(errorMessage(caught))
@@ -111,76 +128,255 @@ export function PurchasesPage() {
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageTitle
-        title="Purchase orders"
-        hint={staff ? "Incoming shipments show the item, quantity, and vehicle plate." : "Record the vehicle plate and receipt, then verify to add stock."}
+        title="Purchase Orders & Shipments"
+        hint={
+          staff
+            ? "Incoming delivery trucks scheduled for gate entry. Verify plate numbers before admitting stock."
+            : "Procure raw coil and finished components. Log vehicle arrival and upload weighment/tax receipts."
+        }
+        icon={ShoppingCart}
+        badge={`${orders.length} Shipments`}
+        action={
+          can("manage_purchasing") ? (
+            <Dialog open={showCreate} onOpenChange={setShowCreate}>
+              <DialogTrigger asChild>
+                <Button
+                  type="button"
+                  className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500"
+                >
+                  <PlusCircle className="mr-1.5 size-4" />
+                  Create Purchase Order
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <div className="flex items-center gap-2.5">
+                    <div className="grid size-9 place-items-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                      <ShoppingCart className="size-5" />
+                    </div>
+                    <DialogTitle className="text-lg font-bold text-slate-100">New Purchase Order</DialogTitle>
+                  </div>
+                </DialogHeader>
+                <form className="mt-2 grid gap-4 sm:grid-cols-2" onSubmit={(event) => void create(event)}>
+                  <div className="sm:col-span-2">
+                    <SearchSelect
+                      label="Supplier Company"
+                      options={suppliers}
+                      value={form.supplier_id}
+                      onChange={(supplier_id) => setForm({ ...form, supplier_id })}
+                      required
+                    />
+                  </div>
+                  <Field label="Item Classification" required>
+                    <select
+                      className="h-9 w-full rounded-xl border border-[#2b3447] bg-[#151924] px-3 text-sm font-medium text-slate-200 shadow-2xs focus:border-blue-500/80 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                      value={form.kind}
+                      onChange={(event) => setForm({ ...form, kind: event.target.value, item_id: "" })}
+                    >
+                      <option value="material">Raw Material (Sheet / Coil)</option>
+                      <option value="product">Finished Product / Part</option>
+                    </select>
+                  </Field>
+                  <SearchSelect
+                    label="Select Item"
+                    options={form.kind === "product" ? products : materials}
+                    value={form.item_id}
+                    onChange={(item_id) => setForm({ ...form, item_id })}
+                    required
+                  />
+                  <Field label="Order Quantity" required>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={form.quantity}
+                      onChange={(event) => setForm({ ...form, quantity: event.target.value })}
+                    />
+                  </Field>
+                  {prices ? (
+                    <Field label="Negotiated Unit Price (₹)">
+                      <Input
+                        value={form.unit_price}
+                        onChange={(event) => setForm({ ...form, unit_price: event.target.value })}
+                      />
+                    </Field>
+                  ) : null}
+                  <Field label="Expected Truck Plate">
+                    <Input
+                      placeholder="e.g. MH-12-AB-1234"
+                      value={form.expected_vehicle_plate}
+                      onChange={(event) => setForm({ ...form, expected_vehicle_plate: event.target.value })}
+                    />
+                  </Field>
+                  <Field label="Fulfill Open Request">
+                    <select
+                      className="h-9 w-full rounded-xl border border-[#2b3447] bg-[#151924] px-3 text-sm text-slate-200 shadow-2xs focus:border-blue-500/80 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                      value={form.request_id}
+                      onChange={(event) => setForm({ ...form, request_id: event.target.value })}
+                    >
+                      <option value="">Direct Order (No request)</option>
+                      {requests.map((request) => (
+                        <option key={request.id} value={request.id}>
+                          {request.source} · Qty {request.quantity}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <DialogFooter className="mt-3 flex items-center justify-end gap-2 sm:col-span-2 border-t border-[#262e3f] pt-4">
+                    <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500"
+                    >
+                      Place Purchase Order
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          ) : null
+        }
       />
-      {error ? <Notice>{error}</Notice> : null}
-      {can("manage_purchasing") ? (
-        <form className="mb-6 grid gap-3 rounded-xl border bg-white p-4 md:grid-cols-3" onSubmit={(event) => void create(event)}>
-          <SearchSelect label="Supplier" options={suppliers} value={form.supplier_id} onChange={(supplier_id) => setForm({ ...form, supplier_id })} />
-          <Field label="Line type">
-            <select className="h-8 rounded-lg border px-2 text-sm" value={form.kind} onChange={(event) => setForm({ ...form, kind: event.target.value, item_id: "" })}>
-              <option value="material">Raw material</option>
-              <option value="product">Product</option>
-            </select>
-          </Field>
-          <SearchSelect label="Item" options={form.kind === "product" ? products : materials} value={form.item_id} onChange={(item_id) => setForm({ ...form, item_id })} />
-          <Field label="Quantity"><Input value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} /></Field>
-          {prices ? <Field label="Unit price"><Input value={form.unit_price} onChange={(event) => setForm({ ...form, unit_price: event.target.value })} /></Field> : null}
-          <Field label="Expected plate"><Input value={form.expected_vehicle_plate} onChange={(event) => setForm({ ...form, expected_vehicle_plate: event.target.value })} /></Field>
-          <Field label="Open request">
-            <select className="h-8 rounded-lg border px-2 text-sm" value={form.request_id} onChange={(event) => setForm({ ...form, request_id: event.target.value })}>
-              <option value="">None</option>
-              {requests.map((request) => (
-                <option key={request.id} value={request.id}>{request.source} · {request.quantity}</option>
-              ))}
-            </select>
-          </Field>
-          <div className="flex items-end"><Button type="submit">Place order</Button></div>
-        </form>
-      ) : null}
-      <div className="grid gap-3">
-        {orders.map((order) => (
-          <article key={order.id} className="rounded-xl border bg-white p-4">
-            <p className="font-medium">{staff ? "Incoming shipment" : order.supplier_name}</p>
-            <p className="text-sm text-muted-foreground">
-              {order.status} · expected {order.expected_vehicle_plate || "–"} · arrived {order.arrived_vehicle_plate || "–"}
-            </p>
-            <ul className="mt-2 text-sm">
-              {order.lines.map((line, index) => (
-                <li key={index}>
-                  Qty {line.quantity}
-                  {prices && line.unit_price ? ` @ ${line.unit_price}` : ""}
-                </li>
-              ))}
-            </ul>
-            {can("manage_purchasing") && order.status === "ordered" ? (
-              <form className="mt-3 flex flex-wrap items-end gap-2" onSubmit={(event) => void arrive(order, event)}>
-                <Field label="Arrived plate"><Input name="plate" required /></Field>
-                <Field label="Receipt"><Input name="receipt" type="file" accept="image/*,.pdf" /></Field>
-                <Button type="submit">Mark arrived</Button>
-              </form>
-            ) : null}
-            {can("manage_purchasing") && order.status === "arrived" ? (
-              <form
-                className="mt-3 flex flex-wrap items-end gap-2"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  const note = new FormData(event.currentTarget).get("note")
-                  void api(`/api/purchase-orders/${order.id}/verify`, {
-                    method: "POST",
-                    body: JSON.stringify({ plate_mismatch_note: note ? String(note) : null }),
-                  }).then(load).catch((caught) => setError(errorMessage(caught)))
-                }}
+
+      {error ? <Notice variant="error">{error}</Notice> : null}
+
+      {/* Orders List */}
+      <div className="grid gap-4">
+        {orders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#2b3447] bg-[#1a1f2b]/60 p-10 text-center">
+            <Truck className="mx-auto size-10 text-slate-500" />
+            <p className="mt-2 text-sm font-semibold text-slate-200">No Purchase Orders Recorded</p>
+            <p className="text-xs text-slate-400">Incoming shipments and placed purchase orders will appear here.</p>
+          </div>
+        ) : (
+          orders.map((order) => {
+            const hasMismatch =
+              order.expected_vehicle_plate &&
+              order.arrived_vehicle_plate &&
+              order.expected_vehicle_plate.trim().toUpperCase() !== order.arrived_vehicle_plate.trim().toUpperCase()
+
+            return (
+              <article
+                key={order.id}
+                className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] p-5 shadow-lg text-slate-200 transition-all hover:border-[#323d54]"
               >
-                <Field label="Plate note if it differs"><Input name="note" /></Field>
-                <Button type="submit">Verify and add stock</Button>
-              </form>
-            ) : null}
-          </article>
-        ))}
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#262e3f] pb-3.5">
+                  <div className="flex items-center gap-3">
+                    <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                      <Truck className="size-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-100">
+                        {staff ? "Incoming Material Shipment" : (order.supplier_name ?? "General Supplier")}
+                      </h3>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                        <span className="rounded-md bg-[#151924] border border-[#2b3447] px-2 py-0.5 font-medium text-slate-300">
+                          Expected: {order.expected_vehicle_plate || "Not specified"}
+                        </span>
+                        {order.arrived_vehicle_plate ? (
+                          <span
+                            className={cn(
+                              "rounded-md px-2 py-0.5 font-semibold",
+                              hasMismatch
+                                ? "bg-amber-500/10 text-amber-300 border border-amber-500/30"
+                                : "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30",
+                            )}
+                          >
+                            Arrived: {order.arrived_vehicle_plate}
+                            {hasMismatch ? " (Mismatch)" : ""}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                  <StatusBadge status={order.status} />
+                </div>
+
+                {/* Items in this order */}
+                <div className="my-3 flex flex-wrap gap-2 text-xs">
+                  {order.lines.map((line, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#262e3f] bg-[#161a25] px-3 py-1 font-medium text-slate-300"
+                    >
+                      <span>Ordered Qty: <strong className="text-slate-100">{line.quantity}</strong></span>
+                      {prices && line.unit_price ? (
+                        <>
+                          <span className="text-slate-600">·</span>
+                          <span className="text-emerald-400 font-semibold">@ ₹{line.unit_price}/unit</span>
+                        </>
+                      ) : null}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Mark Arrived Form */}
+                {can("manage_purchasing") && order.status === "ordered" ? (
+                  <form
+                    className="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-[#262e3f] bg-[#161a25] p-3"
+                    onSubmit={(event) => void arrive(order, event)}
+                  >
+                    <div className="flex-1 min-w-44">
+                      <Field label="Arrived Vehicle Number Plate" required>
+                        <Input
+                          name="plate"
+                          placeholder="e.g. MH-12-AB-1234"
+                          defaultValue={order.expected_vehicle_plate || ""}
+                          required
+                        />
+                      </Field>
+                    </div>
+                    <div className="flex-1 min-w-44">
+                      <Field label="Receipt / Challan Upload">
+                        <Input name="receipt" type="file" accept="image/*,.pdf" />
+                      </Field>
+                    </div>
+                    <Button
+                      type="submit"
+                      className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500"
+                    >
+                      <Truck className="mr-1.5 size-4" />
+                      Mark Vehicle Arrived
+                    </Button>
+                  </form>
+                ) : null}
+
+                {/* Verification Form */}
+                {can("manage_purchasing") && order.status === "arrived" ? (
+                  <form
+                    className="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3"
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      const note = new FormData(event.currentTarget).get("note")
+                      void api(`/api/purchase-orders/${order.id}/verify`, {
+                        method: "POST",
+                        body: JSON.stringify({ plate_mismatch_note: note ? String(note) : null }),
+                      })
+                        .then(load)
+                        .catch((caught) => setError(errorMessage(caught)))
+                    }}
+                  >
+                    <div className="flex-1 min-w-56">
+                      <Field label="Gate Verification Note (if vehicle differs or damaged)">
+                        <Input name="note" placeholder="Weighment match confirmed, gate verified" />
+                      </Field>
+                    </div>
+                    <Button
+                      type="submit"
+                      className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md shadow-emerald-500/20 hover:from-emerald-500 hover:to-teal-500"
+                    >
+                      <CheckCircle2 className="mr-1.5 size-4" />
+                      Verify Shipment & Credit Stock
+                    </Button>
+                  </form>
+                ) : null}
+              </article>
+            )
+          })
+        )}
       </div>
     </div>
   )

@@ -47,7 +47,7 @@ export function IdentityForm({
     <form className="grid gap-3" onSubmit={(event) => void submit(event)}>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="grid gap-2">
-          <Label htmlFor="identity_first_name">Name</Label>
+          <Label htmlFor="identity_first_name" className="text-xs font-semibold text-slate-300">First Name</Label>
           <Input
             id="identity_first_name"
             value={firstName}
@@ -57,7 +57,7 @@ export function IdentityForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="identity_last_name">Surname</Label>
+          <Label htmlFor="identity_last_name" className="text-xs font-semibold text-slate-300">Last Name</Label>
           <Input
             id="identity_last_name"
             value={lastName}
@@ -67,7 +67,7 @@ export function IdentityForm({
         </div>
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="identity_email">Email</Label>
+        <Label htmlFor="identity_email" className="text-xs font-semibold text-slate-300">Email Address</Label>
         <Input
           id="identity_email"
           type="email"
@@ -78,10 +78,10 @@ export function IdentityForm({
         />
       </div>
       {showOverride ? (
-        <label className="flex items-start gap-2 text-sm">
+        <label className="flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
           <input
             type="checkbox"
-            className="mt-1"
+            className="mt-0.5 rounded-sm accent-indigo-600"
             checked={override}
             onChange={(event) => setOverride(event.target.checked)}
           />
@@ -89,13 +89,17 @@ export function IdentityForm({
         </label>
       ) : null}
       {disabled ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-slate-400">
           A super admin set this name and email. Only a super admin can change them.
         </p>
       ) : null}
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit" disabled={disabled || pending} className="justify-self-start">
-        {pending ? "Saving..." : "Save profile"}
+      {error ? <p className="text-xs font-semibold text-rose-400">{error}</p> : null}
+      <Button
+        type="submit"
+        disabled={disabled || pending}
+        className="justify-self-start rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:shadow-indigo-500/40"
+      >
+        {pending ? "Saving..." : "Save Profile"}
       </Button>
     </form>
   )

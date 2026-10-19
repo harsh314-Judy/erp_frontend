@@ -1,9 +1,16 @@
 import { useEffect, useState, type FormEvent } from "react"
 import { Navigate } from "react-router-dom"
+import {
+  Building2,
+  Save,
+  Settings,
+  Truck,
+} from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
 import { Field, Notice, PageTitle } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { api, errorMessage } from "@/lib/api"
 
@@ -38,26 +45,109 @@ export function SettingsPage() {
     try {
       setForm(await api<Company>("/api/company", { method: "PATCH", body: JSON.stringify(form) }))
       setSaved(true)
+      window.setTimeout(() => setSaved(false), 3000)
     } catch (caught) {
       setError(errorMessage(caught))
     }
   }
 
   return (
-    <div>
-      <PageTitle title="Company" hint="Invoice prefix, GSTIN, and the flat delivery charge. Delivery is not taxed." />
-      {error ? <Notice>{error}</Notice> : null}
-      {saved ? <p className="mb-3 text-sm text-muted-foreground">Saved.</p> : null}
+    <div className="space-y-6">
+      <PageTitle
+        title="Plant & Company Profile"
+        hint="Legal entity details, GSTIN tax credentials, invoice numbering series, and flat delivery rates."
+        icon={Settings}
+        badge={form?.company_name ?? "Company"}
+      />
+
+      {error ? <Notice variant="error">{error}</Notice> : null}
+      {saved ? <Notice variant="success">Company settings saved successfully.</Notice> : null}
+
       {form ? (
-        <form className="grid max-w-xl gap-3 rounded-xl border bg-white p-4" onSubmit={(event) => void save(event)}>
-          <Field label="Name"><Input value={form.company_name} onChange={(event) => setForm({ ...form, company_name: event.target.value })} /></Field>
-          <Field label="GSTIN"><Input value={form.gstin} onChange={(event) => setForm({ ...form, gstin: event.target.value })} /></Field>
-          <Field label="State"><Input value={form.state} onChange={(event) => setForm({ ...form, state: event.target.value })} /></Field>
-          <Field label="Address"><Input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></Field>
-          <Field label="Delivery charge"><Input value={form.delivery_charge} onChange={(event) => setForm({ ...form, delivery_charge: event.target.value })} /></Field>
-          <Field label="Invoice prefix"><Input value={form.invoice_prefix} onChange={(event) => setForm({ ...form, invoice_prefix: event.target.value })} /></Field>
-          <Button type="submit">Save company</Button>
-        </form>
+        <Card className="max-w-2xl border-[#262e3f] bg-[#1a1f2b] shadow-lg">
+          <CardHeader className="border-b border-[#262e3f] pb-3">
+            <div className="flex items-center gap-3">
+              <div className="grid size-10 place-items-center rounded-xl bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30">
+                <Building2 className="size-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-bold text-slate-100">
+                  Manufacturing Entity Details
+                </CardTitle>
+                <p className="text-xs text-slate-400">Configure global tax and legal identity</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-5">
+            <form className="grid gap-5" onSubmit={(event) => void save(event)}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Company Registered Name" required>
+                  <Input
+                    required
+                    value={form.company_name}
+                    onChange={(event) => setForm({ ...form, company_name: event.target.value })}
+                  />
+                </Field>
+                <Field label="GSTIN Identification" required>
+                  <Input
+                    required
+                    value={form.gstin}
+                    onChange={(event) => setForm({ ...form, gstin: event.target.value })}
+                  />
+                </Field>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Home State Jurisdiction" required>
+                  <Input
+                    required
+                    value={form.state}
+                    onChange={(event) => setForm({ ...form, state: event.target.value })}
+                  />
+                </Field>
+                <Field label="Invoice Number Prefix" required>
+                  <Input
+                    required
+                    placeholder="e.g. SDS-2026-"
+                    value={form.invoice_prefix}
+                    onChange={(event) => setForm({ ...form, invoice_prefix: event.target.value })}
+                  />
+                </Field>
+              </div>
+
+              <Field label="Plant Operating Address" required>
+                <Input
+                  required
+                  value={form.address}
+                  onChange={(event) => setForm({ ...form, address: event.target.value })}
+                />
+              </Field>
+
+              <div className="rounded-xl border border-[#262e3f] bg-[#161a25] p-4">
+                <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400">
+                  <Truck className="size-4 text-blue-400" />
+                  <span>Logistics & Freight Defaults</span>
+                </div>
+                <Field label="Flat Dispatch Delivery Charge (₹, Tax-Exempt)">
+                  <Input
+                    value={form.delivery_charge}
+                    onChange={(event) => setForm({ ...form, delivery_charge: event.target.value })}
+                  />
+                </Field>
+              </div>
+
+              <div className="flex justify-end border-t border-[#262e3f] pt-3">
+                <Button
+                  type="submit"
+                  className="rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/40"
+                >
+                  <Save className="mr-1.5 size-4" />
+                  Save Company Configuration
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       ) : null}
     </div>
   )

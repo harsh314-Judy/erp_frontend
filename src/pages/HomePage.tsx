@@ -12,21 +12,21 @@ export function HomePage() {
   return (
     <div className="grid gap-4">
       <div>
-        <h1 className="text-2xl font-semibold">Home</h1>
-        <p className="text-sm text-muted-foreground">Signed in as {name}</p>
+        <h1 className="text-2xl font-bold text-slate-100">Home</h1>
+        <p className="text-sm text-slate-400">Signed in as {name}</p>
       </div>
-      <Card>
+      <Card className="border-[#262e3f] bg-[#1a1f2b] shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-slate-100">
             Your role
-            <Badge variant="secondary">{roleLabel(user?.role_name)}</Badge>
+            <Badge className="border-blue-500/30 bg-blue-500/15 text-blue-300">{roleLabel(user?.role_name)}</Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
+        <CardContent className="text-sm text-slate-400">
           {canAccessAdmin ? (
             <p>
               Invite people and edit profiles from the{" "}
-              <Link className="text-primary underline-offset-4 hover:underline" to="/admin">
+              <Link className="font-semibold text-blue-400 hover:text-blue-300 underline-offset-4 hover:underline" to="/admin">
                 admin
               </Link>{" "}
               page.
