@@ -7,7 +7,6 @@ import { PlantLoader } from "@/components/PlantLoader"
 import { AcceptInvitePage } from "@/pages/AcceptInvitePage"
 import { AccountantPage } from "@/pages/AccountantPage"
 import { AdminPage } from "@/pages/AdminPage"
-import { BomPage } from "@/pages/BomPage"
 import { CustomersPage } from "@/pages/CustomersPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage"
@@ -70,7 +69,7 @@ export default function App() {
         <Route path="reports" element={<ReportsPage />} />
         <Route path="products" element={<ProductsPage />} />
         <Route path="materials" element={<MaterialsPage />} />
-        <Route path="bom" element={<BomPage />} />
+        <Route path="bom" element={<Navigate to="/products" replace />} />
         <Route path="production" element={<ProductionPage />} />
         <Route path="suppliers" element={<SuppliersPage />} />
         <Route path="purchases" element={<PurchasesPage />} />

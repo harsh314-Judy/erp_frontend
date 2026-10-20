@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode, type ComponentType } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type ComponentType } from "react"
+import { createPortal } from "react-dom"
 import { AlertCircle, CheckCircle2, ChevronDown, Info, Search, AlertTriangle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -371,6 +372,9 @@ export function SearchSelect({
 }) {
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
+  const anchorRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [place, setPlace] = useState({ top: 0, left: 0, width: 0, maxHeight: 240, above: false })
   const selected = options.find((option) => option.id === value)
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -379,54 +383,111 @@ export function SearchSelect({
       .slice(0, 30)
   }, [options, query])
 
+  function updatePlace() {
+    const node = anchorRef.current
+    if (!node) return
+    const rect = node.getBoundingClientRect()
+    const gap = 4
+    const spaceBelow = window.innerHeight - rect.bottom - gap
+    const spaceAbove = rect.top - gap
+    const above = spaceBelow < 160 && spaceAbove > spaceBelow
+    setPlace({
+      top: above ? rect.top - gap : rect.bottom + gap,
+      left: rect.left,
+      width: rect.width,
+      maxHeight: Math.max(80, Math.min(240, above ? spaceAbove : spaceBelow)),
+      above,
+    })
+  }
+
+  useLayoutEffect(() => {
+    if (open) updatePlace()
+  }, [open, matches.length])
+
+  useEffect(() => {
+    if (!open) return
+    const onMove = () => updatePlace()
+    window.addEventListener("scroll", onMove, true)
+    window.addEventListener("resize", onMove)
+    return () => {
+      window.removeEventListener("scroll", onMove, true)
+      window.removeEventListener("resize", onMove)
+    }
+  }, [open])
+
+  function openMenu() {
+    setQuery("")
+    setOpen(true)
+  }
+
+  function closeIfLeft() {
+    window.setTimeout(() => {
+      const active = document.activeElement
+      if (anchorRef.current?.contains(active) || menuRef.current?.contains(active)) return
+      setOpen(false)
+    }, 180)
+  }
+
   return (
     <div className="relative grid gap-1.5 text-sm">
       <span className="font-medium text-slate-300">
         {label}
         {required ? <span className="ml-1 text-rose-400">*</span> : null}
       </span>
-      <div className="relative">
+      <div className="relative" ref={anchorRef}>
         <Input
           value={open ? query : selected?.label ?? ""}
           placeholder={placeholder}
           className="pr-8 bg-[#151924] border-[#2b3447] text-slate-200 placeholder:text-slate-500 focus-visible:border-blue-500/80"
-          onFocus={() => {
-            setOpen(true)
-            setQuery("")
-          }}
+          onFocus={openMenu}
+          onClick={() => setOpen(true)}
           onChange={(event) => setQuery(event.target.value)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 180)}
+          onBlur={closeIfLeft}
         />
         <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
       </div>
-      {open ? (
-        <div className="absolute top-full z-30 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-[#2c364b] bg-[#1c2230] p-1.5 shadow-2xl ring-1 ring-white/5 animate-in fade-in-50 zoom-in-95 duration-150">
-          {matches.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-slate-400">No matches found</p>
-          ) : (
-            matches.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className={cn(
-                  "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors",
-                  option.id === value
-                    ? "bg-blue-600/20 font-medium text-blue-300 ring-1 ring-blue-500/30"
-                    : "text-slate-300 hover:bg-[#252c3d] hover:text-slate-100",
-                )}
-                onMouseDown={() => {
-                  onChange(option.id)
-                  setQuery("")
-                  setOpen(false)
-                }}
-              >
-                <span>{option.label}</span>
-                {option.id === value ? <CheckCircle2 className="size-4 text-blue-400" /> : null}
-              </button>
-            ))
-          )}
-        </div>
-      ) : null}
+      {open
+        ? createPortal(
+            <div
+              ref={menuRef}
+              style={{
+                left: place.left,
+                width: place.width,
+                maxHeight: place.maxHeight,
+                top: place.above ? undefined : place.top,
+                bottom: place.above ? window.innerHeight - place.top : undefined,
+              }}
+              className="pointer-events-auto fixed z-[70] overflow-auto rounded-xl border border-[#2c364b] bg-[#1c2230] p-1.5 shadow-2xl ring-1 ring-white/5"
+              onPointerDown={(event) => event.preventDefault()}
+            >
+              {matches.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-slate-400">No matches found</p>
+              ) : (
+                matches.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                      option.id === value
+                        ? "bg-blue-600/20 font-medium text-blue-300 ring-1 ring-blue-500/30"
+                        : "text-slate-300 hover:bg-[#252c3d] hover:text-slate-100",
+                    )}
+                    onMouseDown={() => {
+                      onChange(option.id)
+                      setQuery("")
+                      setOpen(false)
+                    }}
+                  >
+                    <span>{option.label}</span>
+                    {option.id === value ? <CheckCircle2 className="size-4 text-blue-400" /> : null}
+                  </button>
+                ))
+              )}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   )
 }
