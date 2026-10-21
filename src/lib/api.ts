@@ -13,6 +13,62 @@ export type RoleRecord = {
   role_name: string
 }
 
+export type PersonStatus = {
+  user_id: string
+  on_break: boolean
+  break_started_at: string | null
+  last_login_at: string | null
+  last_seen_at: string | null
+  device_label: string | null
+  break_allowance_minutes: number | null
+  break_used_seconds: number
+}
+
+export type BreakRosterItem = {
+  user_id: string
+  person: string
+  role_name: string | null
+  email: string
+  minutes: number | null
+}
+
+export type ActivityEvent = {
+  id: string
+  user_id: string | null
+  person: string
+  role_name: string
+  action: string
+  summary: string
+  browser: string | null
+  os_name: string | null
+  device_type: string | null
+  device_model: string | null
+  created_at: string
+}
+
+export type ActivityBoard = {
+  seen_today: number
+  people: PersonStatus[]
+  events: ActivityEvent[]
+}
+
+export async function downloadActivity(role: string): Promise<void> {
+  const path = `/api/activity/export?role=${encodeURIComponent(role)}`
+  let response = await fetch(path, { credentials: "include" })
+  if (response.status === 401) {
+    const refreshed = await refreshSession()
+    if (refreshed) response = await fetch(path, { credentials: "include" })
+  }
+  if (!response.ok) throw new ApiError(response.status, "The activity sheet could not be downloaded")
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = `activity-${role}-${new Date().getFullYear()}.xlsx`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 export type Page<T> = {
   items: T[]
   total: number
@@ -104,7 +160,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
       const body = await response.json()
       detail = body.detail ?? body
     } catch {
-      detail = response.statusText
+      // Keep the status text when the body is not JSON.
     }
     throw new ApiError(response.status, detail)
   }
