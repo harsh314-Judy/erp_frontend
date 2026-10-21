@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react"
-import { NavLink, Outlet, useNavigate } from "react-router-dom"
+import { useEffect, useRef, useState } from "react"
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
 import {
   BarChart3,
   Bell,
   Boxes,
+  Coffee,
   Factory,
   FileText,
   LayoutDashboard,
@@ -23,7 +24,8 @@ import {
 
 import { useAuth } from "@/auth/AuthContext"
 import { Button } from "@/components/ui/button"
-import { api, type UserProfile } from "@/lib/api"
+import { api, type PersonStatus, type UserProfile } from "@/lib/api"
+import { moduleLabel } from "@/lib/device"
 import { roleCan } from "@/lib/access"
 import { roleLabel } from "@/lib/roles"
 import { cn } from "@/lib/utils"
@@ -57,7 +59,11 @@ const NAV = [
 export function AppShell() {
   const { user, setUser } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [collapsed, setCollapsed] = useState(() => window.localStorage.getItem(STORAGE_KEY) === "1")
+  const [clock, setClock] = useState<PersonStatus | null>(null)
+  const [tick, setTick] = useState(() => Date.now())
+  const stoppingBreak = useRef(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [company, setCompany] = useState("Sai Daya Steel")
   const [notices, setNotices] = useState<Notice[]>([])
@@ -92,6 +98,50 @@ export function AppShell() {
       window.clearInterval(timer)
     }
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+    void api<PersonStatus>("/api/activity/me").then(setClock).catch(() => undefined)
+  }, [user?.id])
+
+  useEffect(() => {
+    if (!clock?.on_break) return
+    const timer = window.setInterval(() => setTick(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [clock?.on_break])
+
+  useEffect(() => {
+    if (!clock?.on_break || breakLeft(clock, tick) > 0 || stoppingBreak.current) return
+    stoppingBreak.current = true
+    void api<PersonStatus>("/api/activity/break", {
+      method: "POST",
+      body: JSON.stringify({ on_break: false }),
+    })
+      .then((row) => {
+        stoppingBreak.current = false
+        setClock(row)
+      })
+      .catch(() => {
+        stoppingBreak.current = false
+      })
+  }, [clock, tick])
+
+  useEffect(() => {
+    if (!user) return
+    void api("/api/activity/visit", {
+      method: "POST",
+      body: JSON.stringify({ module: moduleLabel(location.pathname) }),
+    }).catch(() => undefined)
+  }, [location.pathname, user?.id])
+
+  async function toggleBreak() {
+    if (!clock?.break_allowance_minutes) return
+    const row = await api<PersonStatus>("/api/activity/break", {
+      method: "POST",
+      body: JSON.stringify({ on_break: !clock.on_break }),
+    }).catch(() => null)
+    if (row) setClock(row)
+  }
 
   async function logout() {
     await api("/api/auth/logout", { method: "POST" }).catch(() => undefined)
@@ -252,6 +302,23 @@ export function AppShell() {
           </div>
 
           <div className="relative ml-auto flex items-center gap-2">
+            {clock?.break_allowance_minutes ? (
+              <button
+                type="button"
+                onClick={() => void toggleBreak()}
+                disabled={breakLeft(clock, tick) === 0 && !clock.on_break}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 transition-colors disabled:opacity-60",
+                  clock.on_break
+                    ? "bg-orange-500/20 text-orange-100 ring-orange-400/40"
+                    : "bg-[#1a1f2b] text-slate-300 ring-[#2b3447] hover:text-white",
+                )}
+              >
+                <Coffee className="size-3.5" />
+                {clock.on_break ? "End break" : breakLeft(clock, tick) === 0 ? "Break used" : "Start break"}
+                <span className="tabular-nums">{formatBreak(breakLeft(clock, tick))}</span>
+              </button>
+            ) : null}
             <Button
               type="button"
               variant="ghost"
@@ -325,6 +392,21 @@ export function AppShell() {
       </div>
     </div>
   )
+}
+
+function breakLeft(clock: PersonStatus, now: number): number {
+  const allowance = (clock.break_allowance_minutes ?? 0) * 60
+  let used = clock.break_used_seconds
+  if (clock.on_break && clock.break_started_at) {
+    used += Math.max(0, Math.floor((now - new Date(clock.break_started_at).getTime()) / 1000))
+  }
+  return Math.max(0, allowance - used)
+}
+
+function formatBreak(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${String(seconds).padStart(2, "0")}`
 }
 
 export type { UserProfile }

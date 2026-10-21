@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react"
 import { Navigate } from "react-router-dom"
 import {
+  Download,
   KeyRound,
   Mail,
   Shield,
@@ -33,9 +34,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { api, errorMessage, type Page, type RoleRecord, type UserProfile } from "@/lib/api"
+import { api, downloadActivity, errorMessage, type ActivityBoard, type BreakRosterItem, type Page, type PersonStatus, type RoleRecord, type UserProfile } from "@/lib/api"
 import { useFormBusy } from "@/lib/busy"
-import { ROLE_NOTES, ROLE_ORDER, canEditIdentity, roleLabel } from "@/lib/roles"
+import { ROLE_NOTES, ROLE_ORDER, ROLE_THEME, canEditIdentity, roleLabel } from "@/lib/roles"
 import { cn } from "@/lib/utils"
 
 export function AdminPage() {
@@ -49,6 +50,9 @@ export function AdminPage() {
   const [notice, setNotice] = useState("")
   const [pending, setPending] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState(user?.role_name ?? "staff")
+  const [board, setBoard] = useState<ActivityBoard | null>(null)
+  const [roster, setRoster] = useState<BreakRosterItem[]>([])
   const { busy, guard } = useFormBusy()
   const [form, setForm] = useState({
     email: "",
@@ -79,12 +83,23 @@ export function AdminPage() {
   }
 
   useEffect(() => {
-    if (!canAccessAdmin) {
-      setLoading(false)
-      return
-    }
+    if (!canAccessAdmin) return
     void load().catch((caught) => setError(errorMessage(caught)))
   }, [canAccessAdmin, user?.role_name])
+
+  useEffect(() => {
+    if (!canAccessAdmin || tab === "breaks") return
+    void api<ActivityBoard>(`/api/activity/board?role=${encodeURIComponent(tab)}`)
+      .then(setBoard)
+      .catch((caught) => setError(errorMessage(caught)))
+  }, [canAccessAdmin, tab, notice])
+
+  useEffect(() => {
+    if (!canAccessAdmin || tab !== "breaks") return
+    void api<BreakRosterItem[]>("/api/activity/breaks")
+      .then(setRoster)
+      .catch((caught) => setError(errorMessage(caught)))
+  }, [canAccessAdmin, tab])
 
   async function invite(event: FormEvent) {
     event.preventDefault()
@@ -111,6 +126,19 @@ export function AdminPage() {
       setError(errorMessage(caught))
     }
     })
+  }
+
+  async function saveBreak(userId: string, minutes: number | null) {
+    setError("")
+    try {
+      const updated = await api<BreakRosterItem>(`/api/activity/breaks/${userId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ minutes }),
+      })
+      setRoster((current) => current.map((row) => (row.user_id === userId ? updated : row)))
+    } catch (caught) {
+      setError(errorMessage(caught))
+    }
   }
 
   async function saveIdentity(values: IdentityValues) {
@@ -150,12 +178,9 @@ export function AdminPage() {
       ROLE_ORDER.indexOf(right.role_name as (typeof ROLE_ORDER)[number]),
   )
 
-  const roleCardStyles: Record<string, { bg: string; text: string; border: string }> = {
-    super_admin: { bg: "bg-purple-500/10", text: "text-purple-300", border: "border-purple-500/30" },
-    admin: { bg: "bg-blue-500/10", text: "text-blue-300", border: "border-blue-500/30" },
-    accountant: { bg: "bg-emerald-500/10", text: "text-emerald-300", border: "border-emerald-500/30" },
-    staff: { bg: "bg-amber-500/10", text: "text-amber-300", border: "border-amber-500/30" },
-  }
+  const theme = ROLE_THEME[user.role_name ?? ""] ?? ROLE_THEME.staff
+  const visibleMembers = members.filter((member) => member.role_name === tab)
+  const presence = new Map((board?.people ?? []).map((person) => [person.user_id, person]))
 
   return (
     <div className="space-y-6">
@@ -260,34 +285,86 @@ export function AdminPage() {
         }
       />
 
-      {/* Role Descriptions Grid */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <article className={cn("flex items-center gap-4 rounded-2xl border px-5 py-4 shadow-lg", theme.banner)}>
+        <div className={cn("grid size-12 shrink-0 place-items-center rounded-2xl ring-1", theme.chip)}>
+          <Shield className="size-6" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Your role</p>
+          <h2 className="text-xl font-semibold tracking-tight text-white">{roleLabel(user.role_name)}</h2>
+          <p className="mt-0.5 text-sm text-slate-300">{ROLE_NOTES[user.role_name ?? ""]}</p>
+        </div>
+      </article>
+
+      <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Roles">
         {ROLE_ORDER.map((roleName) => {
-          const style = roleCardStyles[roleName] || { bg: "bg-[#1a1f2b]", text: "text-slate-300", border: "border-[#262e3f]" }
+          const style = ROLE_THEME[roleName]
+          const count = members.filter((member) => member.role_name === roleName).length
+          const selected = tab === roleName
           return (
-            <article
+            <button
               key={roleName}
+              type="button"
+              role="tab"
+              aria-selected={selected}
               className={cn(
-                "rounded-2xl border p-4 shadow-lg transition-all hover:scale-[1.01]",
-                style.border,
-                style.bg,
+                "inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors",
+                selected ? style.tab : style.idle,
               )}
+              onClick={() => {
+                setBoard(null)
+                setTab(roleName)
+              }}
             >
-              <div className="flex items-center gap-2">
-                <Shield className={cn("size-4", style.text)} />
-                <h2 className={cn("text-xs font-bold uppercase tracking-wider", style.text)}>
-                  {roleLabel(roleName)}
-                </h2>
-              </div>
-              <p className="mt-2 text-xs leading-relaxed text-slate-400">{ROLE_NOTES[roleName]}</p>
-            </article>
+              {roleLabel(roleName)}
+              <span className={cn("rounded-full px-1.5 text-[11px]", selected ? "bg-white/20" : "bg-black/20")}>
+                {count}
+              </span>
+            </button>
           )
         })}
-      </section>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "breaks"}
+          className={cn(
+            "inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors",
+            tab === "breaks"
+              ? "bg-amber-600 text-white shadow-md shadow-amber-950/40"
+              : "bg-[#1a1f2b] text-amber-100 ring-1 ring-amber-500/35 hover:bg-amber-500/10",
+          )}
+          onClick={() => setTab("breaks")}
+        >
+          Breaks
+        </button>
+        {tab === "breaks" ? null : (
+        <Button
+          type="button"
+          variant="outline"
+          className="ml-auto rounded-full border-[#2b3447] bg-[#151924] text-slate-200"
+          onClick={() => void downloadActivity(tab).catch((caught) => setError(errorMessage(caught)))}
+        >
+          <Download className="mr-1.5 size-4" />
+          Excel this year
+        </Button>
+        )}
+      </div>
+
+      {tab === "breaks" ? null : (
+      <div className="flex flex-wrap gap-3 text-xs font-semibold text-slate-300">
+        <span className="rounded-full bg-[#1a1f2b] px-3 py-1 ring-1 ring-[#2b3447]">
+          Seen today {board?.seen_today ?? 0}
+        </span>
+      </div>
+      )}
 
       {notice ? <Notice variant="success">{notice}</Notice> : null}
       {error && !inviteOpen ? <Notice variant="error">{error}</Notice> : null}
 
+      {tab === "breaks" ? (
+        <BreakAllocations rows={roster} onChange={(userId, minutes) => void saveBreak(userId, minutes)} />
+      ) : (
+      <>
       {/* Members Table */}
       {loading ? (
         <PageLoading label="Loading people" variant="table" cols={5} count={5} />
@@ -305,15 +382,24 @@ export function AdminPage() {
                 <TableHead className="text-xs font-bold text-slate-300">Member</TableHead>
                 <TableHead className="text-xs font-bold text-slate-300">Email Address</TableHead>
                 <TableHead className="text-xs font-bold text-slate-300">Role</TableHead>
+                <TableHead className="text-xs font-bold text-slate-300">Floor</TableHead>
                 <TableHead className="text-xs font-bold text-slate-300">Permission Status</TableHead>
                 <TableHead className="w-24 text-xs font-bold text-slate-300 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {members.map((member) => {
+              {visibleMembers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-8 text-center text-xs text-slate-400">
+                    No {roleLabel(tab).toLowerCase()} accounts yet.
+                  </TableCell>
+                </TableRow>
+              ) : null}
+              {visibleMembers.map((member) => {
                 const editable = canEditIdentity(user, member)
                 const initials = [member.first_name?.[0], member.last_name?.[0]].filter(Boolean).join("").toUpperCase() || "U"
-                const roleStyle = roleCardStyles[member.role_name || ""] || { bg: "bg-[#161a25]", text: "text-slate-300", border: "border-[#2b3447]" }
+                const roleStyle = ROLE_THEME[member.role_name || ""] ?? ROLE_THEME.staff
+                const floor = presence.get(member.id)
 
                 return (
                   <TableRow key={member.id} className="border-[#1f2636] hover:bg-[#202737]/60">
@@ -326,6 +412,7 @@ export function AdminPage() {
                           <p className="font-semibold text-slate-200">
                             {member.first_name} {member.last_name ?? ""}
                           </p>
+                          <p className="text-[11px] text-slate-500">{floor?.device_label ?? "No device recorded yet"}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -336,17 +423,11 @@ export function AdminPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span
-                        className={cn(
-                          "inline-block rounded-md border px-2.5 py-0.5 text-xs font-semibold capitalize",
-                          roleStyle.bg,
-                          roleStyle.text,
-                          roleStyle.border,
-                        )}
-                      >
+                      <span className={cn("inline-block rounded-md px-2.5 py-0.5 text-xs font-semibold ring-1", roleStyle.chip)}>
                         {roleLabel(member.role_name)}
                       </span>
                     </TableCell>
+                    <TableCell className="text-xs text-slate-300">{floorText(floor)}</TableCell>
                     <TableCell>
                       {member.identity_overridden ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-500/30 bg-purple-500/15 px-2.5 py-0.5 text-xs font-medium text-purple-300">
@@ -381,6 +462,45 @@ export function AdminPage() {
       </div>
       )}
 
+      <section className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b]">
+        <div className="border-b border-[#262e3f] px-5 py-3.5">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+            {roleLabel(tab)} activity this year
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Sign-in, sign-out, and the area of the plant they opened. A repeat visit to the same area within 15 minutes is not stored again. Phone model numbers appear only when the browser shares them. Break time is not recorded here.
+          </p>
+        </div>
+        <ul className="divide-y divide-[#262e3f]">
+          {(board?.events ?? []).length === 0 ? (
+            <li className="px-5 py-6 text-xs text-slate-500">No activity recorded for this role yet.</li>
+          ) : (
+            board?.events.map((event) => (
+              <li key={event.id} className="flex flex-wrap items-baseline justify-between gap-2 px-5 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-100">
+                    {event.person}
+                    <span className="ml-2 text-xs font-medium text-slate-400">{actionLabel(event.action)}</span>
+                  </p>
+                  <p className="text-xs text-slate-400">{event.summary}</p>
+                  <p className="text-[11px] text-slate-500">{deviceText(event)}</p>
+                </div>
+                <time className="text-xs text-slate-400" dateTime={event.created_at}>
+                  {new Date(event.created_at).toLocaleString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </time>
+              </li>
+            ))
+          )}
+        </ul>
+      </section>
+      </>
+      )}
+
       {/* Edit Profile Modal */}
       <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent className="sm:max-w-lg">
@@ -412,4 +532,95 @@ export function AdminPage() {
       </Dialog>
     </div>
   )
+}
+
+function BreakAllocations({
+  rows,
+  onChange,
+}: {
+  rows: BreakRosterItem[]
+  onChange: (userId: string, minutes: number | null) => void
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b]">
+      <div className="border-b border-[#262e3f] px-5 py-3.5">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300">Daily break allowance</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Choose 30, 45, or 60 minutes for each person. They start the timer themselves and can split the time however they like. Nothing is logged about when they take it.
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Person</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Daily break</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.user_id}>
+                <TableCell>
+                  <p className="font-semibold text-slate-100">{row.person}</p>
+                  <p className="text-xs text-slate-500">{row.email}</p>
+                </TableCell>
+                <TableCell className="text-slate-300">{roleLabel(row.role_name)}</TableCell>
+                <TableCell>
+                  <select
+                    className="h-9 rounded-xl border border-[#2b3447] bg-[#151924] px-3 text-sm text-slate-200"
+                    value={row.minutes ?? ""}
+                    onChange={(event) => onChange(row.user_id, event.target.value ? Number(event.target.value) : null)}
+                  >
+                    <option value="">No break</option>
+                    <option value="30">30 min</option>
+                    <option value="45">45 min</option>
+                    <option value="60">60 min</option>
+                  </select>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </section>
+  )
+}
+
+function floorText(floor: PersonStatus | undefined): string {
+  if (!floor?.last_seen_at) return "No session yet"
+  const minutes = Math.round((Date.now() - new Date(floor.last_seen_at).getTime()) / 60000)
+  if (minutes < 2) return "Active now"
+  if (minutes < 60) return `Seen ${minutes}m ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 36) return `Seen ${hours}h ago`
+  return `Seen ${new Date(floor.last_seen_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
+}
+
+const ACTION_LABEL: Record<string, string> = {
+  login: "Signed in",
+  logout: "Signed out",
+  failed_login: "Failed sign-in",
+  break_start: "Started a break",
+  break_end: "Ended a break",
+  visit: "Opened an area",
+  invite: "Sent an invite",
+  profile: "Updated a profile",
+  password: "Changed a password",
+  remove: "Removed an account",
+}
+
+function actionLabel(action: string): string {
+  return ACTION_LABEL[action] ?? action
+}
+
+function deviceText(event: {
+  browser: string | null
+  os_name: string | null
+  device_type: string | null
+  device_model: string | null
+}): string {
+  const parts = [event.browser, event.os_name].filter(Boolean)
+  const base = parts.length > 0 ? parts.join(" on ") : "Device not recorded"
+  return `${base}${event.device_type ? ` · ${event.device_type}` : ""}${event.device_model ? ` · ${event.device_model}` : ""}`
 }

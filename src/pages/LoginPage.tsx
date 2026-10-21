@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api, errorMessage, type UserProfile } from "@/lib/api"
+import { readDevice } from "@/lib/device"
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -25,9 +26,10 @@ export function LoginPage() {
     setPending(true)
     setError("")
     try {
+      const device = await readDevice()
       const user = await api<UserProfile>("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, ...device }),
       })
       setUser(user)
       navigate("/")
