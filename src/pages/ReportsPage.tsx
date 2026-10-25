@@ -113,50 +113,50 @@ export function ReportsPage() {
 
       {/* Production Chart */}
       {chart.length > 0 ? (
-        <Card className="border-[#262e3f] bg-[#1a1f2b] shadow-lg">
-          <CardHeader className="flex flex-row items-center justify-between border-b border-[#262e3f] pb-4">
+        <Card className="border-gray-200/90 bg-white shadow-xs">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 pb-4">
             <div>
-              <CardTitle className="text-base font-bold text-slate-100">
+              <CardTitle className="text-base font-bold text-gray-900">
                 Floor Job Distribution
               </CardTitle>
-              <p className="mt-0.5 text-xs text-slate-400">
+              <p className="mt-0.5 text-xs text-gray-500">
                 Real-time queue across active work orders
               </p>
             </div>
             <div className="flex items-center gap-3 text-xs font-medium">
-              <span className="flex items-center gap-1.5 text-amber-400">
-                <span className="size-2 rounded-full bg-amber-400 shadow-sm shadow-amber-400/50" />
+              <span className="flex items-center gap-1.5 text-amber-700">
+                <span className="size-2 rounded-full bg-amber-500 shadow-xs" />
                 Pending ({production?.pending_jobs ?? 0})
               </span>
-              <span className="flex items-center gap-1.5 text-blue-400">
-                <span className="size-2 rounded-full bg-blue-400 shadow-sm shadow-blue-400/50" />
+              <span className="flex items-center gap-1.5 text-blue-700">
+                <span className="size-2 rounded-full bg-blue-500 shadow-xs" />
                 Running ({production?.jobs_in_progress ?? 0})
               </span>
-              <span className="flex items-center gap-1.5 text-emerald-400">
-                <span className="size-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+              <span className="flex items-center gap-1.5 text-green-700">
+                <span className="size-2 rounded-full bg-green-600 shadow-xs" />
                 Done ({production?.completed_jobs ?? 0})
               </span>
             </div>
           </CardHeader>
           <CardContent className="pt-6">
-            <p className="chart-note mb-3 text-sm text-slate-400">
+            <p className="chart-note mb-3 text-sm text-gray-500">
               Open on a desktop display to inspect detailed chart bars.
             </p>
             <div className="chart-wide h-60">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis allowDecimals={false} stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis allowDecimals={false} stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#161a25",
-                      color: "#f1f5f9",
+                      backgroundColor: "#ffffff",
+                      color: "#111827",
                       borderRadius: "0.75rem",
-                      border: "1px solid #2b3447",
+                      border: "1px solid #e5e7eb",
                       fontSize: "12px",
-                      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5)",
+                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
                     }}
-                    cursor={{ fill: "rgba(255, 255, 255, 0.04)" }}
+                    cursor={{ fill: "rgba(0, 0, 0, 0.03)" }}
                   />
                   <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                     {chart.map((entry, index) => (
@@ -171,47 +171,47 @@ export function ReportsPage() {
       ) : null}
 
       {/* Current Stock Levels Table */}
-      <div className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] shadow-lg">
-        <div className="flex items-center justify-between border-b border-[#262e3f] bg-[#161a25]/70 px-5 py-3.5">
+      <div className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-xs">
+        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/75 px-5 py-3.5">
           <div className="flex items-center gap-2">
-            <Layers className="size-4 text-blue-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+            <Layers className="size-4 text-green-600" />
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-700">
               Current Plant Inventory Balances
             </span>
           </div>
-          <span className="text-xs font-semibold text-slate-400">{stock.length} recorded items</span>
+          <span className="text-xs font-semibold text-gray-500">{stock.length} recorded items</span>
         </div>
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader className="bg-[#161a25]">
-              <TableRow className="border-[#262e3f]">
-                <TableHead className="text-xs font-bold text-slate-300">Item Name</TableHead>
-                <TableHead className="text-xs font-bold text-slate-300">Category</TableHead>
-                <TableHead className="text-xs font-bold text-slate-300 text-right">Physical On Hand</TableHead>
-                <TableHead className="text-xs font-bold text-slate-300 text-right">Allocated / Held</TableHead>
-                <TableHead className="text-xs font-bold text-slate-300 text-right">Free / Available</TableHead>
-                <TableHead className="text-xs font-bold text-slate-300 text-center">Status</TableHead>
+            <TableHeader className="bg-gray-50/50">
+              <TableRow className="border-gray-100">
+                <TableHead className="text-xs font-bold text-gray-700">Item Name</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700">Category</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700 text-right">Physical On Hand</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700 text-right">Allocated / Held</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700 text-right">Free / Available</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700 text-center">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {stock.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-8 text-center text-xs text-slate-500">
+                  <TableCell colSpan={6} className="py-8 text-center text-xs text-gray-500">
                     No inventory records found.
                   </TableCell>
                 </TableRow>
               ) : (
                 stock.map((row) => (
-                  <TableRow key={`${row.kind}-${row.name}`} className="border-[#1f2636] hover:bg-[#202737]/60">
-                    <TableCell className="font-semibold text-slate-200">{row.name}</TableCell>
+                  <TableRow key={`${row.kind}-${row.name}`} className="border-gray-100 hover:bg-gray-50/80">
+                    <TableCell className="font-semibold text-gray-900">{row.name}</TableCell>
                     <TableCell>
-                      <span className="inline-block rounded-md border border-[#2b3447] bg-[#151924] px-2 py-0.5 text-xs font-medium text-slate-300 capitalize">
+                      <span className="inline-block rounded-md border border-gray-200 bg-gray-100/70 px-2 py-0.5 text-xs font-medium text-gray-700 capitalize">
                         {row.kind}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right font-medium text-slate-300">{row.on_hand}</TableCell>
-                    <TableCell className="text-right font-semibold text-amber-400">{row.held}</TableCell>
-                    <TableCell className="text-right font-bold text-emerald-400">{row.available}</TableCell>
+                    <TableCell className="text-right font-medium text-gray-700">{row.on_hand}</TableCell>
+                    <TableCell className="text-right font-semibold text-amber-700">{row.held}</TableCell>
+                    <TableCell className="text-right font-bold text-green-700">{row.available}</TableCell>
                     <TableCell className="text-center">
                       <StatusBadge status={row.status} />
                     </TableCell>
@@ -224,30 +224,30 @@ export function ReportsPage() {
       </div>
 
       {/* Inventory Movement Ledger */}
-      <div className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] shadow-lg">
-        <div className="flex items-center justify-between border-b border-[#262e3f] bg-[#161a25]/70 px-5 py-3.5">
+      <div className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-xs">
+        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/75 px-5 py-3.5">
           <div className="flex items-center gap-2">
-            <History className="size-4 text-indigo-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+            <History className="size-4 text-green-600" />
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-700">
               Audit Stock Ledger & Traceability
             </span>
           </div>
-          <span className="text-xs text-slate-400">Chronological activity</span>
+          <span className="text-xs text-gray-500">Chronological activity</span>
         </div>
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader className="bg-[#161a25]">
-              <TableRow className="border-[#262e3f]">
-                <TableHead className="text-xs font-bold text-slate-300">Timestamp</TableHead>
-                <TableHead className="text-xs font-bold text-slate-300">Item / Note</TableHead>
-                <TableHead className="text-xs font-bold text-slate-300 text-right">Qty Delta</TableHead>
-                <TableHead className="text-xs font-bold text-slate-300">Event Reason</TableHead>
+            <TableHeader className="bg-gray-50/50">
+              <TableRow className="border-gray-100">
+                <TableHead className="text-xs font-bold text-gray-700">Timestamp</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700">Item / Note</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700 text-right">Qty Delta</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700">Event Reason</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {movements.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-8 text-center text-xs text-slate-500">
+                  <TableCell colSpan={4} className="py-8 text-center text-xs text-gray-500">
                     No stock movements logged yet.
                   </TableCell>
                 </TableRow>
@@ -255,16 +255,16 @@ export function ReportsPage() {
                 movements.map((row, index) => {
                   const isNegative = String(row.quantity).startsWith("-")
                   return (
-                    <TableRow key={`${row.created_at}-${index}`} className="border-[#1f2636] hover:bg-[#202737]/60">
-                      <TableCell className="text-xs text-slate-400 font-mono">{row.created_at}</TableCell>
-                      <TableCell className="font-medium text-slate-200">{row.note || row.reason}</TableCell>
+                    <TableRow key={`${row.created_at}-${index}`} className="border-gray-100 hover:bg-gray-50/80">
+                      <TableCell className="text-xs text-gray-500 font-mono">{row.created_at}</TableCell>
+                      <TableCell className="font-medium text-gray-900">{row.note || row.reason}</TableCell>
                       <TableCell className="text-right">
                         <span
                           className={cn(
                             "inline-block rounded-md px-2 py-0.5 text-xs font-bold",
                             isNegative
-                              ? "bg-rose-500/15 text-rose-300 border border-rose-500/30"
-                              : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
+                              ? "bg-rose-50 text-rose-700 border border-rose-200"
+                              : "bg-emerald-50 text-emerald-700 border border-emerald-200",
                           )}
                         >
                           {isNegative ? "" : "+"}
@@ -272,7 +272,7 @@ export function ReportsPage() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className="inline-block rounded-md border border-[#2b3447] bg-[#151924] px-2 py-0.5 text-xs font-medium text-slate-300 capitalize">
+                        <span className="inline-block rounded-md border border-gray-200 bg-gray-100/70 px-2 py-0.5 text-xs font-medium text-gray-700 capitalize">
                           {row.reason.replaceAll("_", " ")}
                         </span>
                       </TableCell>

@@ -45,7 +45,7 @@ const emptyForm = {
 }
 
 const selectClass =
-  "h-9 w-full rounded-xl border border-[#2b3447] bg-[#151924] px-3 text-sm text-slate-200 shadow-2xs focus:border-blue-500/80 focus:outline-none"
+  "h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 shadow-2xs focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
 
 export function SuppliersPage() {
   const [rows, setRows] = useState<Supplier[]>([])
@@ -243,21 +243,21 @@ export function SuppliersPage() {
             <DialogTrigger asChild>
               <Button
                 type="button"
-                className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500"
+                className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs transition-all active:scale-[0.98]"
                 onClick={openCreate}
               >
                 <PlusCircle className="mr-1.5 size-4" />
                 Register Supplier
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-3xl">
+            <DialogContent className="sm:max-w-3xl bg-white border-gray-200/90 shadow-xl">
               <FormBusy show={busy} />
               <DialogHeader>
                 <div className="flex items-center gap-2.5">
-                  <div className="grid size-9 place-items-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
+                  <div className="grid size-9 place-items-center rounded-xl border border-green-200 bg-green-50 text-green-700">
                     <Truck className="size-5" />
                   </div>
-                  <DialogTitle className="text-lg font-bold text-white">
+                  <DialogTitle className="text-lg font-bold text-gray-900">
                     {editing ? "Edit Supplier" : "Register New Supplier Partner"}
                   </DialogTitle>
                 </div>
@@ -307,12 +307,12 @@ export function SuppliersPage() {
                       selected={form.raw_material_ids}
                       onChange={(raw_material_ids) => setForm({ ...form, raw_material_ids })}
                     />
-                    <Button type="button" variant="outline" className="rounded-xl" onClick={() => setNewMaterial((open) => !open)}>
+                    <Button type="button" variant="outline" className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50" onClick={() => setNewMaterial((open) => !open)}>
                       {newMaterial ? "Hide new raw material" : "Add a new raw material"}
                     </Button>
                     {newMaterial ? (
-                      <div className="grid gap-4 rounded-2xl border border-amber-500/20 bg-[#121826] p-5 sm:grid-cols-2">
-                        <p className="text-base font-semibold text-slate-100 sm:col-span-2">New raw material</p>
+                      <div className="grid gap-4 rounded-2xl border border-gray-200 bg-gray-50/70 p-5 sm:grid-cols-2">
+                        <p className="text-base font-semibold text-gray-900 sm:col-span-2">New raw material</p>
                         <Field label="Name" required className="sm:col-span-2">
                           <Input value={draftMaterial.name} onChange={(event) => setDraftMaterial({ ...draftMaterial, name: event.target.value })} />
                         </Field>
@@ -330,7 +330,7 @@ export function SuppliersPage() {
                             ))}
                           </select>
                         </Field>
-                        <Button type="button" className="rounded-xl sm:col-span-2" disabled={busy} onClick={() => void addMaterial()}>
+                        <Button type="button" className="rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold sm:col-span-2" disabled={busy} onClick={() => void addMaterial()}>
                           Save raw material and select it
                         </Button>
                       </div>
@@ -345,12 +345,12 @@ export function SuppliersPage() {
                       selected={form.product_ids}
                       onChange={(product_ids) => setForm({ ...form, product_ids })}
                     />
-                    <Button type="button" variant="outline" className="rounded-xl" onClick={() => setNewProduct((open) => !open)}>
+                    <Button type="button" variant="outline" className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50" onClick={() => setNewProduct((open) => !open)}>
                       {newProduct ? "Hide new product" : "Add a new product"}
                     </Button>
                     {newProduct ? (
-                      <div className="grid gap-4 rounded-2xl border border-blue-500/20 bg-[#121826] p-5 sm:grid-cols-2">
-                        <p className="text-base font-semibold text-slate-100 sm:col-span-2">New product</p>
+                      <div className="grid gap-4 rounded-2xl border border-gray-200 bg-gray-50/70 p-5 sm:grid-cols-2">
+                        <p className="text-base font-semibold text-gray-900 sm:col-span-2">New product</p>
                         <Field label="Product name" required>
                           <Input value={draftProduct.product_name} onChange={(event) => setDraftProduct({ ...draftProduct, product_name: event.target.value })} />
                         </Field>
@@ -371,7 +371,7 @@ export function SuppliersPage() {
                             ))}
                           </select>
                         </Field>
-                        <Button type="button" className="rounded-xl sm:col-span-2" disabled={busy} onClick={() => void addProduct()}>
+                        <Button type="button" className="rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold sm:col-span-2" disabled={busy} onClick={() => void addProduct()}>
                           Save product and select it
                         </Button>
                       </div>
@@ -381,14 +381,14 @@ export function SuppliersPage() {
                 <Field label="Plant / Billing Address" required className="sm:col-span-2">
                   <Input required value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} />
                 </Field>
-                <DialogFooter className="mt-3 flex items-center justify-end gap-2 border-t border-[#262e3f] pt-4 sm:col-span-2">
-                  <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+                <DialogFooter className="mt-3 flex items-center justify-end gap-2 border-t border-gray-100 pt-4 sm:col-span-2">
+                  <Button type="button" variant="outline" className="border-gray-200 text-gray-700 hover:bg-gray-50" onClick={() => setShowForm(false)}>
                     Cancel
                   </Button>
                   <Button
                     type="submit"
                     disabled={busy}
-                    className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white"
+                    className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs"
                   >
                     Save Supplier
                   </Button>
@@ -405,60 +405,60 @@ export function SuppliersPage() {
 
       {!loading ? (
 
-      <div className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] shadow-sm">
-        <div className="border-b border-[#262e3f] bg-[#161a25] px-5 py-3.5">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Registered Vendor Accounts</span>
+      <div className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-xs">
+        <div className="border-b border-gray-100 bg-gray-50/75 px-5 py-3.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-gray-700">Registered Vendor Accounts</span>
         </div>
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Company Name</TableHead>
-                <TableHead>Contact Person</TableHead>
-                <TableHead>Direct Contact</TableHead>
-                <TableHead>Supplies</TableHead>
+            <TableHeader className="bg-gray-50/50">
+              <TableRow className="border-gray-100">
+                <TableHead className="text-xs font-bold text-gray-700">Company Name</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700">Contact Person</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700">Direct Contact</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700">Supplies</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-xs text-slate-400">
+                  <TableCell colSpan={5} className="py-8 text-center text-xs text-gray-500">
                     No suppliers registered yet.
                   </TableCell>
                 </TableRow>
               ) : (
                 rows.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="font-semibold text-slate-200">
+                  <TableRow key={row.id} className="border-gray-100 hover:bg-gray-50/80">
+                    <TableCell className="font-semibold text-gray-900">
                       <div>
                         <p>{row.supplier_company_name}</p>
-                        <p className="text-xs font-normal text-slate-400">{row.address}</p>
+                        <p className="text-xs font-normal text-gray-500">{row.address}</p>
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium text-slate-300">{row.contact_person_name}</TableCell>
+                    <TableCell className="font-medium text-gray-700">{row.contact_person_name}</TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1 text-xs">
-                        <a href={`tel:${row.phone}`} className="inline-flex items-center gap-1.5 text-blue-400">
+                        <a href={`tel:${row.phone}`} className="inline-flex items-center gap-1.5 text-green-700 font-medium hover:underline">
                           <Phone className="size-3" />
                           {row.phone}
                         </a>
-                        <a href={`mailto:${row.email}`} className="inline-flex items-center gap-1.5 text-slate-400">
+                        <a href={`mailto:${row.email}`} className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-900">
                           <Mail className="size-3" />
                           {row.email}
                         </a>
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-xs text-xs text-slate-300">
-                      <p className="font-semibold capitalize text-slate-200">
+                    <TableCell className="max-w-xs text-xs text-gray-600">
+                      <p className="font-semibold capitalize text-gray-900">
                         {row.supply_kind === "both" ? "Materials and products" : row.supply_kind === "materials" ? "Raw materials" : "Products"}
                       </p>
                       {row.supply_kind !== "products" ? <p>Materials: {labels(row.raw_material_ids, materialOptions)}</p> : null}
                       {row.supply_kind !== "materials" ? <p>Products: {labels(row.product_ids, productOptions)}</p> : null}
-                      {row.gst_number ? <p className="mt-1 font-mono text-emerald-400">{row.gst_number}</p> : null}
+                      {row.gst_number ? <p className="mt-1 font-mono text-green-700 font-medium">{row.gst_number}</p> : null}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => openEdit(row)}>
+                      <Button type="button" variant="outline" size="sm" className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50" onClick={() => openEdit(row)}>
                         <Pencil className="mr-1 size-3.5" />
                         Edit
                       </Button>
@@ -492,14 +492,14 @@ function CatalogPicker({
 
   return (
     <div className="sm:col-span-2">
-      <p className="mb-1.5 text-sm font-medium text-slate-200">{label}</p>
-      <div className="form-scroll max-h-44 space-y-1 overflow-auto rounded-xl border border-[#2b3447] bg-[#151924] p-2">
+      <p className="mb-1.5 text-sm font-medium text-gray-700">{label}</p>
+      <div className="form-scroll max-h-44 space-y-1 overflow-auto rounded-xl border border-gray-200 bg-gray-50/50 p-2">
         {options.length === 0 ? (
-          <p className="px-1 text-xs text-slate-500">Nothing to choose yet. You can link items after they are created.</p>
+          <p className="px-1 text-xs text-gray-500">Nothing to choose yet. You can link items after they are created.</p>
         ) : (
           options.map((option) => (
-            <label key={option.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-200 hover:bg-[#222938]">
-              <input type="checkbox" checked={selected.includes(option.id)} onChange={() => toggle(option.id)} />
+            <label key={option.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-800 hover:bg-gray-100/80 cursor-pointer">
+              <input type="checkbox" checked={selected.includes(option.id)} onChange={() => toggle(option.id)} className="rounded border-gray-300 text-green-600 focus:ring-green-500" />
               {option.label}
             </label>
           ))

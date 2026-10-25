@@ -85,23 +85,23 @@ export function AccountantPage() {
         action={
           <Dialog open={showAdjustModal} onOpenChange={setShowAdjustModal}>
             <DialogTrigger asChild>
-              <Button className="rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:shadow-indigo-500/40">
+              <Button className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs transition-all active:scale-[0.98]">
                 <Plus className="mr-1.5 size-4" />
                 Audited Stock Adjustment
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-xl">
+            <DialogContent className="sm:max-w-xl bg-white border-gray-200/90 shadow-xl">
               <FormBusy show={busy} />
               <DialogHeader>
                 <div className="flex items-center gap-3">
-                  <div className="grid size-10 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-500/30">
+                  <div className="grid size-10 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
                     <Scale className="size-5" />
                   </div>
                   <div>
-                    <DialogTitle className="text-lg font-bold text-slate-100">
+                    <DialogTitle className="text-lg font-bold text-gray-900">
                       Audited Stock Adjustment
                     </DialogTitle>
-                    <DialogDescription className="text-xs text-slate-400">
+                    <DialogDescription className="text-xs text-gray-500">
                       Post a formal audit adjustment entry to balance physical vs book ledger.
                     </DialogDescription>
                   </div>
@@ -134,11 +134,11 @@ export function AccountantPage() {
                   />
                 </Field>
 
-                <div className="flex items-center justify-end gap-2 border-t border-[#262e3f] pt-4">
+                <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
                   <Button
                     type="button"
                     variant="outline"
-                    className="border-[#2b3447] bg-[#151924] text-slate-300 hover:bg-[#202737]"
+                    className="border-gray-200 text-gray-700 hover:bg-gray-50"
                     onClick={() => setShowAdjustModal(false)}
                   >
                     Cancel
@@ -146,7 +146,7 @@ export function AccountantPage() {
                   <Button
                     type="submit"
                     disabled={busy}
-                    className="rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 hover:from-blue-500 hover:to-indigo-500"
+                    className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs"
                   >
                     <CreditCard className="mr-1.5 size-4" />
                     Commit Audit Adjustment
@@ -168,38 +168,38 @@ export function AccountantPage() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
         {/* Waiting For Approval */}
-        <section className="space-y-3 rounded-2xl border border-[#262e3f] bg-[#1a1f2b] p-5 shadow-lg">
-          <div className="flex items-center justify-between border-b border-[#262e3f] pb-3">
+        <section className="space-y-3 rounded-2xl border border-gray-200/90 bg-white p-5 shadow-xs">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="grid size-9 place-items-center rounded-xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30">
+              <div className="grid size-9 place-items-center rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
                 <Clock className="size-4" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-100">Finished Jobs Awaiting Approval</h2>
-                <p className="text-[11px] text-slate-400">Sign-off required before goods enter warehouse</p>
+                <h2 className="text-sm font-bold text-gray-900">Finished Jobs Awaiting Approval</h2>
+                <p className="text-[11px] text-gray-500">Sign-off required before goods enter warehouse</p>
               </div>
             </div>
-            <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-300">
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700">
               {jobs.length} Queued
             </span>
           </div>
 
           <div className="space-y-2">
             {jobs.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-[#2b3447] bg-[#161a25]/50 p-6 text-center text-xs text-slate-500">
+              <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center text-xs text-gray-500">
                 No manufacturing jobs are pending approval.
               </p>
             ) : (
               jobs.map((job) => (
                 <div
                   key={job.id}
-                  className="flex items-center justify-between rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 text-xs transition-colors hover:border-amber-500/40"
+                  className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50/70 p-3.5 text-xs transition-colors hover:border-gray-300"
                 >
                   <div className="flex items-center gap-3">
-                    <Boxes className="size-4 text-amber-400" />
+                    <Boxes className="size-4 text-amber-600" />
                     <div>
-                      <p className="font-semibold text-slate-200">{job.product_name ?? "Finished Item"}</p>
-                      <p className="text-slate-400">Output Quantity: <span className="font-medium text-slate-200">{job.quantity} units</span></p>
+                      <p className="font-semibold text-gray-900">{job.product_name ?? "Finished Item"}</p>
+                      <p className="text-gray-500">Output Quantity: <span className="font-medium text-gray-900">{job.quantity} units</span></p>
                     </div>
                   </div>
                   <StatusBadge status="awaiting_approval" />
@@ -210,25 +210,25 @@ export function AccountantPage() {
         </section>
 
         {/* Unpaid Invoices */}
-        <section className="space-y-3 rounded-2xl border border-[#262e3f] bg-[#1a1f2b] p-5 shadow-lg">
-          <div className="flex items-center justify-between border-b border-[#262e3f] pb-3">
+        <section className="space-y-3 rounded-2xl border border-gray-200/90 bg-white p-5 shadow-xs">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="grid size-9 place-items-center rounded-xl bg-rose-500/15 text-rose-400 ring-1 ring-rose-500/30">
+              <div className="grid size-9 place-items-center rounded-xl bg-rose-50 text-rose-700 border border-rose-200">
                 <AlertTriangle className="size-4" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-100">Unpaid Customer Invoices</h2>
-                <p className="text-[11px] text-slate-400">Accounts receivable tracking</p>
+                <h2 className="text-sm font-bold text-gray-900">Unpaid Customer Invoices</h2>
+                <p className="text-[11px] text-gray-500">Accounts receivable tracking</p>
               </div>
             </div>
-            <span className="rounded-full border border-rose-500/30 bg-rose-500/15 px-2.5 py-0.5 text-xs font-bold text-rose-300">
+            <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-bold text-rose-700">
               {invoices.length} Unsettled
             </span>
           </div>
 
           <div className="space-y-2">
             {invoices.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-[#2b3447] bg-[#161a25]/50 p-6 text-center text-xs text-slate-500">
+              <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center text-xs text-gray-500">
                 All customer invoices are fully settled.
               </p>
             ) : (
@@ -237,17 +237,17 @@ export function AccountantPage() {
                 return (
                   <div
                     key={inv.id}
-                    className="flex items-center justify-between rounded-xl border border-rose-500/20 bg-rose-500/5 p-3.5 text-xs transition-colors hover:border-rose-500/40"
+                    className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50/70 p-3.5 text-xs transition-colors hover:border-gray-300"
                   >
                     <div className="flex items-center gap-3">
-                      <FileText className="size-4 text-rose-400" />
+                      <FileText className="size-4 text-rose-600" />
                       <div>
-                        <p className="font-semibold text-slate-200">{inv.number}</p>
-                        <p className="text-slate-400">Paid: ₹{inv.amount_paid} of ₹{inv.total_amount}</p>
+                        <p className="font-semibold text-gray-900">{inv.number}</p>
+                        <p className="text-gray-500">Paid: ₹{inv.amount_paid} of ₹{inv.total_amount}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="rounded-lg border border-rose-500/30 bg-rose-500/15 px-2.5 py-1 font-bold text-rose-300">
+                      <span className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 font-bold text-rose-700">
                         Due: ₹{pendingAmount.toFixed(2)}
                       </span>
                     </div>

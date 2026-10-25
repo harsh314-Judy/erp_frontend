@@ -190,20 +190,20 @@ export function SalesPage() {
             <DialogTrigger asChild>
               <Button
                 type="button"
-                className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500"
+                className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs transition-all active:scale-[0.98]"
               >
                 <PlusCircle className="mr-1.5 size-4" />
                 New Sales Order
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="sm:max-w-2xl bg-white border-gray-200/90 shadow-xl">
               <FormBusy show={busy} />
               <DialogHeader>
                 <div className="flex items-center gap-2.5">
-                  <div className="grid size-9 place-items-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
                     <Receipt className="size-5" />
                   </div>
-                  <DialogTitle className="text-lg font-bold text-slate-100">Create Customer Sales Order</DialogTitle>
+                  <DialogTitle className="text-lg font-bold text-gray-900">Create Customer Sales Order</DialogTitle>
                 </div>
               </DialogHeader>
               <form className="mt-2 grid gap-4 sm:grid-cols-2" onSubmit={(event) => void create(event)}>
@@ -233,7 +233,7 @@ export function SalesPage() {
                 {selectedType === "both" ? (
                   <Field label="If Stock is Short">
                     <select
-                      className="h-9 w-full rounded-xl border border-[#2b3447] bg-[#151924] px-3 text-sm text-slate-200 shadow-2xs focus:border-blue-500/80 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                      className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 shadow-2xs focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
                       value={form.shortfall_choice}
                       onChange={(event) => setForm({ ...form, shortfall_choice: event.target.value })}
                     >
@@ -257,14 +257,14 @@ export function SalesPage() {
                   />
                 </Field>
 
-                <DialogFooter className="mt-3 flex items-center justify-end gap-2 sm:col-span-2 border-t border-[#262e3f] pt-4">
-                  <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>
+                <DialogFooter className="mt-3 flex items-center justify-end gap-2 sm:col-span-2 border-t border-gray-100 pt-4">
+                  <Button type="button" variant="outline" className="border-gray-200 hover:bg-gray-50 text-gray-700" onClick={() => setShowCreate(false)}>
                     Cancel
                   </Button>
                   <Button
                     type="submit"
                     disabled={busy}
-                    className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500"
+                    className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs"
                   >
                     Confirm & Reserve Stock
                   </Button>
@@ -283,10 +283,10 @@ export function SalesPage() {
       ) : (
         <div className="grid gap-4">
         {orders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#2b3447] bg-[#1a1f2b]/60 p-10 text-center">
-            <Receipt className="mx-auto size-10 text-slate-500" />
-            <p className="mt-2 text-sm font-semibold text-slate-200">No Sales Orders Found</p>
-            <p className="text-xs text-slate-400">Created customer orders and GST invoices will be listed here.</p>
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center shadow-xs">
+            <Receipt className="mx-auto size-10 text-gray-400" />
+            <p className="mt-2 text-sm font-semibold text-gray-800">No Sales Orders Found</p>
+            <p className="text-xs text-gray-500">Created customer orders and GST invoices will be listed here.</p>
           </div>
         ) : (
           orders.map((order) => {
@@ -294,18 +294,18 @@ export function SalesPage() {
             return (
               <article
                 key={order.id}
-                className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] p-5 shadow-lg text-slate-200 transition-all hover:border-[#323d54]"
+                className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-5 shadow-xs text-gray-800 transition-all hover:border-gray-300 hover:shadow-sm"
               >
-                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#262e3f] pb-3.5">
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-3.5">
                   <div className="flex items-center gap-3">
-                    <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
                       <PackageCheck className="size-5" />
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-slate-100">{order.customer_name ?? "Direct Walk-in"}</h3>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
+                      <h3 className="text-base font-bold text-gray-900">{order.customer_name ?? "Direct Walk-in"}</h3>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
                         {prices ? (
-                          <span className="font-semibold text-slate-300">
+                          <span className="font-semibold text-gray-700">
                             Delivery: ₹{order.delivery_charge}
                           </span>
                         ) : null}
@@ -318,17 +318,17 @@ export function SalesPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="rounded-xl border-[#2b3447] bg-[#151924] text-xs font-semibold text-slate-200 hover:bg-[#202737] hover:text-slate-100"
+                      className="rounded-xl border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50"
                       onClick={() => void showInvoice(order)}
                     >
-                      <FileText className="mr-1 size-3.5 text-blue-400" />
+                      <FileText className="mr-1 size-3.5 text-blue-600" />
                       GST Invoice
                     </Button>
                     {!isDispatched ? (
                       <Button
                         type="button"
                         size="sm"
-                        className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-xs font-semibold text-white shadow-md shadow-emerald-500/20 hover:from-emerald-500 hover:to-teal-500"
+                        className="rounded-xl bg-green-600 hover:bg-green-700 text-xs font-semibold text-white shadow-xs"
                         onClick={() =>
                           void api(`/api/sales/orders/${order.id}/dispatch`, { method: "POST" })
                             .then(load)
@@ -347,21 +347,21 @@ export function SalesPage() {
                   {order.lines.map((line) => (
                     <div
                       key={line.product_id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#262e3f] bg-[#161a25] p-2.5"
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50/70 p-2.5"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-100">{line.product_name ?? "Steel Product"}</span>
+                        <span className="font-bold text-gray-900">{line.product_name ?? "Steel Product"}</span>
                         {line.shortfall_choice ? (
-                          <span className="rounded-md bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 uppercase">
+                          <span className="rounded-md bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 uppercase">
                             Shortfall: {line.shortfall_choice}
                           </span>
                         ) : null}
                       </div>
-                      <div className="flex items-center gap-3 text-slate-300">
-                        <span>Ordered: <strong className="text-slate-100">{line.quantity}</strong></span>
-                        <span>Held: <strong className="text-blue-400">{line.held_quantity ?? line.quantity}</strong></span>
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <span>Ordered: <strong className="text-gray-900">{line.quantity}</strong></span>
+                        <span>Held: <strong className="text-blue-600">{line.held_quantity ?? line.quantity}</strong></span>
                         {prices && line.unit_price ? (
-                          <span className="font-semibold text-emerald-400">@ ₹{line.unit_price}</span>
+                          <span className="font-semibold text-green-700">@ ₹{line.unit_price}</span>
                         ) : null}
                       </div>
                     </div>
@@ -377,17 +377,17 @@ export function SalesPage() {
       {/* GST Tax Invoice Viewer */}
       {invoice ? (
         <section
-          className="rounded-3xl border border-[#262e3f] bg-[#1a1f2b] p-6 shadow-xl text-slate-200 print:m-0 print:border-0 print:p-0 print:bg-white print:text-slate-900"
+          className="rounded-2xl border border-gray-200/90 bg-white p-6 shadow-xs text-gray-800 print:m-0 print:border-0 print:p-0 print:bg-white print:text-gray-900"
           id="invoice"
         >
-          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#262e3f] pb-5">
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 pb-5">
             <div>
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 px-3 py-1 text-xs font-bold text-blue-400">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1 text-xs font-bold text-green-700">
                 <span>TAX INVOICE</span>
               </div>
-              <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">{invoice.number}</h2>
-              <p className="text-xs text-slate-400">
-                GST Regime: <strong className="text-slate-200">{invoice.same_state ? "Intrastate (CGST + SGST)" : "Interstate (IGST)"}</strong>
+              <h2 className="mt-2 text-2xl font-bold tracking-tight text-gray-900">{invoice.number}</h2>
+              <p className="text-xs text-gray-500">
+                GST Regime: <strong className="text-gray-800">{invoice.same_state ? "Intrastate (CGST + SGST)" : "Interstate (IGST)"}</strong>
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -395,7 +395,7 @@ export function SalesPage() {
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-xl print:hidden text-xs font-semibold border-[#2b3447] bg-[#151924] text-slate-200 hover:bg-[#202737]"
+                className="rounded-xl print:hidden text-xs font-semibold border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
                 onClick={() => window.print()}
               >
                 <Printer className="mr-1.5 size-4" />
@@ -405,9 +405,9 @@ export function SalesPage() {
           </div>
 
           {/* Invoice Table */}
-          <div className="my-5 overflow-hidden rounded-xl border border-[#262e3f] bg-[#161a25]">
+          <div className="my-5 overflow-hidden rounded-xl border border-gray-200/90 bg-white">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-gray-50/75">
                 <TableRow>
                   <TableHead>Description</TableHead>
                   <TableHead>HSN/SAC</TableHead>
@@ -419,11 +419,11 @@ export function SalesPage() {
               <TableBody>
                 {invoice.lines.map((line, idx) => (
                   <TableRow key={idx}>
-                    <TableCell className="font-semibold text-slate-100">{line.description}</TableCell>
-                    <TableCell className="font-mono text-xs text-slate-400">{line.hsn_code || "–"}</TableCell>
-                    <TableCell className="text-right font-medium text-slate-200">{line.quantity}</TableCell>
-                    <TableCell className="text-right font-medium text-slate-200">₹{line.unit_price}</TableCell>
-                    <TableCell className="text-right font-bold text-slate-100">₹{line.taxable_amount}</TableCell>
+                    <TableCell className="font-semibold text-gray-900">{line.description}</TableCell>
+                    <TableCell className="font-mono text-xs text-gray-500">{line.hsn_code || "–"}</TableCell>
+                    <TableCell className="text-right font-medium text-gray-700">{line.quantity}</TableCell>
+                    <TableCell className="text-right font-medium text-gray-700">₹{line.unit_price}</TableCell>
+                    <TableCell className="text-right font-bold text-gray-900">₹{line.taxable_amount}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -431,44 +431,44 @@ export function SalesPage() {
           </div>
 
           {/* Tax Breakdown & Totals */}
-          <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-[#262e3f]">
-            <div className="space-y-1.5 rounded-2xl bg-[#161a25] border border-[#262e3f] p-4 text-xs text-slate-300">
-              <p className="font-bold uppercase tracking-wider text-slate-400 mb-2">Tax Breakdown</p>
+          <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-gray-100">
+            <div className="space-y-1.5 rounded-xl bg-gray-50/80 border border-gray-200/90 p-4 text-xs text-gray-600">
+              <p className="font-bold uppercase tracking-wider text-gray-500 mb-2">Tax Breakdown</p>
               <div className="flex justify-between">
                 <span>Taxable Total:</span>
-                <span className="font-semibold text-slate-100">₹{invoice.taxable_amount}</span>
+                <span className="font-semibold text-gray-900">₹{invoice.taxable_amount}</span>
               </div>
               {invoice.same_state ? (
                 <>
-                  <div className="flex justify-between text-blue-400">
+                  <div className="flex justify-between text-blue-600">
                     <span>Central GST (CGST):</span>
                     <span className="font-semibold">₹{invoice.cgst_amount}</span>
                   </div>
-                  <div className="flex justify-between text-blue-400">
+                  <div className="flex justify-between text-blue-600">
                     <span>State GST (SGST):</span>
                     <span className="font-semibold">₹{invoice.sgst_amount}</span>
                   </div>
                 </>
               ) : (
-                <div className="flex justify-between text-indigo-400">
+                <div className="flex justify-between text-indigo-600">
                   <span>Integrated GST (IGST):</span>
                   <span className="font-semibold">₹{invoice.igst_amount}</span>
                 </div>
               )}
-              <div className="flex justify-between text-slate-500 pt-1 border-t border-[#262e3f]">
+              <div className="flex justify-between text-gray-500 pt-1 border-t border-gray-200">
                 <span>Delivery Freight (exempt):</span>
                 <span>₹{invoice.delivery_charge}</span>
               </div>
             </div>
 
-            <div className="flex flex-col justify-between rounded-2xl bg-gradient-to-br from-[#182030] to-[#1c263c] border border-[#2b374f] p-5 text-slate-100">
+            <div className="flex flex-col justify-between rounded-xl bg-gray-900 border border-gray-800 p-5 text-white shadow-xs">
               <div>
-                <p className="text-xs uppercase tracking-wider text-slate-400">Total Invoice Amount</p>
-                <p className="mt-1 text-3xl font-black tracking-tight text-slate-100">₹{invoice.total_amount}</p>
+                <p className="text-xs uppercase tracking-wider text-gray-400">Total Invoice Amount</p>
+                <p className="mt-1 text-3xl font-black tracking-tight text-white">₹{invoice.total_amount}</p>
               </div>
-              <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3 text-xs">
-                <span className="text-slate-300">Amount Paid: ₹{invoice.amount_paid}</span>
-                <span className="rounded-md bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 font-bold text-emerald-400">
+              <div className="mt-4 flex items-center justify-between border-t border-gray-800 pt-3 text-xs">
+                <span className="text-gray-300">Amount Paid: ₹{invoice.amount_paid}</span>
+                <span className="rounded-md bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 font-bold text-emerald-300">
                   Balance: ₹{(Number(invoice.total_amount) - Number(invoice.amount_paid)).toFixed(2)}
                 </span>
               </div>
@@ -476,8 +476,8 @@ export function SalesPage() {
           </div>
 
           {/* Record Payment Form */}
-          <div className="mt-6 rounded-2xl border border-[#262e3f] bg-[#161a25] p-4 print:hidden">
-            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-300">
+          <div className="mt-6 rounded-xl border border-gray-200/90 bg-gray-50/80 p-4 print:hidden">
+            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-700">
               Record Customer Payment
             </p>
             <form className="grid gap-3 sm:grid-cols-4" onSubmit={(event) => void pay(event)}>
@@ -486,20 +486,21 @@ export function SalesPage() {
                 value={payment.amount}
                 onChange={(event) => setPayment({ ...payment, amount: event.target.value })}
                 required
+                className="bg-white border-gray-200"
               />
               <select
-                className="h-9 rounded-xl border border-[#2b3447] bg-[#151924] px-3 text-sm font-medium text-slate-200 shadow-2xs focus:border-blue-500/80 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-800 shadow-2xs focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
                 value={payment.method}
                 onChange={(event) => setPayment({ ...payment, method: event.target.value })}
               >
                 <option value="cash">Cash Payment</option>
                 <option value="online">Online / NEFT / UPI</option>
               </select>
-              <Input type="file" accept="image/*,.pdf" className="text-xs" />
+              <Input type="file" accept="image/*,.pdf" className="text-xs bg-white border-gray-200" />
               <Button
                 type="submit"
                 disabled={busy}
-                className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md shadow-emerald-500/20 hover:from-emerald-500 hover:to-teal-500"
+                className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs"
               >
                 <CreditCard className="mr-1.5 size-4" />
                 Record Payment

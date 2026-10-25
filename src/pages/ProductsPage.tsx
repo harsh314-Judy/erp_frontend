@@ -49,7 +49,7 @@ type Component = RecipeLine & { id: string }
 type Mode = "create" | "edit" | "view"
 
 const selectClass =
-  "h-9 w-full rounded-xl border border-[#2b3447] bg-[#151924] px-3 text-sm text-slate-200 shadow-2xs focus:border-blue-500/80 focus:outline-none"
+  "h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 shadow-xs focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
 
 const blankForm = {
   product_name: "",
@@ -252,7 +252,7 @@ export function ProductsPage() {
           editor ? (
             <Button
               type="button"
-              className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500"
+              className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
               onClick={openCreate}
             >
               <PlusCircle className="mr-1.5 size-4" />
@@ -263,14 +263,14 @@ export function ProductsPage() {
       />
 
       <Dialog open={mode !== null} onOpenChange={(open) => (open ? null : setMode(null))}>
-        <DialogContent className="sm:max-w-4xl">
+        <DialogContent className="sm:max-w-4xl border-gray-200 bg-white">
           <FormBusy show={busy} />
           <DialogHeader>
             <div className="flex items-center gap-2.5">
-              <div className="grid size-9 place-items-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
+              <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-600">
                 <Package className="size-5" />
               </div>
-              <DialogTitle className="text-lg font-bold text-slate-100">{title}</DialogTitle>
+              <DialogTitle className="text-lg font-bold text-gray-900">{title}</DialogTitle>
             </div>
           </DialogHeader>
 
@@ -378,13 +378,13 @@ export function ProductsPage() {
                   />
                 </Field>
 
-                <div className="space-y-3 border-t border-[#262e3f] pt-4 sm:col-span-3">
+                <div className="space-y-3 border-t border-gray-100 pt-4 sm:col-span-3">
                   <label className="flex cursor-pointer items-start justify-between gap-4">
                     <span>
-                      <span className="block text-sm font-semibold text-slate-100">
+                      <span className="block text-sm font-semibold text-gray-900">
                         Made in-house (recipe and route)
                       </span>
-                      <span className="block text-xs text-slate-400">
+                      <span className="block text-xs text-gray-500">
                         {recipeOn
                           ? "Production jobs for this product hold these inputs and follow these stages."
                           : mode === "edit"
@@ -405,8 +405,8 @@ export function ProductsPage() {
                       />
                       <span
                         className={cn(
-                          "h-6 w-11 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500/50",
-                          recipeOn ? "bg-blue-600" : "bg-[#2b3447]",
+                          "h-6 w-11 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-green-500/50",
+                          recipeOn ? "bg-green-600" : "bg-gray-200",
                         )}
                       />
                       <span
@@ -441,11 +441,11 @@ export function ProductsPage() {
                 </div>
               </fieldset>
 
-              <DialogFooter className="mt-4 flex items-center justify-end gap-2 border-t border-[#262e3f] pt-4">
+              <DialogFooter className="mt-4 flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
                 <Button
                   type="button"
                   variant="outline"
-                  className="border-[#2b3447] bg-[#151924] text-slate-300 hover:bg-[#222938]"
+                  className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50"
                   onClick={() => setMode(null)}
                 >
                   {readOnly ? "Close" : "Cancel"}
@@ -454,7 +454,7 @@ export function ProductsPage() {
                   <Button
                     type="submit"
                     disabled={busy}
-                    className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/15 hover:from-blue-500 hover:to-indigo-500"
+                    className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
                   >
                     {mode === "edit" ? "Save Changes" : "Save Product to Catalog"}
                   </Button>
@@ -467,11 +467,11 @@ export function ProductsPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-64 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
           <Input
             value={query}
             placeholder="Filter by product name, SKU, or HSN code..."
-            className="rounded-xl border-[#2b3447] bg-[#1a1f2b] pl-9 pr-3 text-slate-200 shadow-xs"
+            className="rounded-xl border-gray-200 bg-white pl-9 pr-3 text-gray-900 shadow-xs focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") void load()
@@ -481,7 +481,7 @@ export function ProductsPage() {
         <Button
           type="button"
           variant="outline"
-          className="rounded-xl border-[#2b3447] bg-[#1a1f2b] font-semibold text-slate-300 hover:border-slate-600 hover:bg-[#222938]"
+          className="rounded-xl border-gray-200 bg-white font-semibold text-gray-700 hover:bg-gray-50 shadow-xs"
           onClick={() => void load().catch((caught) => setError(errorMessage(caught)))}
         >
           Search Catalog
@@ -501,60 +501,60 @@ export function ProductsPage() {
       {loading ? (
         <PageLoading label="Loading products" variant="table" cols={6} count={5} />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] shadow-sm">
-          <div className="flex items-center justify-between border-b border-[#262e3f] bg-[#161a25] px-5 py-3.5">
+        <div className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-xs">
+          <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/60 px-5 py-3.5">
             <div className="flex items-center gap-2">
-              <Boxes className="size-4 text-blue-400" />
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              <Boxes className="size-4 text-green-600" />
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-700">
                 Active Inventory Stock
               </span>
             </div>
-            <span className="text-xs font-semibold text-slate-400">{rows.length} items recorded</span>
+            <span className="text-xs font-semibold text-gray-500">{rows.length} items recorded</span>
           </div>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Sourcing</TableHead>
-                  <TableHead>HSN</TableHead>
-                  <TableHead className="text-right">Physical On Hand</TableHead>
-                  <TableHead className="text-right">Free / Available</TableHead>
-                  <TableHead className="text-center">Stock Level</TableHead>
-                  {prices ? <TableHead className="text-right">Unit Price</TableHead> : null}
-                  <TableHead className="text-right">Recipe</TableHead>
+                <TableRow className="border-b border-gray-100 bg-gray-50/30">
+                  <TableHead className="font-semibold text-gray-600">Product</TableHead>
+                  <TableHead className="font-semibold text-gray-600">SKU</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Category</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Sourcing</TableHead>
+                  <TableHead className="font-semibold text-gray-600">HSN</TableHead>
+                  <TableHead className="text-right font-semibold text-gray-600">Physical On Hand</TableHead>
+                  <TableHead className="text-right font-semibold text-gray-600">Free / Available</TableHead>
+                  <TableHead className="text-center font-semibold text-gray-600">Stock Level</TableHead>
+                  {prices ? <TableHead className="text-right font-semibold text-gray-600">Unit Price</TableHead> : null}
+                  <TableHead className="text-right font-semibold text-gray-600">Recipe</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={prices ? 10 : 9} className="py-8 text-center text-xs text-slate-400">
+                    <TableCell colSpan={prices ? 10 : 9} className="py-8 text-center text-xs text-gray-400">
                       No products matching search query.
                     </TableCell>
                   </TableRow>
                 ) : (
                   rows.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell className="font-semibold text-slate-200">{row.product_name}</TableCell>
-                      <TableCell className="font-mono text-xs text-slate-400">{row.sku_number}</TableCell>
-                      <TableCell className="text-slate-300">
+                    <TableRow key={row.id} className="border-b border-gray-100 hover:bg-gray-50/70 transition-colors">
+                      <TableCell className="font-semibold text-gray-900">{row.product_name}</TableCell>
+                      <TableCell className="font-mono text-xs text-gray-500">{row.sku_number}</TableCell>
+                      <TableCell className="text-gray-600">
                         {categories.find((category) => category.id === row.category_id)?.name ?? "—"}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={row.product_type} />
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-slate-400">{row.hsn_code || "–"}</TableCell>
-                      <TableCell className="text-right font-medium text-slate-300">{row.quantity}</TableCell>
-                      <TableCell className="text-right font-bold text-emerald-400">
+                      <TableCell className="font-mono text-xs text-gray-500">{row.hsn_code || "–"}</TableCell>
+                      <TableCell className="text-right font-medium text-gray-700">{row.quantity}</TableCell>
+                      <TableCell className="text-right font-bold text-green-600">
                         {row.available ?? row.quantity}
                       </TableCell>
                       <TableCell className="text-center">
                         <StatusBadge status={row.stock_status ?? "normal"} />
                       </TableCell>
                       {prices ? (
-                        <TableCell className="text-right font-semibold text-slate-200">
+                        <TableCell className="text-right font-semibold text-gray-900">
                           {row.sale_price_without_gst ? `₹${row.sale_price_without_gst}` : "–"}
                         </TableCell>
                       ) : null}
@@ -563,7 +563,7 @@ export function ProductsPage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="rounded-lg"
+                          className="rounded-lg border-gray-200 text-gray-700 hover:bg-gray-100"
                           onClick={() => void openExisting(row, editor ? "edit" : "view")}
                         >
                           {editor ? <Pencil className="mr-1 size-3.5" /> : <Eye className="mr-1 size-3.5" />}

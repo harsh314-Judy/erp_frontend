@@ -140,20 +140,20 @@ export function ProductionPage() {
               <DialogTrigger asChild>
                 <Button
                   type="button"
-                  className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500"
+                  className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
                 >
                   <PlusCircle className="mr-1.5 size-4" />
                   New Production Job
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
+              <DialogContent className="sm:max-w-2xl border-gray-200 bg-white">
                 <FormBusy show={busy} />
                 <DialogHeader>
                   <div className="flex items-center gap-2.5">
-                    <div className="grid size-9 place-items-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-600">
                       <Factory className="size-5" />
                     </div>
-                    <DialogTitle className="text-lg font-bold text-slate-100">Initiate New Production Job</DialogTitle>
+                    <DialogTitle className="text-lg font-bold text-gray-900">Initiate New Production Job</DialogTitle>
                   </div>
                 </DialogHeader>
                 <form className="mt-2 grid gap-4 sm:grid-cols-2" onSubmit={(event) => void create(event)}>
@@ -189,11 +189,11 @@ export function ProductionPage() {
                       onChange={(event) => setForm({ ...form, notes: event.target.value })}
                     />
                   </Field>
-                  <DialogFooter className="mt-3 flex items-center justify-end gap-2 sm:col-span-2 border-t border-[#262e3f] pt-4">
+                  <DialogFooter className="mt-3 flex items-center justify-end gap-2 sm:col-span-2 border-t border-gray-100 pt-4">
                     <Button
                       type="button"
                       variant="outline"
-                      className="border-[#2b3447] bg-[#151924] text-slate-300 hover:bg-[#222938]"
+                      className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50"
                       onClick={() => setShowCreate(false)}
                     >
                       Cancel
@@ -201,7 +201,7 @@ export function ProductionPage() {
                     <Button
                       type="submit"
                       disabled={busy}
-                      className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/15 hover:from-blue-500 hover:to-indigo-500"
+                      className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
                     >
                       Confirm & Launch Job
                     </Button>
@@ -221,29 +221,29 @@ export function ProductionPage() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
         {/* Jobs List Table */}
-        <div className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] shadow-sm">
-          <div className="border-b border-[#262e3f] bg-[#161a25] px-4 py-3">
+        <div className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-xs">
+          <div className="border-b border-gray-100 bg-gray-50/60 px-4 py-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-700">
                 Production Queue
               </span>
-              <span className="text-xs text-slate-400">Click row to inspect stages</span>
+              <span className="text-xs text-gray-400">Click row to inspect stages</span>
             </div>
           </div>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Qty</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Source</TableHead>
+                <TableRow className="border-b border-gray-100 bg-gray-50/30">
+                  <TableHead className="font-semibold text-gray-600">Product</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Qty</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Status</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Source</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {jobs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-8 text-center text-xs text-slate-400">
+                    <TableCell colSpan={4} className="py-8 text-center text-xs text-gray-400">
                       No production jobs active. Create one above to get started.
                     </TableCell>
                   </TableRow>
@@ -254,24 +254,24 @@ export function ProductionPage() {
                       <TableRow
                         key={job.id}
                         className={cn(
-                          "cursor-pointer transition-colors hover:bg-slate-800/40",
-                          isSelected && "bg-blue-600/15 font-medium ring-1 ring-blue-500/30",
+                          "cursor-pointer transition-colors border-b border-gray-100 hover:bg-gray-50/70",
+                          isSelected && "bg-green-50 font-medium ring-1 ring-green-500/30",
                         )}
                         onClick={() => void open(job.id)}
                       >
-                        <TableCell className="font-semibold text-slate-200">
+                        <TableCell className="font-semibold text-gray-900">
                           <div className="flex items-center gap-2">
                             {isSelected ? (
-                              <span className="size-2 rounded-full bg-blue-400 shadow-xs shadow-blue-400" />
+                              <span className="size-2 rounded-full bg-green-500 shadow-xs shadow-green-400" />
                             ) : null}
                             <span>{job.product_name ?? "Custom Job"}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="font-medium text-slate-300">{job.quantity}</TableCell>
+                        <TableCell className="font-medium text-gray-700">{job.quantity}</TableCell>
                         <TableCell>
                           <StatusBadge status={job.status} />
                         </TableCell>
-                        <TableCell className="text-xs text-slate-400 capitalize">
+                        <TableCell className="text-xs text-gray-500 capitalize">
                           {job.source}
                         </TableCell>
                       </TableRow>
@@ -285,16 +285,16 @@ export function ProductionPage() {
 
         {/* Selected Job Detail Panel */}
         {selected ? (
-          <section className="space-y-4 rounded-2xl border border-[#262e3f] bg-[#1a1f2b] p-5 shadow-lg text-slate-200">
-            <div className="flex flex-wrap items-start justify-between gap-2 border-b border-[#262e3f] pb-4">
+          <section className="space-y-4 rounded-2xl border border-gray-200/90 bg-white p-5 shadow-xs text-gray-900">
+            <div className="flex flex-wrap items-start justify-between gap-2 border-b border-gray-100 pb-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-slate-100">{selected.product_name}</h2>
+                  <h2 className="text-lg font-bold text-gray-900">{selected.product_name}</h2>
                   <StatusBadge status={selected.status} />
                 </div>
-                <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
+                <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
                   <span className="flex items-center gap-1">
-                    <Clock className="size-3.5 text-slate-400" />
+                    <Clock className="size-3.5 text-gray-400" />
                     {selected.estimated_minutes} min estimated
                   </span>
                   <span>·</span>
@@ -305,8 +305,8 @@ export function ProductionPage() {
 
             {/* Stage Routing Stepper */}
             <div>
-              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
-                <Wrench className="size-3.5 text-blue-400" />
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gray-700">
+                <Wrench className="size-3.5 text-green-600" />
                 <span>Stage Workflow</span>
               </div>
               <div className="space-y-2">
@@ -319,10 +319,10 @@ export function ProductionPage() {
                       className={cn(
                         "flex items-center justify-between rounded-xl border p-3 text-xs transition-all",
                         isActive
-                          ? "border-blue-500/40 bg-blue-500/15 shadow-sm ring-1 ring-blue-500/30 text-slate-100"
+                          ? "border-green-500/40 bg-green-50/80 shadow-xs ring-1 ring-green-500/30 text-green-950 font-medium"
                           : isDone
-                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                            : "border-[#262e3f] bg-[#161a25] text-slate-400",
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                            : "border-gray-200 bg-gray-50/50 text-gray-600",
                       )}
                     >
                       <div className="flex items-center gap-2.5">
@@ -330,20 +330,20 @@ export function ProductionPage() {
                           className={cn(
                             "grid size-6 place-items-center rounded-lg text-[11px] font-bold",
                             isActive
-                              ? "bg-blue-600 text-white shadow-xs shadow-blue-500/30"
+                              ? "bg-green-600 text-white shadow-xs shadow-green-500/30"
                               : isDone
                                 ? "bg-emerald-600 text-white shadow-xs shadow-emerald-500/30"
-                                : "bg-[#151924] text-slate-400 border border-[#2b3447]",
+                                : "bg-white text-gray-600 border border-gray-200",
                           )}
                         >
                           {index + 1}
                         </span>
                         <div>
-                          <p className="font-semibold text-slate-200">
+                          <p className="font-semibold text-gray-900">
                             {stage.operation_name ?? "Processing Stage"}
                           </p>
                           {stage.polish_type ? (
-                            <span className="text-[10px] font-medium text-blue-400 uppercase">
+                            <span className="text-[10px] font-medium text-green-700 uppercase">
                               Mode: {stage.polish_type}
                             </span>
                           ) : null}
@@ -358,19 +358,19 @@ export function ProductionPage() {
 
             {/* Bill of Materials Inputs Required */}
             <div>
-              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-300">
-                <Boxes className="size-3.5 text-indigo-400" />
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gray-700">
+                <Boxes className="size-3.5 text-green-600" />
                 <span>Materials Allocated</span>
               </div>
-              <div className="overflow-hidden rounded-xl border border-[#262e3f] bg-[#161a25]">
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50/40">
                 <div className="space-y-1.5 p-3 text-xs">
                   {selected.inputs.map((input) => (
-                    <div key={input.id} className="flex items-center justify-between py-1.5 border-b border-[#262e3f]/60 last:border-0">
-                      <span className="font-medium text-slate-200">{input.item_name}</span>
-                      <div className="flex items-center gap-3 text-slate-300">
-                        <span>Planned: <strong className="text-slate-100">{input.planned_quantity}</strong></span>
-                        <span className="text-slate-600">|</span>
-                        <span>Free stock: <strong className="text-emerald-400">{input.available ?? "–"}</strong></span>
+                    <div key={input.id} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0">
+                      <span className="font-medium text-gray-900">{input.item_name}</span>
+                      <div className="flex items-center gap-3 text-gray-600">
+                        <span>Planned: <strong className="text-gray-900">{input.planned_quantity}</strong></span>
+                        <span className="text-gray-300">|</span>
+                        <span>Free stock: <strong className="text-green-600">{input.available ?? "–"}</strong></span>
                       </div>
                     </div>
                   ))}
@@ -379,11 +379,11 @@ export function ProductionPage() {
             </div>
 
             {/* Operator Actions */}
-            <div className="pt-3 border-t border-[#262e3f] flex flex-wrap gap-2">
+            <div className="pt-3 border-t border-gray-100 flex flex-wrap gap-2">
               {selected.status === "pending" ? (
                 <Button
                   type="button"
-                  className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md shadow-emerald-500/20 hover:from-emerald-500 hover:to-teal-500"
+                  className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
                   onClick={() => void act("/start")}
                 >
                   <Factory className="mr-1.5 size-4" />
@@ -397,14 +397,14 @@ export function ProductionPage() {
                     <div className="flex gap-2">
                       <Button
                         type="button"
-                        className="rounded-xl bg-blue-600 text-white hover:bg-blue-500 shadow-md shadow-blue-500/20"
+                        className="rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
                         onClick={() => void act(`/stages/${active.id}/complete`, { polish_type: "dry" })}
                       >
                         Finish Dry Polish
                       </Button>
                       <Button
                         type="button"
-                        className="rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 shadow-md shadow-indigo-500/20"
+                        className="rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
                         onClick={() => void act(`/stages/${active.id}/complete`, { polish_type: "wet" })}
                       >
                         Finish Wet Polish
@@ -413,7 +413,7 @@ export function ProductionPage() {
                   ) : (
                     <Button
                       type="button"
-                      className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500"
+                      className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
                       onClick={() => void act(`/stages/${active.id}/complete`, {})}
                     >
                       <CheckCircle2 className="mr-1.5 size-4" />
@@ -426,7 +426,7 @@ export function ProductionPage() {
               {selected.status === "awaiting_approval" && can("approve_jobs") ? (
                 <Button
                   type="button"
-                  className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md shadow-emerald-500/20 hover:from-emerald-500 hover:to-teal-500"
+                  className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
                   onClick={() =>
                     void act("/approve", {
                       produced_quantity: selected.quantity,
@@ -449,14 +449,14 @@ export function ProductionPage() {
             selected.status !== "completed" &&
             selected.status !== "cancelled" ? (
               <form
-                className="mt-4 flex gap-2 border-t border-[#262e3f] pt-3"
+                className="mt-4 flex gap-2 border-t border-gray-100 pt-3"
                 onSubmit={(event) => {
                   event.preventDefault()
                   void act("/cancel", { reason: cancelReason, produced_quantity: "0", inputs: [] })
                 }}
               >
                 <Input
-                  className="text-xs bg-[#151924] border-[#2b3447] text-slate-200 placeholder:text-slate-500"
+                  className="text-xs bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
                   value={cancelReason}
                   placeholder="Reason for job cancellation..."
                   onChange={(event) => setCancelReason(event.target.value)}
@@ -469,10 +469,10 @@ export function ProductionPage() {
             ) : null}
           </section>
         ) : (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#2b3447] bg-[#1a1f2b]/60 p-10 text-center">
-            <Layers className="size-10 text-slate-500" />
-            <h3 className="mt-3 text-sm font-semibold text-slate-200">No Job Selected</h3>
-            <p className="mt-1 max-w-xs text-xs text-slate-400">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 p-10 text-center">
+            <Layers className="size-10 text-gray-400" />
+            <h3 className="mt-3 text-sm font-semibold text-gray-900">No Job Selected</h3>
+            <p className="mt-1 max-w-xs text-xs text-gray-500">
               Select any production job from the list on the left to track operations, operator stages, and raw stock consumption.
             </p>
           </div>

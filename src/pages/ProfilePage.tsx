@@ -95,18 +95,18 @@ export function ProfilePage() {
       />
 
       {/* User Header Profile Card */}
-      <div className="flex flex-wrap items-center gap-4 rounded-3xl border border-[#262e3f] bg-[#1a1f2b] p-5 shadow-lg">
-        <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-xl font-black text-white shadow-lg shadow-indigo-500/30">
+      <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-gray-200/90 bg-white p-5 shadow-xs">
+        <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-green-50 text-green-700 border border-green-200 text-xl font-bold">
           {initials}
         </div>
         <div>
-          <h2 className="text-xl font-bold text-slate-100">
+          <h2 className="text-xl font-bold text-gray-900">
             {user.first_name} {user.last_name ?? ""}
           </h2>
           <div className="mt-1 flex items-center gap-2">
-            <span className="text-xs text-slate-400">{user.email}</span>
-            <span className="text-slate-600">·</span>
-            <span className="inline-flex items-center gap-1 rounded-md border border-blue-500/30 bg-blue-500/15 px-2 py-0.5 text-xs font-semibold text-blue-300">
+            <span className="text-xs text-gray-500">{user.email}</span>
+            <span className="text-gray-300">·</span>
+            <span className="inline-flex items-center gap-1 rounded-md border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700">
               <Shield className="size-3" />
               {roleLabel(user.role_name)}
             </span>
@@ -118,18 +118,18 @@ export function ProfilePage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Identity Card */}
-        <Card className="relative border-[#262e3f] bg-[#1a1f2b] shadow-lg">
+        <Card className="relative border-gray-200/90 bg-white shadow-xs rounded-2xl">
           <FormBusy show={identityPending} label="Saving" />
-          <CardHeader className="border-b border-[#262e3f] pb-3">
+          <CardHeader className="border-b border-gray-100 pb-3">
             <div className="flex items-center gap-3">
-              <div className="grid size-10 place-items-center rounded-xl bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30">
+              <div className="grid size-10 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
                 <User className="size-5" />
               </div>
               <div>
-                <CardTitle className="text-base font-bold text-slate-100">
+                <CardTitle className="text-base font-bold text-gray-900">
                   Identity & Contact Information
                 </CardTitle>
-                <CardDescription className="text-xs text-slate-400">
+                <CardDescription className="text-xs text-gray-500">
                   Update your registered name and primary work email address.
                   {user.role_name === "super_admin"
                     ? " As super admin, changes here automatically lock the record."
@@ -156,17 +156,17 @@ export function ProfilePage() {
         </Card>
 
         {/* Password Security Card */}
-        <Card className="border-[#262e3f] bg-[#1a1f2b] shadow-lg">
-          <CardHeader className="border-b border-[#262e3f] pb-3">
+        <Card className="border-gray-200/90 bg-white shadow-xs rounded-2xl">
+          <CardHeader className="border-b border-gray-100 pb-3">
             <div className="flex items-center gap-3">
-              <div className="grid size-10 place-items-center rounded-xl bg-indigo-500/15 text-indigo-400 ring-1 ring-indigo-500/30">
+              <div className="grid size-10 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
                 <KeyRound className="size-5" />
               </div>
               <div>
-                <CardTitle className="text-base font-bold text-slate-100">
+                <CardTitle className="text-base font-bold text-gray-900">
                   Change Account Password
                 </CardTitle>
-                <CardDescription className="text-xs text-slate-400">
+                <CardDescription className="text-xs text-gray-500">
                   Updating your password immediately signs out all active sessions on other devices.
                 </CardDescription>
               </div>
@@ -176,7 +176,7 @@ export function ProfilePage() {
             <form className="relative grid gap-4" onSubmit={(event) => void onSubmit(event)}>
               <FormBusy show={pending} label="Updating password" />
               <div className="grid gap-1.5 text-sm">
-                <Label htmlFor="old_password" className="text-xs font-semibold text-slate-300">Current Password</Label>
+                <Label htmlFor="old_password" className="text-xs font-semibold text-gray-700">Current Password</Label>
                 <Input
                   id="old_password"
                   type="password"
@@ -186,7 +186,7 @@ export function ProfilePage() {
                 />
               </div>
               <div className="grid gap-1.5 text-sm">
-                <Label htmlFor="new_password" className="text-xs font-semibold text-slate-300">New Password (Min 8 Characters)</Label>
+                <Label htmlFor="new_password" className="text-xs font-semibold text-gray-700">New Password (Min 8 Characters)</Label>
                 <Input
                   id="new_password"
                   type="password"
@@ -196,12 +196,12 @@ export function ProfilePage() {
                   required
                 />
               </div>
-              {error ? <p className="text-xs font-semibold text-rose-400">{error}</p> : null}
+              {error ? <p className="text-xs font-semibold text-rose-600">{error}</p> : null}
               <div className="pt-2">
                 <Button
                   type="submit"
                   disabled={pending}
-                  className="rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/40"
+                  className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs transition-all active:scale-[0.98]"
                 >
                   <Lock className="mr-1.5 size-4" />
                   {pending ? "Updating..." : "Update Password"}

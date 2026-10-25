@@ -100,20 +100,20 @@ export function CustomersPage() {
             <DialogTrigger asChild>
               <Button
                 type="button"
-                className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500"
+                className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs transition-all active:scale-[0.98]"
               >
                 <PlusCircle className="mr-1.5 size-4" />
                 Add New Customer
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="sm:max-w-2xl bg-white border-gray-200/90 shadow-xl">
               <FormBusy show={busy} />
               <DialogHeader>
                 <div className="flex items-center gap-2.5">
-                  <div className="grid size-9 place-items-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
                     <UserRound className="size-5" />
                   </div>
-                  <DialogTitle className="text-lg font-bold text-white">Register New Customer Client</DialogTitle>
+                  <DialogTitle className="text-lg font-bold text-gray-900">Register New Customer Client</DialogTitle>
                 </div>
               </DialogHeader>
               <form className="mt-2 grid gap-4 sm:grid-cols-2" onSubmit={(event) => void create(event)}>
@@ -158,7 +158,7 @@ export function CustomersPage() {
                 </Field>
                 <Field label="WhatsApp Notification Route">
                   <select
-                    className="h-9 w-full rounded-xl border border-[#2b3447] bg-[#151924] px-3 text-sm text-slate-200 shadow-2xs focus:border-blue-500/80 focus:outline-none"
+                    className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 shadow-2xs focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
                     value={form.whatsapp_mode}
                     onChange={(event) => setForm({ ...form, whatsapp_mode: event.target.value })}
                   >
@@ -184,11 +184,11 @@ export function CustomersPage() {
                     onChange={(event) => setForm({ ...form, address: event.target.value })}
                   />
                 </Field>
-                <DialogFooter className="mt-3 flex items-center justify-end gap-2 sm:col-span-2 border-t border-[#262e3f] pt-4">
+                <DialogFooter className="mt-3 flex items-center justify-end gap-2 sm:col-span-2 border-t border-gray-100 pt-4">
                   <Button
                     type="button"
                     variant="outline"
-                    className="border-[#2b3447] bg-[#151924] text-slate-300 hover:bg-[#222938]"
+                    className="border-gray-200 text-gray-700 hover:bg-gray-50"
                     onClick={() => setShowCreate(false)}
                   >
                     Cancel
@@ -196,7 +196,7 @@ export function CustomersPage() {
                   <Button
                     type="submit"
                     disabled={busy}
-                    className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/15 hover:from-blue-500 hover:to-indigo-500"
+                    className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs"
                   >
                     Save Customer Account
                   </Button>
@@ -213,41 +213,41 @@ export function CustomersPage() {
       {loading ? (
         <PageLoading label="Loading customers" variant="table" cols={5} count={5} />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] shadow-sm">
-        <div className="border-b border-[#262e3f] bg-[#161a25] px-5 py-3.5">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+        <div className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-xs">
+        <div className="border-b border-gray-100 bg-gray-50/75 px-5 py-3.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-gray-700">
             Client Directory
           </span>
         </div>
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Client Name</TableHead>
-                <TableHead>State / Tax Type</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>GSTIN</TableHead>
-                <TableHead>WhatsApp Alert</TableHead>
+            <TableHeader className="bg-gray-50/50">
+              <TableRow className="border-gray-100">
+                <TableHead className="text-xs font-bold text-gray-700">Client Name</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700">State / Tax Type</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700">Contact</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700">GSTIN</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700">WhatsApp Alert</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-xs text-slate-400">
+                  <TableCell colSpan={5} className="py-8 text-center text-xs text-gray-500">
                     No customers registered yet.
                   </TableCell>
                 </TableRow>
               ) : (
                 rows.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="font-semibold text-slate-200">
+                  <TableRow key={row.id} className="border-gray-100 hover:bg-gray-50/80">
+                    <TableCell className="font-semibold text-gray-900">
                       <div>
                         <p>{row.name}</p>
-                        <p className="text-xs text-slate-400 font-normal">{row.address}</p>
+                        <p className="text-xs text-gray-500 font-normal">{row.address}</p>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="inline-block rounded-md bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-400 border border-blue-500/30">
+                      <span className="inline-block rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 border border-blue-200">
                         {row.state || "Home State (CGST+SGST)"}
                       </span>
                     </TableCell>
@@ -255,14 +255,14 @@ export function CustomersPage() {
                       <div className="flex flex-col gap-1 text-xs">
                         <a
                           href={`tel:${row.phone_number}`}
-                          className="inline-flex items-center gap-1.5 text-blue-400 hover:text-blue-300 transition-colors"
+                          className="inline-flex items-center gap-1.5 text-green-700 font-medium hover:underline"
                         >
                           <Phone className="size-3" />
                           {row.phone_number}
                         </a>
                         <a
                           href={`mailto:${row.email}`}
-                          className="inline-flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-colors"
+                          className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-900"
                         >
                           <Mail className="size-3" />
                           {row.email}
@@ -271,16 +271,16 @@ export function CustomersPage() {
                     </TableCell>
                     <TableCell>
                       {row.gst_number ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-mono font-bold text-emerald-400">
-                          <span className="size-1.5 rounded-full bg-emerald-400 shadow-xs shadow-emerald-400" />
+                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-mono font-bold text-green-700">
+                          <span className="size-1.5 rounded-full bg-green-600 shadow-xs" />
                           {row.gst_number}
                         </span>
                       ) : (
-                        <span className="text-xs text-slate-500">Unregistered / Retail</span>
+                        <span className="text-xs text-gray-400">Unregistered / Retail</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-xs font-medium text-emerald-400 capitalize">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-xs font-medium text-emerald-700 capitalize">
                         <MessageSquare className="size-3" />
                         {row.whatsapp_mode}
                       </span>
