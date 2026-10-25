@@ -72,18 +72,18 @@ export function SettingsPage() {
       {saved ? <Notice variant="success">Company settings saved successfully.</Notice> : null}
 
       {form ? (
-        <Card className="relative max-w-2xl border-[#262e3f] bg-[#1a1f2b] shadow-lg">
+        <Card className="relative max-w-2xl border-gray-200/90 bg-white shadow-xs rounded-2xl">
           <FormBusy show={busy} />
-          <CardHeader className="border-b border-[#262e3f] pb-3">
+          <CardHeader className="border-b border-gray-100 pb-3">
             <div className="flex items-center gap-3">
-              <div className="grid size-10 place-items-center rounded-xl bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30">
+              <div className="grid size-10 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
                 <Building2 className="size-5" />
               </div>
               <div>
-                <CardTitle className="text-base font-bold text-slate-100">
+                <CardTitle className="text-base font-bold text-gray-900">
                   Manufacturing Entity Details
                 </CardTitle>
-                <p className="text-xs text-slate-400">Configure global tax and legal identity</p>
+                <p className="text-xs text-gray-500">Configure global tax and legal identity</p>
               </div>
             </div>
           </CardHeader>
@@ -132,9 +132,9 @@ export function SettingsPage() {
                 />
               </Field>
 
-              <div className="rounded-xl border border-[#262e3f] bg-[#161a25] p-4">
-                <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400">
-                  <Truck className="size-4 text-blue-400" />
+              <div className="rounded-xl border border-gray-200/90 bg-gray-50/70 p-4">
+                <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-green-700">
+                  <Truck className="size-4 text-green-600" />
                   <span>Logistics & Freight Defaults</span>
                 </div>
                 <Field label="Flat Dispatch Delivery Charge (₹, Tax-Exempt)">
@@ -145,11 +145,11 @@ export function SettingsPage() {
                 </Field>
               </div>
 
-              <div className="flex justify-end border-t border-[#262e3f] pt-3">
+              <div className="flex justify-end border-t border-gray-100 pt-3">
                 <Button
                   type="submit"
                   disabled={busy}
-                  className="rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/40"
+                  className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs transition-all active:scale-[0.98]"
                 >
                   <Save className="mr-1.5 size-4" />
                   Save Company Configuration

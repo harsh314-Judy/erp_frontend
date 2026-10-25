@@ -80,7 +80,7 @@ const STATUSES = [
 ]
 
 const selectClass =
-  "h-10 w-full rounded-xl border border-[#2b3447] bg-[#151924] px-3 text-sm text-slate-200 focus:border-blue-500/80 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+  "h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
 
 const emptySupplier = {
   supplier_company_name: "",
@@ -502,7 +502,7 @@ export function PurchasesPage() {
           can("manage_purchasing") ? (
             <Button
               type="button"
-              className="rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:shadow-indigo-500/40"
+              className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
               onClick={openCreate}
             >
               <PlusCircle className="mr-1.5 size-4" />
@@ -519,61 +519,61 @@ export function PurchasesPage() {
         <StatGridSkeleton count={5} />
       ) : (
         <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="rounded-2xl border border-[#262e3f] bg-[#1a1f2b] p-4 shadow-sm">
+          <div className="rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400">Total Purchase Orders</span>
-              <div className="grid size-8.5 place-items-center rounded-xl bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/25">
+              <span className="text-xs font-semibold text-gray-500">Total Purchase Orders</span>
+              <div className="grid size-8.5 place-items-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-500/20">
                 <ShoppingCart className="size-4" />
               </div>
             </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-slate-100">{counts.total}</p>
-            <p className="mt-1 text-xs text-slate-400">Across all vendor accounts</p>
+            <p className="mt-2 text-2xl font-bold tracking-tight text-gray-900">{counts.total}</p>
+            <p className="mt-1 text-xs text-gray-400">Across all vendor accounts</p>
           </div>
 
-          <div className="rounded-2xl border border-[#262e3f] bg-[#1a1f2b] p-4 shadow-sm">
+          <div className="rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400">Awaiting / In Process</span>
-              <div className="grid size-8.5 place-items-center rounded-xl bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/25">
+              <span className="text-xs font-semibold text-gray-500">Awaiting / In Process</span>
+              <div className="grid size-8.5 place-items-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-500/20">
                 <Package className="size-4" />
               </div>
             </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-amber-300">
+            <p className="mt-2 text-2xl font-bold tracking-tight text-amber-600">
               {counts.initiated + counts.process}
             </p>
-            <p className="mt-1 text-xs text-slate-400">{counts.initiated} initiated, {counts.process} processing</p>
+            <p className="mt-1 text-xs text-gray-400">{counts.initiated} initiated, {counts.process} processing</p>
           </div>
 
-          <div className="rounded-2xl border border-[#262e3f] bg-[#1a1f2b] p-4 shadow-sm">
+          <div className="rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400">In Delivery / En Route</span>
-              <div className="grid size-8.5 place-items-center rounded-xl bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/25">
+              <span className="text-xs font-semibold text-gray-500">In Delivery / En Route</span>
+              <div className="grid size-8.5 place-items-center rounded-xl bg-sky-50 text-sky-600 ring-1 ring-sky-500/20">
                 <Truck className="size-4" />
               </div>
             </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-cyan-300">{counts.inDelivery}</p>
-            <p className="mt-1 text-xs text-slate-400">Vehicles scheduled for gate arrival</p>
+            <p className="mt-2 text-2xl font-bold tracking-tight text-sky-600">{counts.inDelivery}</p>
+            <p className="mt-1 text-xs text-gray-400">Vehicles scheduled for gate arrival</p>
           </div>
 
-          <div className="rounded-2xl border border-[#262e3f] bg-[#1a1f2b] p-4 shadow-sm">
+          <div className="rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400">Delivered & Stocked</span>
-              <div className="grid size-8.5 place-items-center rounded-xl bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/25">
+              <span className="text-xs font-semibold text-gray-500">Delivered & Stocked</span>
+              <div className="grid size-8.5 place-items-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/20">
                 <CheckCircle2 className="size-4" />
               </div>
             </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-emerald-400">{counts.delivered}</p>
-            <p className="mt-1 text-xs text-slate-400">Goods verified & inventory credited</p>
+            <p className="mt-2 text-2xl font-bold tracking-tight text-emerald-600">{counts.delivered}</p>
+            <p className="mt-1 text-xs text-gray-400">Goods verified & inventory credited</p>
           </div>
 
-          <div className="rounded-2xl border border-[#262e3f] bg-[#1a1f2b] p-4 shadow-sm">
+          <div className="rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400">Cancelled Orders</span>
-              <div className="grid size-8.5 place-items-center rounded-xl bg-rose-500/15 text-rose-400 ring-1 ring-rose-500/25">
+              <span className="text-xs font-semibold text-gray-500">Cancelled Orders</span>
+              <div className="grid size-8.5 place-items-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-500/20">
                 <XCircle className="size-4" />
               </div>
             </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-rose-400">{counts.cancelled}</p>
-            <p className="mt-1 text-xs text-slate-400">Voided / non-credited orders</p>
+            <p className="mt-2 text-2xl font-bold tracking-tight text-rose-600">{counts.cancelled}</p>
+            <p className="mt-1 text-xs text-gray-400">Voided / non-credited orders</p>
           </div>
         </div>
       )}
@@ -581,14 +581,14 @@ export function PurchasesPage() {
       {/* Filter Tabs and Search Bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {/* Status Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-[#262e3f] bg-[#161a25] p-1.5 text-xs font-medium">
+        <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-gray-200/90 bg-white p-1.5 text-xs font-medium shadow-xs">
           <button
             type="button"
             className={cn(
               "rounded-xl px-3 py-1.5 transition-all font-semibold",
               statusFilter === "all"
-                ? "bg-blue-600 text-white shadow-xs"
-                : "text-slate-400 hover:text-slate-200",
+                ? "bg-green-600 text-white shadow-xs"
+                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
             )}
             onClick={() => setStatusFilter("all")}
           >
@@ -599,8 +599,8 @@ export function PurchasesPage() {
             className={cn(
               "rounded-xl px-3 py-1.5 transition-all font-semibold",
               statusFilter === "initiated"
-                ? "bg-amber-600/90 text-white shadow-xs"
-                : "text-slate-400 hover:text-slate-200",
+                ? "bg-amber-600 text-white shadow-xs"
+                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
             )}
             onClick={() => setStatusFilter("initiated")}
           >
@@ -611,8 +611,8 @@ export function PurchasesPage() {
             className={cn(
               "rounded-xl px-3 py-1.5 transition-all font-semibold",
               statusFilter === "process"
-                ? "bg-indigo-600 text-white shadow-xs"
-                : "text-slate-400 hover:text-slate-200",
+                ? "bg-blue-600 text-white shadow-xs"
+                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
             )}
             onClick={() => setStatusFilter("process")}
           >
@@ -623,8 +623,8 @@ export function PurchasesPage() {
             className={cn(
               "rounded-xl px-3 py-1.5 transition-all font-semibold",
               statusFilter === "in_delivery"
-                ? "bg-cyan-600 text-white shadow-xs"
-                : "text-slate-400 hover:text-slate-200",
+                ? "bg-sky-600 text-white shadow-xs"
+                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
             )}
             onClick={() => setStatusFilter("in_delivery")}
           >
@@ -636,7 +636,7 @@ export function PurchasesPage() {
               "rounded-xl px-3 py-1.5 transition-all font-semibold",
               statusFilter === "delivered"
                 ? "bg-emerald-600 text-white shadow-xs"
-                : "text-slate-400 hover:text-slate-200",
+                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
             )}
             onClick={() => setStatusFilter("delivered")}
           >
@@ -648,7 +648,7 @@ export function PurchasesPage() {
               "rounded-xl px-3 py-1.5 transition-all font-semibold",
               statusFilter === "cancelled"
                 ? "bg-rose-600 text-white shadow-xs"
-                : "text-slate-400 hover:text-slate-200",
+                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
             )}
             onClick={() => setStatusFilter("cancelled")}
           >
@@ -658,17 +658,17 @@ export function PurchasesPage() {
 
         {/* Search */}
         <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
+          <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search supplier, item, vehicle..."
-            className="pl-9 text-xs"
+            className="pl-9 text-xs rounded-xl border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-green-600 focus:ring-2 focus:ring-green-500/20"
           />
           {searchQuery ? (
             <button
               type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               onClick={() => setSearchQuery("")}
             >
               <X className="size-3.5" />
@@ -681,16 +681,16 @@ export function PurchasesPage() {
       {loading ? (
         <CardListSkeleton count={4} />
       ) : filteredOrders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#2b3447] bg-[#1a1f2b]/60 p-12 text-center">
-          <div className="grid size-12 place-items-center rounded-2xl bg-slate-800/60 text-slate-400">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 p-12 text-center">
+          <div className="grid size-12 place-items-center rounded-2xl bg-gray-100 text-gray-400">
             <Truck className="size-6" />
           </div>
-          <p className="mt-3 text-sm font-semibold text-slate-200">
+          <p className="mt-3 text-sm font-semibold text-gray-900">
             {searchQuery || statusFilter !== "all"
               ? "No purchase orders match your filter"
               : "No purchase orders recorded yet"}
           </p>
-          <p className="mt-1 text-xs text-slate-400 max-w-sm">
+          <p className="mt-1 text-xs text-gray-500 max-w-sm">
             {searchQuery || statusFilter !== "all"
               ? "Try clearing your search query or selecting a different status filter tab."
               : "Click 'Create Purchase Order' above to place your first supplier order."}
@@ -700,7 +700,7 @@ export function PurchasesPage() {
               type="button"
               variant="outline"
               size="sm"
-              className="mt-4 rounded-xl"
+              className="mt-4 rounded-xl border-gray-200 text-gray-700 hover:bg-gray-100"
               onClick={() => {
                 setSearchQuery("")
                 setStatusFilter("all")
@@ -724,31 +724,31 @@ export function PurchasesPage() {
               <article
                 key={order.id}
                 className={cn(
-                  "overflow-hidden rounded-2xl border bg-[#1a1f2b] shadow-sm transition-all",
+                  "overflow-hidden rounded-2xl border bg-white shadow-xs transition-all",
                   order.status === "cancelled"
-                    ? "border-rose-900/40 bg-[#16141a]/90"
-                    : "border-[#262e3f] hover:border-[#323d54]",
+                    ? "border-red-200 bg-red-50/20"
+                    : "border-gray-200/90 hover:border-gray-300",
                 )}
               >
                 {/* Order Card Header */}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#262e3f] bg-[#161a25]/60 px-5 py-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/60 px-5 py-3.5">
                   <div className="flex items-center gap-3">
-                    <div className="grid size-9 place-items-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-600">
                       <Building2 className="size-4.5" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-bold text-slate-100">
+                        <h3 className="text-sm font-bold text-gray-900">
                           {staff ? "Incoming Material Shipment" : (order.supplier_name || "General Supplier")}
                         </h3>
-                        <span className="font-mono text-[11px] font-medium text-slate-400">
+                        <span className="font-mono text-[11px] font-medium text-gray-500">
                           #{order.id.slice(0, 8).toUpperCase()}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-gray-500">
                         {order.lines.length} {order.lines.length === 1 ? "line item" : "line items"}
                         {prices && orderTotal > 0 ? (
-                          <span className="text-emerald-400 font-semibold">
+                          <span className="text-green-600 font-semibold">
                             {" "}· Total: ₹{orderTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                           </span>
                         ) : null}
@@ -766,7 +766,7 @@ export function PurchasesPage() {
                           type="button"
                           size="sm"
                           variant="outline"
-                          className="rounded-xl h-8 border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 text-xs font-semibold"
+                          className="rounded-xl h-8 border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 text-xs font-semibold"
                           onClick={() => void quickAdvanceStatus(order, "in_delivery")}
                           disabled={busy}
                         >
@@ -777,7 +777,7 @@ export function PurchasesPage() {
                         <Button
                           type="button"
                           size="sm"
-                          className="rounded-xl h-8 bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-xs text-xs"
+                          className="rounded-xl h-8 bg-green-600 font-semibold text-white shadow-xs text-xs hover:bg-green-700"
                           onClick={() => void quickAdvanceStatus(order, "delivered")}
                           disabled={busy}
                         >
@@ -792,9 +792,9 @@ export function PurchasesPage() {
                 {/* Order Body */}
                 <div className="p-5 space-y-4">
                   {/* Line items table */}
-                  <div className="overflow-x-auto rounded-xl border border-[#262e3f] bg-[#161a25]">
+                  <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
                     <table className="w-full text-left text-xs">
-                      <thead className="border-b border-[#262e3f] bg-[#131620] text-slate-400 uppercase tracking-wider text-[10px] font-semibold">
+                      <thead className="border-b border-gray-100 bg-gray-50/50 text-gray-500 uppercase tracking-wider text-[10px] font-semibold">
                         <tr>
                           <th className="px-4 py-2.5">Item Ordered</th>
                           <th className="px-4 py-2.5 text-center">Type</th>
@@ -803,7 +803,7 @@ export function PurchasesPage() {
                           {prices ? <th className="px-4 py-2.5 text-right">Subtotal</th> : null}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#262e3f]/60 text-slate-200">
+                      <tbody className="divide-y divide-gray-100 text-gray-700">
                         {order.lines.map((line, idx) => {
                           const qty = Number(line.quantity) || 0
                           const price = Number(line.unit_price) || 0
@@ -811,8 +811,8 @@ export function PurchasesPage() {
                           const isProduct = Boolean(line.product_id)
 
                           return (
-                            <tr key={line.id ?? idx} className="hover:bg-[#1a1f2b]/40">
-                              <td className="px-4 py-2.5 font-semibold text-slate-100">
+                            <tr key={line.id ?? idx} className="hover:bg-gray-50/60 transition-colors">
+                              <td className="px-4 py-2.5 font-semibold text-gray-900">
                                 {line.item_name || "Material item"}
                               </td>
                               <td className="px-4 py-2.5 text-center">
@@ -820,14 +820,14 @@ export function PurchasesPage() {
                                   className={cn(
                                     "inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase",
                                     isProduct
-                                      ? "bg-purple-500/10 text-purple-300 border border-purple-500/25"
-                                      : "bg-blue-500/10 text-blue-300 border border-blue-500/25",
+                                      ? "bg-purple-50 text-purple-700 border border-purple-200"
+                                      : "bg-blue-50 text-blue-700 border border-blue-200",
                                   )}
                                 >
                                   {isProduct ? "Product" : "Raw Material"}
                                 </span>
                               </td>
-                              <td className="px-4 py-2.5 text-right font-bold text-slate-100">
+                              <td className="px-4 py-2.5 text-right font-bold text-gray-900">
                                 {line.quantity}
                               </td>
                               {prices ? (
@@ -869,19 +869,19 @@ export function PurchasesPage() {
                       ) : can("manage_purchasing") && !locked ? (
                         <button
                           type="button"
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-[#2b3447] bg-[#161a25] px-3 py-1 text-xs text-slate-400 hover:border-cyan-500/50 hover:text-cyan-300 transition-colors"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-3 py-1 text-xs text-gray-600 hover:border-green-500 hover:text-green-700 transition-colors"
                           onClick={() => openQuickUpdate(order)}
                         >
                           <Truck className="size-3.5" />
                           <span>+ Set Vehicle Plate</span>
                         </button>
                       ) : (
-                        <span className="text-xs text-slate-500">Vehicle not assigned</span>
+                        <span className="text-xs text-gray-400">Vehicle not assigned</span>
                       )}
 
                       {/* Stock Received pill */}
                       {order.stock_received ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 font-semibold text-emerald-300">
+                        <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1 font-semibold text-emerald-700">
                           <CheckCircle2 className="size-3.5" />
                           <span>Inventory Stock Credited</span>
                         </span>
@@ -895,10 +895,10 @@ export function PurchasesPage() {
                         <Button
                           type="button"
                           size="sm"
-                          className="rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 font-semibold text-xs h-8"
+                          className="rounded-xl border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 font-semibold text-xs h-8"
                           onClick={() => openQuickUpdate(order)}
                         >
-                          <Zap className="mr-1 size-3.5 text-amber-400" />
+                          <Zap className="mr-1 size-3.5 text-amber-500" />
                           Quick Update
                         </Button>
 
@@ -907,7 +907,7 @@ export function PurchasesPage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="rounded-xl border-[#2b3447] bg-[#161a25] text-xs h-8 text-slate-300 hover:bg-[#202737] hover:text-white"
+                          className="rounded-xl border-gray-200 bg-white text-xs h-8 text-gray-700 hover:bg-gray-50"
                           onClick={() => openEdit(order)}
                         >
                           <Pencil className="mr-1 size-3.5" />
@@ -919,7 +919,7 @@ export function PurchasesPage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="rounded-xl border-rose-500/30 bg-rose-500/5 text-rose-300 hover:bg-rose-500/15 hover:text-rose-200 text-xs h-8"
+                          className="rounded-xl border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs h-8"
                           disabled={busy}
                           onClick={() => void cancelOrder(order)}
                         >
@@ -932,19 +932,18 @@ export function PurchasesPage() {
 
                   {/* Cancelled Notice Banner */}
                   {order.status === "cancelled" ? (
-                    <div className="flex items-center gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-300">
-                      <XCircle className="size-4 shrink-0 text-rose-400" />
+                    <div className="flex items-center gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-800">
+                      <XCircle className="size-4 shrink-0 text-rose-500" />
                       <div>
-                        <p className="font-semibold text-rose-200">Purchase Order Cancelled</p>
-                        <p className="text-[11px] text-rose-300/80">This procurement request was voided. No stock will be delivered or credited to inventory.</p>
+                        <p className="font-semibold text-rose-900">Purchase Order Cancelled</p>
+                        <p className="text-[11px] text-rose-700">This procurement request was voided. No stock will be delivered or credited to inventory.</p>
                       </div>
                     </div>
                   ) : null}
 
-                  {/* Notes if present */}
                   {order.notes ? (
-                    <div className="rounded-xl border border-[#262e3f]/60 bg-[#151924] px-3.5 py-2 text-xs text-slate-300 flex items-start gap-2">
-                      <FileText className="size-3.5 text-slate-500 shrink-0 mt-0.5" />
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2 text-xs text-gray-700 flex items-start gap-2">
+                      <FileText className="size-3.5 text-gray-400 shrink-0 mt-0.5" />
                       <span>{order.notes}</span>
                     </div>
                   ) : null}
@@ -957,15 +956,15 @@ export function PurchasesPage() {
 
       {/* QUICK UPDATE MODAL (Status & Delivery Vehicle Plate) */}
       <Dialog open={quickOrder !== null} onOpenChange={(open) => !open && setQuickOrder(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md border-gray-200 bg-white">
           <DialogHeader>
             <div className="flex items-center gap-2.5">
-              <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-amber-500/20 to-blue-500/20 text-amber-400 border border-amber-500/30">
+              <div className="grid size-9 place-items-center rounded-xl bg-amber-50 text-amber-600 border border-amber-200">
                 <Zap className="size-4.5" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-bold text-slate-100">Quick Update PO</DialogTitle>
-                <DialogDescription className="text-xs text-slate-400">
+                <DialogTitle className="text-lg font-bold text-gray-900">Quick Update PO</DialogTitle>
+                <DialogDescription className="text-xs text-gray-500">
                   Update order status and truck delivery vehicle number plate.
                 </DialogDescription>
               </div>
@@ -974,11 +973,11 @@ export function PurchasesPage() {
 
           {quickOrder ? (
             <form onSubmit={handleQuickSave} className="space-y-4 mt-2">
-              <div className="rounded-xl border border-[#262e3f] bg-[#161a25] p-3 text-xs space-y-1">
-                <p className="font-semibold text-slate-100">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs space-y-1">
+                <p className="font-semibold text-gray-900">
                   {quickOrder.supplier_name || "Supplier PO"} · {quickOrder.lines.map((l) => l.item_name).filter(Boolean).join(", ")}
                 </p>
-                <p className="text-slate-400 font-mono text-[11px]">PO #{quickOrder.id.slice(0, 8).toUpperCase()}</p>
+                <p className="text-gray-400 font-mono text-[11px]">PO #{quickOrder.id.slice(0, 8).toUpperCase()}</p>
               </div>
 
               <Field label="Status Stage" hint="Selecting 'Delivered' automatically credits warehouse stock">
@@ -997,9 +996,9 @@ export function PurchasesPage() {
 
               <Field label="Delivery Vehicle Plate Number" hint="e.g. MH-12-AB-1234">
                 <div className="relative">
-                  <Truck className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                  <Truck className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
                   <Input
-                    className="pl-9 font-mono uppercase"
+                    className="pl-9 font-mono uppercase bg-white border-gray-200 text-gray-900"
                     placeholder="e.g. MH-12-AB-1234"
                     value={quickForm.expected_vehicle_plate}
                     onChange={(e) =>
@@ -1012,10 +1011,11 @@ export function PurchasesPage() {
                 </div>
               </Field>
 
-              <DialogFooter className="border-t border-[#262e3f] pt-4">
+              <DialogFooter className="border-t border-gray-100 pt-4">
                 <Button
                   type="button"
                   variant="outline"
+                  className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50"
                   onClick={() => setQuickOrder(null)}
                   disabled={quickSaving}
                 >
@@ -1024,9 +1024,9 @@ export function PurchasesPage() {
                 <Button
                   type="submit"
                   disabled={quickSaving}
-                  className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/20"
+                  className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
                 >
-                  <Sparkles className="mr-1.5 size-4 text-amber-300" />
+                  <Sparkles className="mr-1.5 size-4 text-white" />
                   {quickSaving ? "Saving..." : "Save Quick Update"}
                 </Button>
               </DialogFooter>
@@ -1037,18 +1037,18 @@ export function PurchasesPage() {
 
       {/* FULL CREATE / EDIT PURCHASE ORDER MODAL */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="sm:max-w-3xl border-gray-200 bg-white">
           <FormBusy show={busy} label={editing ? "Updating order" : "Placing orders"} />
           <DialogHeader>
             <div className="flex items-center gap-2.5">
-              <div className="grid size-9 place-items-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-600">
                 <ShoppingCart className="size-4.5" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-bold text-slate-100">
+                <DialogTitle className="text-lg font-bold text-gray-900">
                   {editing ? "Edit Purchase Order" : "Create Purchase Order"}
                 </DialogTitle>
-                <DialogDescription className="text-xs text-slate-400">
+                <DialogDescription className="text-xs text-gray-500">
                   {editing
                     ? "Modify ordered items, supplier credentials, or shipment status."
                     : "Add multiple items in one order form. Stock will be held and verified on delivery."}
@@ -1059,7 +1059,7 @@ export function PurchasesPage() {
 
           <form className="mt-2 space-y-5" onSubmit={(event) => void save(event)}>
             {/* Supplier & Header Section */}
-            <section className="grid gap-4 rounded-2xl border border-[#262e3f] bg-[#161a25] p-4.5 sm:grid-cols-2">
+            <section className="grid gap-4 rounded-2xl border border-gray-200/90 bg-gray-50/50 p-4.5 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <SearchSelect
                   label="Supplier Company"
@@ -1077,7 +1077,7 @@ export function PurchasesPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="mt-3 rounded-xl border-[#2b3447] bg-[#151924] text-xs text-slate-300 hover:text-white"
+                  className="mt-3 rounded-xl border-gray-200 bg-white text-xs text-gray-700 hover:bg-gray-50"
                   onClick={() => setPanel(panel === "supplier" ? null : "supplier")}
                 >
                   {panel === "supplier" ? "Hide Supplier Form" : "+ Add a New Supplier"}
@@ -1086,9 +1086,9 @@ export function PurchasesPage() {
 
               {/* Inline mini-create for supplier */}
               {panel === "supplier" ? (
-                <div className="grid gap-3 rounded-2xl border border-[#2b3447] bg-[#131620] p-4 sm:col-span-2 sm:grid-cols-2">
-                  <p className="text-sm font-bold text-slate-200 sm:col-span-2 flex items-center gap-1.5">
-                    <Building2 className="size-4 text-blue-400" />
+                <div className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 sm:col-span-2 sm:grid-cols-2">
+                  <p className="text-sm font-bold text-gray-900 sm:col-span-2 flex items-center gap-1.5">
+                    <Building2 className="size-4 text-green-600" />
                     Create New Supplier
                   </p>
                   <Field label="Company Name">
@@ -1142,7 +1142,7 @@ export function PurchasesPage() {
                     <Button
                       type="button"
                       disabled={busy}
-                      className="rounded-xl bg-blue-600 text-white font-semibold text-xs h-10 w-full"
+                      className="rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold text-xs h-10 w-full"
                       onClick={() => void createSupplier()}
                     >
                       Save & Select Supplier
@@ -1178,7 +1178,7 @@ export function PurchasesPage() {
 
               <Field label="PO Instructions / Notes" className="sm:col-span-2">
                 <textarea
-                  className="min-h-16 w-full rounded-xl border border-[#2b3447] bg-[#151924] px-3 py-2 text-sm text-slate-200 focus:border-blue-500/80 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                  className="min-h-16 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
                   value={header.notes}
                   placeholder="e.g. Immediate delivery required, coil thickness verification at gate"
                   onChange={(event) => setHeader({ ...header, notes: event.target.value })}
@@ -1192,7 +1192,7 @@ export function PurchasesPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="rounded-xl border-[#2b3447] bg-[#161a25] text-xs text-slate-300 hover:text-white"
+                className="rounded-xl border-gray-200 bg-white text-xs text-gray-700 hover:bg-gray-50"
                 onClick={() => setPanel(panel === "material" ? null : "material")}
               >
                 {panel === "material" ? "Close Raw Material Form" : "+ Create New Raw Material"}
@@ -1201,7 +1201,7 @@ export function PurchasesPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="rounded-xl border-[#2b3447] bg-[#161a25] text-xs text-slate-300 hover:text-white"
+                className="rounded-xl border-gray-200 bg-white text-xs text-gray-700 hover:bg-gray-50"
                 onClick={() => setPanel(panel === "product" ? null : "product")}
               >
                 {panel === "product" ? "Close Product Form" : "+ Create New Product"}
@@ -1210,7 +1210,7 @@ export function PurchasesPage() {
 
             {/* Mini-create raw material panel */}
             {panel === "material" ? (
-              <section className="grid gap-3 rounded-2xl border border-blue-500/20 bg-[#161a25] p-4.5 sm:grid-cols-2">
+              <section className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4.5 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <CategoryManager
                     categories={materialCategories}
@@ -1262,7 +1262,7 @@ export function PurchasesPage() {
                   <Button
                     type="button"
                     disabled={busy}
-                    className="rounded-xl bg-blue-600 text-white font-semibold text-xs h-9"
+                    className="rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold text-xs h-9"
                     onClick={() => void createMaterial()}
                   >
                     Save & Add To Line Items
@@ -1273,7 +1273,7 @@ export function PurchasesPage() {
 
             {/* Mini-create product panel */}
             {panel === "product" ? (
-              <section className="grid gap-3 rounded-2xl border border-indigo-500/20 bg-[#161a25] p-4.5 sm:grid-cols-2">
+              <section className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4.5 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <CategoryManager
                     categories={productCategories}
@@ -1332,7 +1332,7 @@ export function PurchasesPage() {
                   <Button
                     type="button"
                     disabled={busy}
-                    className="rounded-xl bg-indigo-600 text-white font-semibold text-xs h-9"
+                    className="rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold text-xs h-9"
                     onClick={() => void createProduct()}
                   >
                     Save & Add To Line Items
@@ -1344,7 +1344,7 @@ export function PurchasesPage() {
             {/* Line Items Container */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-700">
                   Ordered Items ({lines.length})
                 </p>
                 {!editing ? (
@@ -1352,7 +1352,7 @@ export function PurchasesPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="rounded-xl border-[#2b3447] bg-[#161a25] text-xs font-semibold text-blue-400 hover:text-blue-300"
+                    className="rounded-xl border-gray-200 bg-white text-xs font-semibold text-green-700 hover:bg-green-50"
                     onClick={() =>
                       setLines((current) => [...current, blankLine(allowedKind === "product" ? "product" : "material")])
                     }
@@ -1366,16 +1366,16 @@ export function PurchasesPage() {
               {lines.map((line, index) => (
                 <section
                   key={line.key}
-                  className="grid gap-3 rounded-2xl border border-[#262e3f] bg-[#161a25] p-4 sm:grid-cols-2"
+                  className="grid gap-3 rounded-2xl border border-gray-200/90 bg-gray-50/50 p-4 sm:grid-cols-2"
                 >
                   <div className="flex items-center justify-between sm:col-span-2">
-                    <span className="text-xs font-bold text-slate-200">Item #{index + 1}</span>
+                    <span className="text-xs font-bold text-gray-900">Item #{index + 1}</span>
                     {lines.length > 1 ? (
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="size-7 p-0 text-slate-400 hover:text-rose-400"
+                        className="size-7 p-0 text-gray-400 hover:text-red-500"
                         onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}
                       >
                         <X className="size-4" />
@@ -1443,14 +1443,14 @@ export function PurchasesPage() {
               ))}
             </div>
 
-            <DialogFooter className="border-t border-[#262e3f] pt-4">
-              <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>
+            <DialogFooter className="border-t border-gray-100 pt-4">
+              <Button type="button" variant="outline" className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50" onClick={() => setShowCreate(false)}>
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={busy}
-                className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/20"
+                className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
               >
                 {editing ? "Save Purchase Order" : lines.length > 1 ? `Place ${lines.length} Purchase Orders` : "Place Purchase Order"}
               </Button>

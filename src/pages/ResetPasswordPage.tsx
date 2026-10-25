@@ -46,7 +46,7 @@ export function ResetPasswordPage() {
       title="Choose a new password"
       description="This replaces the password on your account."
       footer={
-        <Link className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline-offset-4 hover:underline" to="/login">
+        <Link className="text-xs font-semibold text-green-700 hover:text-green-800 underline-offset-4 hover:underline" to="/login">
           Back to sign in
         </Link>
       }
@@ -54,7 +54,7 @@ export function ResetPasswordPage() {
       <form className="relative grid gap-4" onSubmit={(event) => void onSubmit(event)}>
         <FormBusy show={pending} label="Saving" />
         <div className="grid gap-1.5">
-          <Label htmlFor="password" className="text-xs font-semibold text-slate-300">New Password (Min 8 Characters)</Label>
+          <Label htmlFor="password" className="text-xs font-semibold text-gray-700">New Password (Min 8 Characters)</Label>
           <Input
             id="password"
             type="password"
@@ -62,13 +62,14 @@ export function ResetPasswordPage() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
+            className="border-gray-200 bg-white"
           />
         </div>
-        {error ? <p className="rounded-xl border border-rose-500/30 bg-rose-500/15 p-2.5 text-xs font-semibold text-rose-300">{error}</p> : null}
+        {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs font-semibold text-rose-700">{error}</p> : null}
         <Button
           type="submit"
           disabled={pending || !token}
-          className="h-10 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 hover:from-blue-500 hover:to-indigo-500 transition-all"
+          className="h-10 rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs transition-all active:scale-[0.98]"
         >
           {pending ? "Saving..." : "Update password"}
         </Button>

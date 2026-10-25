@@ -47,27 +47,29 @@ export function IdentityForm({
     <form className="grid gap-3" onSubmit={(event) => void submit(event)}>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="grid gap-2">
-          <Label htmlFor="identity_first_name" className="text-xs font-semibold text-slate-300">First Name</Label>
+          <Label htmlFor="identity_first_name" className="text-xs font-semibold text-gray-700">First Name</Label>
           <Input
             id="identity_first_name"
             value={firstName}
             onChange={(event) => setFirstName(event.target.value)}
             disabled={disabled}
             required
+            className="border-gray-200 bg-white"
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="identity_last_name" className="text-xs font-semibold text-slate-300">Last Name</Label>
+          <Label htmlFor="identity_last_name" className="text-xs font-semibold text-gray-700">Last Name</Label>
           <Input
             id="identity_last_name"
             value={lastName}
             onChange={(event) => setLastName(event.target.value)}
             disabled={disabled}
+            className="border-gray-200 bg-white"
           />
         </div>
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="identity_email" className="text-xs font-semibold text-slate-300">Email Address</Label>
+        <Label htmlFor="identity_email" className="text-xs font-semibold text-gray-700">Email Address</Label>
         <Input
           id="identity_email"
           type="email"
@@ -75,13 +77,14 @@ export function IdentityForm({
           onChange={(event) => setEmail(event.target.value)}
           disabled={disabled}
           required
+          className="border-gray-200 bg-white"
         />
       </div>
       {showOverride ? (
-        <label className="flex items-start gap-2 text-xs text-slate-300 cursor-pointer">
+        <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
           <input
             type="checkbox"
-            className="mt-0.5 rounded-sm accent-indigo-600"
+            className="mt-0.5 rounded border-gray-300 text-green-600 focus:ring-green-500"
             checked={override}
             onChange={(event) => setOverride(event.target.checked)}
           />
@@ -89,15 +92,15 @@ export function IdentityForm({
         </label>
       ) : null}
       {disabled ? (
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-gray-500">
           A super admin set this name and email. Only a super admin can change them.
         </p>
       ) : null}
-      {error ? <p className="text-xs font-semibold text-rose-400">{error}</p> : null}
+      {error ? <p className="text-xs font-semibold text-rose-600">{error}</p> : null}
       <Button
         type="submit"
         disabled={disabled || pending}
-        className="justify-self-start rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] hover:shadow-indigo-500/40"
+        className="justify-self-start rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs transition-all active:scale-[0.98]"
       >
         {pending ? "Saving..." : "Save Profile"}
       </Button>

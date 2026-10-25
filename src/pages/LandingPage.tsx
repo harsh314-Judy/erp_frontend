@@ -1,196 +1,148 @@
-import { Navigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import {
-  ArrowRight,
-  Boxes,
-  CheckCircle2,
-  Factory,
-  FileCheck,
-  Shield,
-  Truck,
+  Package, ShoppingCart, Factory, LayoutDashboard,
+  ArrowRight, CheckCircle2, Boxes, FileText
 } from "lucide-react"
 
-import { useAuth } from "@/auth/AuthContext"
-import { PlantLoader } from "@/components/PlantLoader"
-import { Button } from "@/components/ui/button"
+const features = [
+  { icon: LayoutDashboard, title: "Smart Dashboard",   desc: "Live KPIs, production metrics, and sales at a glance.", color: "text-green-600 bg-green-50" },
+  { icon: Factory,         title: "Production",        desc: "Track job cards, material usage, and work orders.",      color: "text-blue-600 bg-blue-50"  },
+  { icon: Package,         title: "Inventory",         desc: "Manage finished goods and raw materials in real time.",  color: "text-purple-600 bg-purple-50" },
+  { icon: ShoppingCart,    title: "Purchases",         desc: "Streamlined PO creation, approval, and tracking.",      color: "text-amber-600 bg-amber-50" },
+  { icon: FileText,        title: "Sales & Invoicing", desc: "Raise invoices, track payments, and manage customers.", color: "text-pink-600 bg-pink-50"   },
+  { icon: Boxes,           title: "Materials",         desc: "Raw material planning with supplier integration.",       color: "text-teal-600 bg-teal-50"  },
+]
+
+const perks = [
+  "Role-based access control",
+  "Mobile-first, works anywhere",
+  "Live notifications",
+  "Multi-currency support",
+  "Reports & analytics",
+  "Audit trail",
+]
 
 export function LandingPage() {
-  const { user, ready } = useAuth()
-  if (!ready) return <PlantLoader />
-  if (user) return <Navigate to="/dashboard" replace />
-
   return (
-    <main className="relative min-h-svh overflow-hidden bg-gradient-to-b from-[#060e1d] via-[#0a1832] to-[#040a14] text-white">
-      {/* Background Decorative Glows */}
-      <div className="pointer-events-none absolute -top-40 left-1/2 size-96 -translate-x-1/2 rounded-full bg-blue-600/15 blur-3xl" />
-      <div className="pointer-events-none absolute top-1/3 -right-20 size-80 rounded-full bg-amber-500/10 blur-3xl" />
-
-      {/* Header */}
-      <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between border-b border-white/10 px-6 py-5">
-        <div className="flex items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-xl bg-gradient-to-tr from-amber-500 via-amber-400 to-amber-200 text-lg font-black text-slate-950 shadow-lg shadow-amber-500/25 ring-1 ring-white/20">
-            S
+    <div className="min-h-svh bg-[#f4f5f7] flex flex-col">
+      {/* ── Navbar ─────────────────────────────────────────── */}
+      <header className="sticky top-0 z-30 border-b border-black bg-white/95 backdrop-blur-md shadow-2xs">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-5">
+          <div className="flex items-center gap-2.5">
+            <div className="grid size-8 place-items-center rounded-none bg-green-600 text-white font-bold text-sm border border-black shadow-xs">S</div>
+            <span className="font-bold text-gray-900 text-sm">Sai Daya Steel</span>
+          </div>
+          <span className="hidden sm:inline text-[10px] font-mono uppercase tracking-widest text-gray-800 border border-black px-2 py-0.5 rounded-none bg-white">
+            ERP System
           </span>
-          <div>
-            <p className="font-bold tracking-tight text-white">Sai Daya Steel</p>
-            <div className="flex items-center gap-1.5">
-              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <p className="text-[11px] font-medium tracking-wide text-slate-400">PLANT ERP SYSTEM</p>
-            </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <Link
+              to="/login"
+              className="rounded-none border border-black bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors shadow-xs"
+            >
+              Sign in
+            </Link>
+            <Link
+              to="/login"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-none bg-green-600 border border-black px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition-colors shadow-xs"
+            >
+              Get started <ArrowRight className="size-3.5" />
+            </Link>
           </div>
         </div>
-        <Button asChild className="rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 font-semibold text-slate-950 shadow-md shadow-amber-500/20 hover:from-amber-400 hover:to-amber-500">
-          <a href="/login" className="flex items-center gap-2">
-            <span>Sign In</span>
-            <ArrowRight className="size-4" />
-          </a>
-        </Button>
       </header>
 
-      {/* Hero Section */}
-      <section className="relative z-10 mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 md:py-24 lg:grid-cols-12">
-        <div className="landing-rise lg:col-span-7">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-amber-300 backdrop-blur-md">
-            <Shield className="size-3.5" />
-            <span>Industrial Steel Manufacturing & Distribution</span>
-          </div>
+      {/* ── Hero ─────────────────────────────────────────────── */}
+      <section className="flex flex-col items-center justify-center gap-6 px-5 pb-16 pt-20 text-center">
+        {/* Badge */}
+        <div className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-1.5 text-xs font-semibold text-green-700 animate-rise">
+          <span className="size-1.5 rounded-full bg-green-500" />
+          Built for steel manufacturing
+        </div>
 
-          <h1 className="mt-5 text-4xl font-extrabold tracking-tight text-white md:text-5xl lg:text-6xl">
-            Steel processing, from sheet to dispatch.
+        <div className="max-w-2xl space-y-4 animate-rise stagger-1">
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight leading-tight">
+            Run your plant with
+            <span className="text-green-600"> clarity</span>
           </h1>
-
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-300 md:text-lg">
-            Complete plant workflow orchestration. Manage real-time stock holds, stage-by-stage operator routing, automated CGST/SGST invoices, and incoming vehicle plate verification.
+          <p className="mx-auto max-w-lg text-base sm:text-lg text-gray-500 leading-relaxed">
+            A modern ERP built specifically for steel manufacturing — track production, inventory, sales, and purchasing in one unified system.
           </p>
-
-          <div className="mt-8 flex flex-wrap items-center gap-4">
-            <Button asChild size="lg" className="h-12 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-6 font-bold text-slate-950 shadow-lg shadow-amber-500/25 transition-all hover:from-amber-400 hover:to-amber-500 hover:shadow-xl">
-              <a href="/login" className="flex items-center gap-2">
-                <span>Access Plant Portal</span>
-                <ArrowRight className="size-4" />
-              </a>
-            </Button>
-            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-slate-300 backdrop-blur-md">
-              <span className="size-2 rounded-full bg-emerald-400" />
-              <span>Plant operations online 24/7</span>
-            </div>
-          </div>
         </div>
 
-        {/* Live Plant Preview Card */}
-        <div className="lg:col-span-5">
-          <div className="relative rounded-3xl border border-white/15 bg-gradient-to-b from-white/10 to-white/5 p-6 shadow-2xl backdrop-blur-xl ring-1 ring-white/10">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <div className="flex items-center gap-2">
-                <Factory className="size-5 text-amber-400" />
-                <span className="text-sm font-bold text-white">Live Floor Status</span>
-              </div>
-              <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300 ring-1 ring-emerald-400/30">
-                Active Batch #804
-              </span>
-            </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 animate-rise stagger-2">
+          <Link
+            to="/login"
+            className="inline-flex items-center gap-2 rounded-none bg-green-600 border border-black px-6 py-3 text-sm font-bold text-white hover:bg-green-700 transition-all duration-150 shadow-xs active:scale-[0.98]"
+          >
+            Open workspace <ArrowRight className="size-4" />
+          </Link>
+          <a
+            href="#features"
+            className="inline-flex items-center gap-2 rounded-none border border-black bg-white px-6 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors shadow-xs"
+          >
+            Learn more
+          </a>
+        </div>
 
-            {/* Stages Pipeline */}
-            <div className="mt-5 space-y-3">
-              <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="size-4 text-emerald-400" />
-                  <span className="text-slate-200">1. Cutting & Slitting</span>
-                </div>
-                <span className="text-emerald-400 font-medium">Done</span>
-              </div>
-
-              <div className="flex items-center justify-between rounded-xl border border-blue-500/30 bg-blue-500/15 px-3 py-2 text-xs ring-1 ring-blue-400/20">
-                <div className="flex items-center gap-2">
-                  <span className="size-2 rounded-full bg-blue-400 animate-pulse" />
-                  <span className="font-semibold text-white">2. Hydraulic Bending</span>
-                </div>
-                <span className="rounded-md bg-blue-500/30 px-1.5 py-0.5 text-[10px] font-bold text-blue-300">
-                  IN PROGRESS
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-3 py-2 text-xs text-slate-400">
-                <div className="flex items-center gap-2">
-                  <span className="size-2 rounded-full bg-slate-600" />
-                  <span>3. Surface Polishing (Wet)</span>
-                </div>
-                <span>Queued</span>
-              </div>
-            </div>
-
-            {/* Production Bars */}
-            <div className="mt-6">
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span>Shift Output (MT)</span>
-                <span className="font-semibold text-amber-400">+18.4% vs Target</span>
-              </div>
-              <div className="mt-3 flex h-36 items-end gap-2 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-                {[35, 60, 48, 85, 62, 92, 78].map((height, index) => (
-                  <div
-                    key={index}
-                    className="landing-bar flex-1 rounded-t-lg bg-gradient-to-t from-amber-600 to-amber-400 shadow-xs shadow-amber-500/30"
-                    style={{ height: `${height}%`, animationDelay: `${index * 80}ms` }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Truck Arrival Pill */}
-            <div className="mt-4 flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-3 text-xs">
-              <div className="flex items-center gap-2.5">
-                <Truck className="size-4 text-cyan-400" />
-                <span className="text-slate-300">Incoming Coil: MH-12-Q-9910</span>
-              </div>
-              <span className="text-[11px] font-semibold text-cyan-300">Verified at Gate</span>
-            </div>
-          </div>
+        {/* Perks row */}
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mt-2 animate-rise stagger-3">
+          {perks.map((p) => (
+            <span key={p} className="flex items-center gap-1.5 text-xs text-gray-600 font-medium">
+              <CheckCircle2 className="size-3.5 shrink-0 text-green-600" />
+              {p}
+            </span>
+          ))}
         </div>
       </section>
 
-      {/* Feature Grid */}
-      <section className="relative z-10 border-t border-white/10 bg-slate-950/40 py-16 backdrop-blur-md">
-        <div className="mx-auto grid max-w-6xl gap-6 px-6 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <div className="grid size-10 place-items-center rounded-xl bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30">
-              <Boxes className="size-5" />
-            </div>
-            <h3 className="mt-4 text-sm font-bold text-white">Stock Holds</h3>
-            <p className="mt-1 text-xs leading-relaxed text-slate-400">
-              Automatic reservation of sheets and raw materials when production jobs or sales orders trigger.
-            </p>
-          </div>
+      {/* ── Features ─────────────────────────────────────────── */}
+      <section id="features" className="mx-auto w-full max-w-6xl px-5 pb-20">
+        <div className="mb-8 text-center animate-rise">
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Everything you need</h2>
+          <p className="mt-2 text-base text-gray-500">Powerful modules working together seamlessly.</p>
+        </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <div className="grid size-10 place-items-center rounded-xl bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/30">
-              <Factory className="size-5" />
-            </div>
-            <h3 className="mt-4 text-sm font-bold text-white">Stage Routing</h3>
-            <p className="mt-1 text-xs leading-relaxed text-slate-400">
-              Step-by-step operator sign-off for cutting, bending, welding, wet/dry polishing, and final inspection.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <div className="grid size-10 place-items-center rounded-xl bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30">
-              <FileCheck className="size-5" />
-            </div>
-            <h3 className="mt-4 text-sm font-bold text-white">GST Invoicing</h3>
-            <p className="mt-1 text-xs leading-relaxed text-slate-400">
-              State-aware CGST, SGST, and IGST calculation with delivery charge segregation and thermal print support.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <div className="grid size-10 place-items-center rounded-xl bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/30">
-              <Truck className="size-5" />
-            </div>
-            <h3 className="mt-4 text-sm font-bold text-white">Gate Verification</h3>
-            <p className="mt-1 text-xs leading-relaxed text-slate-400">
-              Mismatch detection between expected and arrived vehicle plates with receipt attachment proof.
-            </p>
-          </div>
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {features.map((f, i) => {
+            const Icon = f.icon
+            return (
+              <div
+                key={f.title}
+                className={`rounded-none border border-black bg-white p-5 shadow-xs hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 animate-rise stagger-${Math.min(i + 1, 5)}`}
+              >
+                <div className={`mb-3 grid size-10 place-items-center rounded-none border border-black ${f.color}`}>
+                  <Icon className="size-5" />
+                </div>
+                <h3 className="font-semibold text-gray-900">{f.title}</h3>
+                <p className="mt-1 text-sm text-gray-500 leading-relaxed">{f.desc}</p>
+              </div>
+            )
+          })}
         </div>
       </section>
-    </main>
+
+      {/* ── CTA Banner ───────────────────────────────────────── */}
+      <section className="mx-5 mb-12 overflow-hidden rounded-3xl bg-green-600 px-8 py-10 text-center text-white shadow-lg shadow-green-600/25">
+        <h2 className="text-2xl font-bold">Ready to get started?</h2>
+        <p className="mt-2 text-green-100 text-sm">Sign in to access your ERP workspace.</p>
+        <Link
+          to="/login"
+          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-bold text-green-700 hover:bg-green-50 transition-colors shadow-sm"
+        >
+          Sign in to workspace <ArrowRight className="size-4" />
+        </Link>
+      </section>
+
+      {/* ── Footer ───────────────────────────────────────────── */}
+      <footer className="border-t border-gray-100 bg-white py-6 text-center text-xs text-gray-400">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+          <span className="font-semibold text-gray-600">Sai Daya Steel ERP</span>
+          <span className="hidden sm:inline">·</span>
+          <span>© {new Date().getFullYear()} · All rights reserved</span>
+        </div>
+      </footer>
+    </div>
   )
 }

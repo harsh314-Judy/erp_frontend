@@ -73,31 +73,31 @@ export function StaffPage() {
         {jobs.map((job) => (
           <article
             key={job.id}
-            className="flex flex-col justify-between overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] p-5 shadow-lg transition-all hover:border-blue-500/40"
+            className="flex flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-5 shadow-xs transition-all hover:border-gray-300 hover:shadow-sm"
           >
             <div>
-              <div className="flex items-start justify-between gap-2 border-b border-[#262e3f] pb-3">
+              <div className="flex items-start justify-between gap-2 border-b border-gray-100 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="grid size-9 place-items-center rounded-xl bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30">
+                  <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
                     <Factory className="size-4.5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-slate-100">{job.product_name ?? "Custom Workpiece"}</h3>
-                    <p className="text-xs font-semibold text-slate-400">Batch Quantity: <span className="text-slate-200">{job.quantity}</span></p>
+                    <h3 className="text-base font-bold text-gray-900">{job.product_name ?? "Custom Workpiece"}</h3>
+                    <p className="text-xs font-semibold text-gray-500">Batch Quantity: <span className="text-gray-900">{job.quantity}</span></p>
                   </div>
                 </div>
                 <StatusBadge status={job.status} />
               </div>
-              <p className="mt-3 text-xs text-slate-400">
+              <p className="mt-3 text-xs text-gray-500">
                 Proceed with physical cutting, stamping, or polishing. Click below once output is ready for inspection.
               </p>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-[#262e3f]">
+            <div className="mt-4 pt-3 border-t border-gray-100">
               <Button
                 type="button"
                 disabled={busy}
-                className="w-full rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/40"
+                className="w-full rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs transition-all active:scale-[0.98]"
                 onClick={() => void finish(job)}
               >
                 <CheckCircle2 className="mr-1.5 size-4" />

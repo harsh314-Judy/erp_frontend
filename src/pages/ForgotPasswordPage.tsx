@@ -46,7 +46,7 @@ export function ForgotPasswordPage() {
       title="Reset password"
       description="We will email a link if this address has an account."
       footer={
-        <Link className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline-offset-4 hover:underline" to="/login">
+        <Link className="text-xs font-semibold text-green-700 hover:text-green-800 underline-offset-4 hover:underline" to="/login">
           Back to sign in
         </Link>
       }
@@ -54,21 +54,22 @@ export function ForgotPasswordPage() {
       <form className="relative grid gap-4" onSubmit={onSubmit}>
         <FormBusy show={pending} label="Sending" />
         <div className="grid gap-1.5">
-          <Label htmlFor="email" className="text-xs font-semibold text-slate-300">Registered Work Email</Label>
+          <Label htmlFor="email" className="text-xs font-semibold text-gray-700">Registered Work Email</Label>
           <Input
             id="email"
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
+            className="border-gray-200 bg-white"
           />
         </div>
-        {message ? <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/15 p-2.5 text-xs font-semibold text-emerald-300">{message}</p> : null}
-        {error ? <p className="rounded-xl border border-rose-500/30 bg-rose-500/15 p-2.5 text-xs font-semibold text-rose-300">{error}</p> : null}
+        {message ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 text-xs font-semibold text-emerald-800">{message}</p> : null}
+        {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-xs font-semibold text-rose-700">{error}</p> : null}
         <Button
           type="submit"
           disabled={pending}
-          className="h-10 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 font-semibold text-white shadow-lg shadow-indigo-500/25 hover:from-blue-500 hover:to-indigo-500 transition-all"
+          className="h-10 rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs transition-all active:scale-[0.98]"
         >
           {pending ? "Sending..." : "Send reset link"}
         </Button>
@@ -76,7 +77,7 @@ export function ForgotPasswordPage() {
           <Button
             type="button"
             variant="outline"
-            className="rounded-xl border-[#2b3447] bg-[#151924] text-slate-300 hover:bg-[#202737]"
+            className="rounded-xl border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
             disabled={pending}
             onClick={() => void send("/api/auth/resend-reset")}
           >

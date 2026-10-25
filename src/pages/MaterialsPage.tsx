@@ -38,7 +38,7 @@ type Material = {
 }
 
 const selectClass =
-  "h-9 w-full rounded-xl border border-[#2b3447] bg-[#151924] px-3 text-sm text-slate-200 shadow-2xs focus:border-blue-500/80 focus:outline-none"
+  "h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 shadow-xs focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
 
 const emptyForm = {
   name: "",
@@ -179,10 +179,10 @@ export function MaterialsPage() {
   }
 
   const kindColors: Record<string, string> = {
-    sheet: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
-    polish: "bg-blue-500/10 text-blue-400 border-blue-500/30",
-    color: "bg-purple-500/10 text-purple-400 border-purple-500/30",
-    other: "bg-slate-800 text-slate-300 border-slate-700",
+    sheet: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    polish: "bg-blue-50 text-blue-700 border-blue-200",
+    color: "bg-purple-50 text-purple-700 border-purple-200",
+    other: "bg-gray-100 text-gray-700 border-gray-200",
   }
 
   const categoryName = (id: string | null) => categories.find((item) => item.id === id)?.name ?? "—"
@@ -202,20 +202,20 @@ export function MaterialsPage() {
               <DialogTrigger asChild>
                 <Button
                   type="button"
-                  className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/20 hover:from-blue-500 hover:to-indigo-500"
+                  className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
                 >
                   <PlusCircle className="mr-1.5 size-4" />
                   Add Raw Material
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-2xl">
+              <DialogContent className="sm:max-w-2xl border-gray-200 bg-white">
                 <FormBusy show={busy} />
                 <DialogHeader>
                   <div className="flex items-center gap-2.5">
-                    <div className="grid size-9 place-items-center rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-600">
                       <Boxes className="size-5" />
                     </div>
-                    <DialogTitle className="text-lg font-bold text-white">Register Raw Material Item</DialogTitle>
+                    <DialogTitle className="text-lg font-bold text-gray-900">Register Raw Material Item</DialogTitle>
                   </div>
                 </DialogHeader>
                 <MaterialForm
@@ -244,11 +244,11 @@ export function MaterialsPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-64">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
           <Input
             value={query}
             placeholder="Search raw materials, alloy grades, kinds..."
-            className="pl-9 pr-3 rounded-xl bg-[#1a1f2b] border-[#2b3447] text-slate-200 shadow-xs"
+            className="pl-9 pr-3 rounded-xl bg-white border-gray-200 text-gray-900 shadow-xs focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") void load()
@@ -258,7 +258,7 @@ export function MaterialsPage() {
         <Button
           type="button"
           variant="outline"
-          className="rounded-xl border-[#2b3447] bg-[#1a1f2b] text-slate-300 hover:bg-[#222938] hover:border-slate-600 font-semibold"
+          className="rounded-xl border-gray-200 bg-white text-gray-700 hover:bg-gray-50 font-semibold shadow-xs"
           onClick={() => void load().catch((caught) => setError(errorMessage(caught)))}
         >
           Search Materials
@@ -270,47 +270,47 @@ export function MaterialsPage() {
       {loading ? (
         <PageLoading label="Loading raw materials" variant="table" cols={7} count={6} />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-[#262e3f] bg-[#1a1f2b] shadow-sm">
-        <div className="flex items-center justify-between border-b border-[#262e3f] bg-[#161a25] px-5 py-3.5">
+        <div className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-xs">
+        <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/60 px-5 py-3.5">
           <div className="flex items-center gap-2">
-            <Boxes className="size-4 text-blue-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Raw Materials Inventory</span>
+            <Boxes className="size-4 text-green-600" />
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-700">Raw Materials Inventory</span>
           </div>
-          <span className="text-xs font-semibold text-slate-400">{rows.length} stock items</span>
+          <span className="text-xs font-semibold text-gray-500">{rows.length} stock items</span>
         </div>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Material Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Classification</TableHead>
-                <TableHead className="text-right">Physical On Hand</TableHead>
-                <TableHead className="text-right">Free / Available</TableHead>
-                <TableHead className="text-center">Stock Level</TableHead>
-                {prices ? <TableHead className="text-right">Purchase Price</TableHead> : null}
+              <TableRow className="border-b border-gray-100 bg-gray-50/30">
+                <TableHead className="font-semibold text-gray-600">Material Name</TableHead>
+                <TableHead className="font-semibold text-gray-600">Category</TableHead>
+                <TableHead className="font-semibold text-gray-600">Supplier</TableHead>
+                <TableHead className="font-semibold text-gray-600">Classification</TableHead>
+                <TableHead className="text-right font-semibold text-gray-600">Physical On Hand</TableHead>
+                <TableHead className="text-right font-semibold text-gray-600">Free / Available</TableHead>
+                <TableHead className="text-center font-semibold text-gray-600">Stock Level</TableHead>
+                {prices ? <TableHead className="text-right font-semibold text-gray-600">Purchase Price</TableHead> : null}
                 {can("edit_inventory") ? <TableHead /> : null}
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7 + (prices ? 1 : 0) + (can("edit_inventory") ? 1 : 0)} className="py-8 text-center text-xs text-slate-400">
+                  <TableCell colSpan={7 + (prices ? 1 : 0) + (can("edit_inventory") ? 1 : 0)} className="py-8 text-center text-xs text-gray-400">
                     No raw materials match the query.
                   </TableCell>
                 </TableRow>
               ) : (
                 rows.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="font-semibold text-slate-200">
+                  <TableRow key={row.id} className="border-b border-gray-100 hover:bg-gray-50/70 transition-colors">
+                    <TableCell className="font-semibold text-gray-900">
                       <div>
                         <p>{row.name}</p>
-                        {row.description ? <p className="text-xs font-normal text-slate-400">{row.description}</p> : null}
+                        {row.description ? <p className="text-xs font-normal text-gray-500">{row.description}</p> : null}
                       </div>
                     </TableCell>
-                    <TableCell className="text-slate-300">{categoryName(row.category_id)}</TableCell>
-                    <TableCell className="text-slate-300">{supplierName(row.supplier_id)}</TableCell>
+                    <TableCell className="text-gray-600">{categoryName(row.category_id)}</TableCell>
+                    <TableCell className="text-gray-600">{supplierName(row.supplier_id)}</TableCell>
                     <TableCell>
                       <span
                         className={cn(
@@ -321,19 +321,19 @@ export function MaterialsPage() {
                         {row.kind}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right font-medium text-slate-300">{row.quantity}</TableCell>
-                    <TableCell className="text-right font-bold text-emerald-400">{row.available ?? row.quantity}</TableCell>
+                    <TableCell className="text-right font-medium text-gray-700">{row.quantity}</TableCell>
+                    <TableCell className="text-right font-bold text-green-600">{row.available ?? row.quantity}</TableCell>
                     <TableCell className="text-center">
                       <StatusBadge status={row.stock_status ?? "normal"} />
                     </TableCell>
                     {prices ? (
-                      <TableCell className="text-right font-semibold text-slate-200">
+                      <TableCell className="text-right font-semibold text-gray-900">
                         {row.purchase_price ? `₹${row.purchase_price}` : "–"}
                       </TableCell>
                     ) : null}
                     {can("edit_inventory") ? (
                       <TableCell className="text-right">
-                        <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => openEdit(row)}>
+                        <Button type="button" variant="outline" size="sm" className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-100" onClick={() => openEdit(row)}>
                           <Pencil className="mr-1 size-3.5" />
                           Edit
                         </Button>
@@ -349,10 +349,10 @@ export function MaterialsPage() {
       )}
 
       <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl border-gray-200 bg-white">
           <FormBusy show={busy} />
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-white">Edit raw material</DialogTitle>
+            <DialogTitle className="text-lg font-bold text-gray-900">Edit raw material</DialogTitle>
           </DialogHeader>
           <MaterialForm
             form={form}
@@ -489,14 +489,14 @@ function MaterialForm({
           onChange={(event) => setForm({ ...form, description: event.target.value })}
         />
       </Field>
-      <DialogFooter className="mt-3 flex items-center justify-end gap-2 border-t border-[#262e3f] pt-4 sm:col-span-2">
-        <Button type="button" variant="outline" className="border-[#2b3447] bg-[#151924] text-slate-300 hover:bg-[#222938]" onClick={onCancel}>
+      <DialogFooter className="mt-3 flex items-center justify-end gap-2 border-t border-gray-100 pt-4 sm:col-span-2">
+        <Button type="button" variant="outline" className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50" onClick={onCancel}>
           Cancel
         </Button>
         <Button
           type="submit"
           disabled={busy}
-          className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md shadow-blue-500/15 hover:from-blue-500 hover:to-indigo-500"
+          className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
         >
           {submitLabel}
         </Button>
