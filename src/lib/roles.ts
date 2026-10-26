@@ -14,6 +14,40 @@ export const ROLE_NOTES: Record<string, string> = {
   staff: "Edits their own name, surname, and email.",
 }
 
+export const ROLE_THEME: Record<
+  string,
+  { tab: string; idle: string; banner: string; chip: string; title: string }
+> = {
+  super_admin: {
+    tab: "border-black bg-violet-700 text-white",
+    idle: "border-violet-700 bg-white text-violet-900 hover:bg-violet-50",
+    banner: "border-black bg-violet-50",
+    chip: "border-violet-700 bg-violet-50 text-violet-900",
+    title: "text-violet-950",
+  },
+  admin: {
+    tab: "border-black bg-sky-700 text-white",
+    idle: "border-sky-700 bg-white text-sky-950 hover:bg-sky-50",
+    banner: "border-black bg-sky-50",
+    chip: "border-sky-700 bg-sky-50 text-sky-950",
+    title: "text-sky-950",
+  },
+  accountant: {
+    tab: "border-black bg-teal-700 text-white",
+    idle: "border-teal-700 bg-white text-teal-950 hover:bg-teal-50",
+    banner: "border-black bg-teal-50",
+    chip: "border-teal-700 bg-teal-50 text-teal-950",
+    title: "text-teal-950",
+  },
+  staff: {
+    tab: "border-black bg-orange-600 text-white",
+    idle: "border-orange-600 bg-white text-orange-950 hover:bg-orange-50",
+    banner: "border-black bg-orange-50",
+    chip: "border-orange-600 bg-orange-50 text-orange-950",
+    title: "text-orange-950",
+  },
+}
+
 export function roleLabel(roleName: string | null | undefined): string {
   if (!roleName) return "Member"
   return ROLE_LABELS[roleName] ?? roleName

@@ -7,12 +7,12 @@ import {
   Boxes,
   Clock,
   Factory,
+  Package,
   Receipt,
   ShoppingBag,
   TrendingUp,
   Truck,
   Wrench,
-  Calendar,
 } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,7 +20,19 @@ import { PageLoading } from "@/components/PlantLoader"
 import { Notice, PageTitle, StatCard } from "@/components/plant-ui"
 import { api, errorMessage } from "@/lib/api"
 import { roleCan } from "@/lib/access"
+import { cn } from "@/lib/utils"
 import { useAuth } from "@/auth/AuthContext"
+
+type LowStockItem = {
+  kind: "product" | "raw_material"
+  id: string
+  name: string
+  on_hand: string
+  minimum: string
+  product_type: string | null
+}
+
+type SyncState = "connecting" | "realtime" | "offline" | "server"
 
 type Dashboard = {
   role_name: string
@@ -32,6 +44,7 @@ type Dashboard = {
     pending_jobs: number
   } | null
   low_stock: number
+  low_stock_items?: LowStockItem[]
   approvals: number
   unpaid_invoices: number
   my_jobs: number
@@ -43,12 +56,32 @@ export function DashboardPage() {
   const [data, setData] = useState<Dashboard | null>(null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
+  const [sync, setSync] = useState<SyncState>("connecting")
 
   useEffect(() => {
     api<Dashboard>("/api/dashboard")
       .then(setData)
       .catch((caught) => setError(errorMessage(caught)))
       .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    let stop = false
+    async function probe() {
+      try {
+        const response = await fetch("/api/health/live", { credentials: "include" })
+        if (stop) return
+        setSync(response.ok ? "realtime" : "server")
+      } catch {
+        if (!stop) setSync("offline")
+      }
+    }
+    void probe()
+    const timer = window.setInterval(() => void probe(), 30_000)
+    return () => {
+      stop = true
+      window.clearInterval(timer)
+    }
   }, [])
 
   const chart = data?.production
@@ -67,12 +100,7 @@ export function DashboardPage() {
       {/* Top breadcrumb & period indicator from reference design */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500 pb-1">
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-gray-800 uppercase tracking-wider">
-            <Calendar className="size-3.5 text-green-700" />
-            CYCLE // ACTIVE PERIOD
-          </span>
-          <span className="text-gray-300">•</span>
-          <span className="font-mono text-[11px] text-gray-500 uppercase">SYNC: REALTIME</span>
+          <SyncBadge state={sync} />
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-none bg-emerald-50 text-emerald-800 px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider border border-black">
@@ -102,6 +130,13 @@ export function DashboardPage() {
               <Boxes className="size-3.5 sm:size-4 shrink-0" />
               <span className="truncate">Raw Stock</span>
             </Link>
+            <Link
+              to="/products"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-none border border-black bg-white px-3 py-2 text-xs font-semibold text-gray-800 shadow-xs transition-all hover:bg-gray-50"
+            >
+              <Package className="size-3.5 sm:size-4 shrink-0" />
+              <span className="truncate">Product Stock</span>
+            </Link>
           </div>
         }
       />
@@ -120,9 +155,6 @@ export function DashboardPage() {
               <span className="size-2 bg-green-600 shrink-0" />
               <h2 className="text-sm sm:text-base font-bold text-gray-900 tracking-tight truncate">Deliveries & Floor Operations</h2>
             </div>
-            <span className="bg-white text-gray-800 border border-black text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-none uppercase tracking-wider shrink-0">
-              OPS // FLOOR
-            </span>
           </div>
 
           <div className="grid grid-cols-3 gap-2 sm:gap-4 border-b border-gray-100 pb-3.5 sm:pb-5">
@@ -166,9 +198,6 @@ export function DashboardPage() {
               <span className="size-2 bg-green-600 shrink-0" />
               <h2 className="text-sm sm:text-base font-bold text-gray-900 tracking-tight truncate">Billing & Orders Summary</h2>
             </div>
-            <span className="bg-white text-gray-800 border border-black text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-none uppercase tracking-wider shrink-0">
-              FIN // LEDGER
-            </span>
           </div>
 
           <div className="grid grid-cols-3 gap-2 sm:gap-4 border-b border-gray-100 pb-3.5 sm:pb-5">
@@ -191,7 +220,9 @@ export function DashboardPage() {
               <p className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-gray-950 font-sans truncate">
                 {data?.unpaid_invoices ?? 0}
               </p>
-              <p className="text-[9px] sm:text-[10px] font-mono text-rose-600 font-bold mt-0.5 uppercase truncate">Review</p>
+              <Link to="/sales" className="text-[9px] sm:text-[10px] font-mono text-rose-600 font-bold mt-0.5 uppercase truncate hover:underline">
+                Review
+              </Link>
             </div>
           </div>
 
@@ -218,13 +249,7 @@ export function DashboardPage() {
           icon={Wrench}
           hint="Assigned to your role"
         />
-        <StatCard
-          label="Low Stock Alert"
-          value={data?.low_stock ?? "–"}
-          icon={AlertTriangle}
-          hint="Below threshold"
-          trend={data?.low_stock && data.low_stock > 0 ? { text: "Action req", positive: false } : { text: "Healthy", positive: true }}
-        />
+        <LowStockCard items={data?.low_stock_items ?? []} count={data?.low_stock ?? 0} />
         <StatCard
           label="Pending Approvals"
           value={data?.approvals ?? "–"}
@@ -406,6 +431,96 @@ export function DashboardPage() {
         </div>
       </div>
       </>
+      ) : null}
+    </div>
+  )
+}
+
+function SyncBadge({ state }: { state: SyncState }) {
+  const label =
+    state === "realtime"
+      ? "SYNC: REALTIME"
+      : state === "offline"
+        ? "SYNC: OFFLINE"
+        : state === "server"
+          ? "SYNC: SERVER ISSUE"
+          : "SYNC: CONNECTING"
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider",
+        state === "realtime" && "sync-live text-emerald-700",
+        state === "offline" && "text-gray-500",
+        state === "server" && "text-amber-700",
+        state === "connecting" && "text-gray-500",
+      )}
+    >
+      <span
+        className={cn(
+          "size-1.5",
+          state === "realtime" && "bg-emerald-500",
+          state === "offline" && "bg-gray-400",
+          state === "server" && "bg-amber-500",
+          state === "connecting" && "bg-gray-400",
+        )}
+      />
+      {label}
+    </span>
+  )
+}
+
+function LowStockCard({ items, count }: { items: LowStockItem[]; count: number }) {
+  const short = count > 0
+  return (
+    <div className={cn(
+      "rounded-none border border-black bg-white p-3 sm:p-5 shadow-2xs min-w-0 flex flex-col overflow-hidden",
+      short && "col-span-2",
+    )}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-gray-600">Low Stock Alert</p>
+        <div className="grid size-6 sm:size-7 shrink-0 place-items-center border border-black bg-gray-50 text-gray-800">
+          <AlertTriangle className="size-3 sm:size-3.5" />
+        </div>
+      </div>
+      <span className="mt-1.5 text-xl sm:text-3xl font-black text-gray-950 tabular-nums">{count}</span>
+      <p className="mt-1 text-[10px] sm:text-[11px] font-medium text-gray-500">
+        {short ? "Below the reorder threshold" : "Healthy"}
+      </p>
+      {short ? (
+        <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto border-t border-gray-200 pt-3">
+          {items.map((item) => {
+            const make = item.kind === "product" && item.product_type !== "purchased"
+            const buy = item.kind === "raw_material" || item.product_type === "purchased" || item.product_type === "both"
+            return (
+              <li key={`${item.kind}-${item.id}`} className="flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-semibold text-gray-900">{item.name}</p>
+                  <p className="text-[10px] text-gray-500">
+                    {item.kind === "raw_material" ? "Raw material" : "Product"} · {item.on_hand} on hand, minimum {item.minimum}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  {buy ? (
+                    <Link
+                      to={`/purchases?draft=${item.kind === "raw_material" ? "material" : "product"}&item=${item.id}`}
+                      className="border border-black bg-white px-2 py-1 text-[10px] font-semibold text-gray-900 hover:bg-gray-50"
+                    >
+                      Purchase order
+                    </Link>
+                  ) : null}
+                  {make ? (
+                    <Link
+                      to={`/production?product=${item.id}`}
+                      className="border border-black bg-green-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-green-700"
+                    >
+                      Production job
+                    </Link>
+                  ) : null}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
       ) : null}
     </div>
   )

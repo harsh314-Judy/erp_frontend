@@ -24,7 +24,7 @@ const perks = [
 
 export function LandingPage() {
   return (
-    <div className="min-h-svh bg-[#f4f5f7] flex flex-col">
+    <div className="min-h-svh bg-[#e6e8ec] flex flex-col">
       {/* ── Navbar ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 border-b border-black bg-white/95 backdrop-blur-md shadow-2xs">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-5">

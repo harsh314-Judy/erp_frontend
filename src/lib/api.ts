@@ -13,6 +13,14 @@ export type RoleRecord = {
   role_name: string
 }
 
+export type AttendanceRow = {
+  id: string
+  person: string
+  role_name: string
+  signed_in_at: string
+  signed_out_at: string | null
+}
+
 export type Page<T> = {
   items: T[]
   total: number
@@ -104,7 +112,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
       const body = await response.json()
       detail = body.detail ?? body
     } catch {
-      detail = response.statusText
+      // The status text is already the fallback.
     }
     throw new ApiError(response.status, detail)
   }
@@ -122,6 +130,17 @@ export async function uploadFile(file: File): Promise<{ id: string }> {
 export function errorMessage(error: unknown): string {
   if (!(error instanceof ApiError)) return "Something went wrong"
   if (typeof error.detail === "string") return error.detail
+  if (Array.isArray(error.detail)) {
+    const lines = error.detail.map((item) => {
+      if (!item || typeof item !== "object" || !("msg" in item)) return String(item)
+      const record = item as { msg?: string; loc?: unknown[] }
+      const field = Array.isArray(record.loc)
+        ? record.loc.filter((part) => part !== "body").join(".")
+        : ""
+      return field ? `${field}: ${record.msg ?? "Invalid value"}` : (record.msg ?? "Invalid value")
+    })
+    return lines.filter(Boolean).join(" ") || error.message
+  }
   if (error.detail && typeof error.detail === "object" && "message" in error.detail) {
     const record = error.detail as { message?: string; locked_until?: string }
     if (record.locked_until) {
