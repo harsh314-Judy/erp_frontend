@@ -119,13 +119,23 @@ export function ProductsPage() {
     loadRecipeOptions().catch((caught) => setError(errorMessage(caught)))
   }, [])
 
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      measurement_unit_id: current.measurement_unit_id || units[0]?.id || "",
+      category_id: current.category_id || categories[0]?.id || "",
+    }))
+  }, [units, categories])
+
   async function addNamed(path: string, name: string) {
     setError("")
     try {
-      await api(path, { method: "POST", body: JSON.stringify({ name }) })
+      const created = await api<{ id: string }>(path, { method: "POST", body: JSON.stringify({ name }) })
       await load()
+      return created.id
     } catch (caught) {
       setError(errorMessage(caught))
+      return ""
     }
   }
 
@@ -202,6 +212,15 @@ export function ProductsPage() {
   async function saveProduct(event: FormEvent) {
     event.preventDefault()
     setFormError("")
+    if (!form.measurement_unit_id || !form.category_id) {
+      setFormError("Add a measurement unit and a category before saving this product.")
+      return
+    }
+    const gstPercent = Number(form.gst_percent)
+    if (!Number.isFinite(gstPercent)) {
+      setFormError("GST percent must be a number.")
+      return
+    }
     if (recipeOn && lines.some((line) => !(Number(line.quantity_per_unit) > 0))) {
       setFormError("Every recipe input needs a quantity above zero.")
       return
@@ -210,8 +229,10 @@ export function ProductsPage() {
       try {
         const body = JSON.stringify({
           ...form,
-          gst: Number(form.gst_percent) > 0,
-          gst_percent: Number(form.gst_percent),
+          gst: gstPercent > 0,
+          gst_percent: gstPercent,
+          sale_price_without_gst: form.sale_price_without_gst.trim() || "0",
+          alert_quantity: form.alert_quantity.trim() || "0",
           description: form.description || null,
         })
         const saved =
@@ -277,10 +298,19 @@ export function ProductsPage() {
           <div className="space-y-4 pt-2">
             {readOnly ? null : (
               <div className="grid gap-3 sm:grid-cols-2">
-                <MiniCreate label="Unit" onCreate={(name) => addNamed("/api/measurement-units", name)} />
+                <MiniCreate
+                  label="Unit"
+                  onCreate={async (name) => {
+                    const id = await addNamed("/api/measurement-units", name)
+                    if (id) setForm((current) => ({ ...current, measurement_unit_id: id }))
+                  }}
+                />
                 <CategoryManager
                   categories={categories}
-                  onAdd={(name) => addNamed("/api/product-categories", name)}
+                  onAdd={async (name) => {
+                    const id = await addNamed("/api/product-categories", name)
+                    if (id) setForm((current) => ({ ...current, category_id: id }))
+                  }}
                   onRemove={(id) => void removeCategory(id)}
                 />
               </div>
@@ -506,7 +536,7 @@ export function ProductsPage() {
             <div className="flex items-center gap-2">
               <Boxes className="size-4 text-green-600" />
               <span className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                Active Inventory Stock
+                Inventory Stock
               </span>
             </div>
             <span className="text-xs font-semibold text-gray-500">{rows.length} items recorded</span>

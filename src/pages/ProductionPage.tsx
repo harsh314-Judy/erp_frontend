@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   Boxes,
   CheckCircle2,
@@ -63,6 +64,7 @@ export function ProductionPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
   const { busy, guard } = useFormBusy()
+  const [searchParams] = useSearchParams()
   const [form, setForm] = useState({ product_id: "", quantity: "1", estimated_minutes: "60", notes: "" })
   const [cancelReason, setCancelReason] = useState("")
   const [showCreate, setShowCreate] = useState(false)
@@ -85,6 +87,13 @@ export function ProductionPage() {
   useEffect(() => {
     void load().catch((caught) => setError(errorMessage(caught)))
   }, [])
+
+  useEffect(() => {
+    const product = searchParams.get("product")
+    if (!product) return
+    setForm((current) => ({ ...current, product_id: product }))
+    setShowCreate(true)
+  }, [searchParams])
 
   async function open(id: string) {
     setSelected(await api<Detail>(`/api/production-jobs/${id}`))

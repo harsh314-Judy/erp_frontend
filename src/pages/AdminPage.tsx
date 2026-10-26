@@ -1,8 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react"
 import { Navigate } from "react-router-dom"
 import {
+  ChevronLeft,
+  ChevronRight,
   KeyRound,
   Mail,
+  Search,
   Shield,
   UserCheck,
   UserPlus,
@@ -33,9 +36,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { api, errorMessage, type Page, type RoleRecord, type UserProfile } from "@/lib/api"
+import { api, errorMessage, type AttendanceRow, type Page, type RoleRecord, type UserProfile } from "@/lib/api"
+import { holidayName } from "@/lib/holidays"
 import { useFormBusy } from "@/lib/busy"
-import { ROLE_NOTES, ROLE_ORDER, canEditIdentity, roleLabel } from "@/lib/roles"
+import { ROLE_NOTES, ROLE_ORDER, ROLE_THEME, canEditIdentity, roleLabel } from "@/lib/roles"
 import { cn } from "@/lib/utils"
 
 export function AdminPage() {
@@ -49,6 +53,11 @@ export function AdminPage() {
   const [notice, setNotice] = useState("")
   const [pending, setPending] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState(user?.role_name ?? "staff")
+  const [query, setQuery] = useState("")
+  const [month, setMonth] = useState(() => indiaMonth())
+  const [selectedDay, setSelectedDay] = useState(() => indiaDayKey())
+  const [sessions, setSessions] = useState<AttendanceRow[]>([])
   const { busy, guard } = useFormBusy()
   const [form, setForm] = useState({
     email: "",
@@ -79,12 +88,16 @@ export function AdminPage() {
   }
 
   useEffect(() => {
-    if (!canAccessAdmin) {
-      setLoading(false)
-      return
-    }
+    if (!canAccessAdmin) return
     void load().catch((caught) => setError(errorMessage(caught)))
   }, [canAccessAdmin, user?.role_name])
+
+  useEffect(() => {
+    if (!canAccessAdmin) return
+    void api<AttendanceRow[]>(`/api/attendance?year=${month.year}&month=${month.month}`)
+      .then(setSessions)
+      .catch((caught) => setError(errorMessage(caught)))
+  }, [canAccessAdmin, month.year, month.month])
 
   async function invite(event: FormEvent) {
     event.preventDefault()
@@ -150,18 +163,19 @@ export function AdminPage() {
       ROLE_ORDER.indexOf(right.role_name as (typeof ROLE_ORDER)[number]),
   )
 
-  const roleCardStyles: Record<string, { bg: string; text: string; border: string }> = {
-    super_admin: { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
-    admin: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
-    accountant: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
-    staff: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
-  }
+  const ownRole = user.role_name ?? "staff"
+  const ownTheme = ROLE_THEME[ownRole] ?? ROLE_THEME.staff
+  const visibleMembers = members.filter((member) => {
+    if (member.role_name !== tab) return false
+    const haystack = `${member.first_name} ${member.last_name ?? ""} ${member.email}`.toLowerCase()
+    return haystack.includes(query.trim().toLowerCase())
+  })
 
   return (
     <div className="space-y-6">
       <PageTitle
         title="Plant Personnel & Access Control"
-        hint="Enterprise access management. Manage roles, invitation links, and profile identity permissions."
+        hint="Only super admins and admins see this page. The calendar shows sign-in and sign-out for every role."
         icon={Users}
         badge={`${members.length} Members`}
         action={
@@ -260,126 +274,153 @@ export function AdminPage() {
         }
       />
 
-      {/* Role Descriptions Grid */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Roles">
         {ROLE_ORDER.map((roleName) => {
-          const style = roleCardStyles[roleName] || { bg: "bg-white", text: "text-gray-700", border: "border-gray-200" }
+          const style = ROLE_THEME[roleName]
+          const selected = tab === roleName
+          const count = members.filter((member) => member.role_name === roleName).length
           return (
-            <article
+            <button
               key={roleName}
+              type="button"
+              role="tab"
+              aria-selected={selected}
               className={cn(
-                "rounded-2xl border p-4 shadow-xs transition-all hover:shadow-sm",
-                style.border,
-                style.bg,
+                "inline-flex items-center gap-2 rounded-none border px-3.5 py-2 text-sm font-semibold transition-colors",
+                selected ? style.tab : style.idle,
               )}
+              onClick={() => {
+                setQuery("")
+                setTab(roleName)
+              }}
             >
-              <div className="flex items-center gap-2">
-                <Shield className={cn("size-4", style.text)} />
-                <h2 className={cn("text-xs font-bold uppercase tracking-wider", style.text)}>
-                  {roleLabel(roleName)}
-                </h2>
-              </div>
-              <p className="mt-2 text-xs leading-relaxed text-gray-600">{ROLE_NOTES[roleName]}</p>
-            </article>
+              {roleLabel(roleName)}
+              <span className={cn("px-1.5 text-[11px] font-mono", selected ? "bg-white/20" : "bg-black/5")}>
+                {count}
+              </span>
+            </button>
           )
         })}
-      </section>
+      </div>
+
+      <article className={cn("max-w-2xl border p-5 shadow-xs", ownTheme.banner)}>
+        <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-gray-500">Your role</p>
+        <div className="mt-1 flex items-center gap-2">
+          <Shield className={cn("size-5", ownTheme.title)} />
+          <h2 className={cn("text-lg font-bold tracking-tight", ownTheme.title)}>{roleLabel(ownRole)}</h2>
+        </div>
+        <p className="mt-2 text-sm leading-relaxed text-gray-700">{ROLE_NOTES[ownRole]}</p>
+      </article>
 
       {notice ? <Notice variant="success">{notice}</Notice> : null}
       {error && !inviteOpen ? <Notice variant="error">{error}</Notice> : null}
 
-      {/* Members Table */}
       {loading ? (
         <PageLoading label="Loading people" variant="table" cols={5} count={5} />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-xs">
-        <div className="border-b border-gray-100 bg-gray-50/75 px-5 py-3.5">
-          <span className="text-xs font-bold uppercase tracking-wider text-gray-700">
-            Active User Directory
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <Table className="min-w-[760px]">
-            <TableHeader className="bg-gray-50/50">
-              <TableRow className="border-gray-100">
-                <TableHead className="text-xs font-bold text-gray-700">Member</TableHead>
-                <TableHead className="text-xs font-bold text-gray-700">Email Address</TableHead>
-                <TableHead className="text-xs font-bold text-gray-700">Role</TableHead>
-                <TableHead className="text-xs font-bold text-gray-700">Permission Status</TableHead>
-                <TableHead className="w-24 text-xs font-bold text-gray-700 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {members.map((member) => {
-                const editable = canEditIdentity(user, member)
-                const initials = [member.first_name?.[0], member.last_name?.[0]].filter(Boolean).join("").toUpperCase() || "U"
-                const roleStyle = roleCardStyles[member.role_name || ""] || { bg: "bg-gray-50", text: "text-gray-700", border: "border-gray-200" }
-
-                return (
-                  <TableRow key={member.id} className="border-gray-100 hover:bg-gray-50/80">
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200 text-xs font-bold">
-                          {initials}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">
-                            {member.first_name} {member.last_name ?? ""}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs font-medium text-gray-600">
-                      <div className="flex items-center gap-1.5">
-                        <Mail className="size-3 text-gray-400" />
-                        <span>{member.email}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={cn(
-                          "inline-block rounded-md border px-2.5 py-0.5 text-xs font-semibold capitalize",
-                          roleStyle.bg,
-                          roleStyle.text,
-                          roleStyle.border,
-                        )}
-                      >
-                        {roleLabel(member.role_name)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {member.identity_overridden ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-purple-50 px-2.5 py-0.5 text-xs font-medium text-purple-700">
-                          <KeyRound className="size-3" />
-                          Super Admin Locked
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
-                          <UserCheck className="size-3 text-green-600" />
-                          Self-Managed
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {editable ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="rounded-xl border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                          onClick={() => setEditing(member)}
-                        >
-                          Edit
-                        </Button>
-                      ) : null}
-                    </TableCell>
+        <div className="overflow-hidden border border-black bg-white shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-5 py-3.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-700">
+                {roleLabel(tab)} directory
+              </span>
+              <label className="relative block">
+                <Search className="pointer-events-none absolute top-2.5 left-2.5 size-3.5 text-gray-400" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search name or email"
+                  className="h-9 w-56 border border-black bg-white pr-3 pl-8 text-xs text-gray-900 outline-none"
+                />
+              </label>
+            </div>
+            <div className="overflow-x-auto">
+              <Table className="min-w-[760px]">
+                <TableHeader className="bg-gray-50/50">
+                  <TableRow className="border-gray-100">
+                    <TableHead className="text-xs font-bold text-gray-700">Member</TableHead>
+                    <TableHead className="text-xs font-bold text-gray-700">Email</TableHead>
+                    <TableHead className="text-xs font-bold text-gray-700">Identity</TableHead>
+                    <TableHead className="w-24 text-right text-xs font-bold text-gray-700">Actions</TableHead>
                   </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
+                </TableHeader>
+                <TableBody>
+                  {visibleMembers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-8 text-center text-xs text-gray-500">
+                        No one in this role matches that search.
+                      </TableCell>
+                    </TableRow>
+                  ) : visibleMembers.map((member) => {
+                    const editable = canEditIdentity(user, member)
+                    const initials = [member.first_name?.[0], member.last_name?.[0]].filter(Boolean).join("").toUpperCase() || "U"
+                    const chip = ROLE_THEME[member.role_name || ""] ?? ROLE_THEME.staff
+                    return (
+                      <TableRow key={member.id} className="border-gray-100 hover:bg-gray-50/80">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className={cn("grid size-9 shrink-0 place-items-center border text-xs font-bold", chip.chip)}>
+                              {initials}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">
+                                {member.first_name} {member.last_name ?? ""}
+                                {member.id === user.id ? (
+                                  <span className="ml-2 border border-black bg-gray-900 px-1.5 py-0.5 text-[10px] font-bold text-white">You</span>
+                                ) : null}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs font-medium text-gray-600">
+                          <div className="flex items-center gap-1.5">
+                            <Mail className="size-3 text-gray-400" />
+                            <span>{member.email}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {member.identity_overridden ? (
+                            <span className="inline-flex items-center gap-1.5 border border-violet-700 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-900">
+                              <KeyRound className="size-3" />
+                              Locked
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                              <UserCheck className="size-3 text-green-700" />
+                              Self-managed
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {editable ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-none border-black bg-white text-xs font-semibold text-gray-800 hover:bg-gray-50"
+                              onClick={() => setEditing(member)}
+                            >
+                              Edit
+                            </Button>
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
       )}
+
+      <AttendanceCalendar
+        month={month}
+        selectedDay={selectedDay}
+        sessions={sessions}
+        onMonth={(next) => {
+          setMonth(next)
+          setSelectedDay(`${next.year}-${String(next.month).padStart(2, "0")}-01`)
+        }}
+        onSelectDay={setSelectedDay}
+      />
 
       {/* Edit Profile Modal */}
       <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
@@ -412,4 +453,145 @@ export function AdminPage() {
       </Dialog>
     </div>
   )
+}
+
+type MonthCursor = { year: number; month: number }
+
+function AttendanceCalendar({
+  month,
+  selectedDay,
+  sessions,
+  onMonth,
+  onSelectDay,
+}: {
+  month: MonthCursor
+  selectedDay: string
+  sessions: AttendanceRow[]
+  onMonth: (next: MonthCursor) => void
+  onSelectDay: (day: string) => void
+}) {
+  const cells = monthCells(month.year, month.month)
+  const marked = new Set(sessions.map((row) => indiaDayKey(new Date(row.signed_in_at))))
+  const dayRows = sessions
+    .filter((row) => indiaDayKey(new Date(row.signed_in_at)) === selectedDay)
+    .sort((left, right) => left.signed_in_at.localeCompare(right.signed_in_at))
+  const label = new Date(month.year, month.month - 1, 1).toLocaleDateString("en-IN", {
+    month: "long",
+    year: "numeric",
+  })
+
+  function shift(delta: number) {
+    const date = new Date(month.year, month.month - 1 + delta, 1)
+    onMonth({ year: date.getFullYear(), month: date.getMonth() + 1 })
+  }
+
+  return (
+    <section className="overflow-hidden border-2 border-black bg-white shadow-md">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-black px-5 py-3.5">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-700">Attendance</h2>
+          <p className="mt-1 text-xs text-gray-500">Sign-in and sign-out for every role. India time. Amber days are gazetted public holidays.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" className="grid size-8 place-items-center border border-black" onClick={() => shift(-1)} aria-label="Previous month">
+            <ChevronLeft className="size-4" />
+          </button>
+          <span className="min-w-36 text-center text-sm font-semibold text-gray-900">{label}</span>
+          <button type="button" className="grid size-8 place-items-center border border-black" onClick={() => shift(1)} aria-label="Next month">
+            <ChevronRight className="size-4" />
+          </button>
+        </div>
+      </div>
+      <div className="grid grid-cols-7 border-b-2 border-black text-center text-[11px] font-bold uppercase tracking-wider text-gray-500">
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((name) => (
+          <div key={name} className="px-1 py-2">{name}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7">
+        {cells.map((day, index) => {
+          const key = day ? dayKey(month.year, month.month, day) : `empty-${index}`
+          const selected = day !== null && key === selectedDay
+          const holiday = day !== null ? holidayName(key) : null
+          return (
+            <button
+              key={key}
+              type="button"
+              disabled={day === null}
+              title={holiday ?? undefined}
+              onClick={() => day !== null && onSelectDay(key)}
+              className={cn(
+                "flex min-h-14 flex-col items-center justify-center border-r border-b border-gray-400 px-0.5 py-1 text-sm disabled:bg-transparent",
+                selected
+                  ? "bg-gray-900 font-bold text-white"
+                  : holiday
+                    ? "bg-amber-50 text-gray-900 hover:bg-amber-100"
+                    : "text-gray-800 hover:bg-gray-100",
+              )}
+            >
+              <span>{day ?? ""}</span>
+              {holiday ? (
+                <span className={cn("max-w-full truncate text-[9px] font-medium leading-tight", selected ? "text-amber-200" : "text-amber-800")}>
+                  {holiday}
+                </span>
+              ) : null}
+              {day !== null && marked.has(key) && !selected ? (
+                <span className="mt-0.5 block size-1.5 bg-gray-900" />
+              ) : null}
+            </button>
+          )
+        })}
+      </div>
+      <ul className="divide-y divide-gray-100">
+        {dayRows.length === 0 ? (
+          <li className="px-5 py-4 text-xs text-gray-500">No sign-in on this day.</li>
+        ) : dayRows.map((row) => (
+          <li key={row.id} className="flex flex-wrap items-baseline justify-between gap-2 px-5 py-3">
+            <p className="text-sm font-semibold text-gray-900">
+              {row.person}
+              <span className="ml-2 text-xs font-medium text-gray-500">{roleLabel(row.role_name)}</span>
+            </p>
+            <p className="text-xs text-gray-600">
+              In {clockTime(row.signed_in_at)}
+              <span className="mx-1.5 text-gray-300">/</span>
+              {row.signed_out_at ? `Out ${clockTime(row.signed_out_at)}` : "Still signed in"}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function indiaMonth(): MonthCursor {
+  const key = indiaDayKey()
+  const [year, month] = key.split("-").map(Number)
+  return { year, month }
+}
+
+function indiaDayKey(date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date)
+}
+
+function dayKey(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+}
+
+function monthCells(year: number, month: number): Array<number | null> {
+  const first = new Date(`${dayKey(year, month, 1)}T12:00:00+05:30`)
+  const lead = (first.getUTCDay() + 6) % 7
+  const count = new Date(year, month, 0).getDate()
+  return [...Array<number | null>(lead).fill(null), ...Array.from({ length: count }, (_, index) => index + 1)]
+}
+
+function clockTime(value: string): string {
+  return new Date(value).toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
 }

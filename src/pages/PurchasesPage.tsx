@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   Building2,
   CheckCircle2,
@@ -79,6 +80,39 @@ const STATUSES = [
   { id: "cancelled", label: "Cancelled", desc: "Order voided. Stock will not be credited." },
 ]
 
+function OrderFlow({ status, compact = false }: { status: string; compact?: boolean }) {
+  const steps = STATUSES.filter((step) => step.id !== "cancelled")
+  const current = steps.findIndex((step) => step.id === status)
+  const cancelled = status === "cancelled"
+  return (
+    <ol className={cn("flex flex-wrap items-center gap-1", compact ? "py-1" : "border-b border-gray-100 bg-white px-5 py-2")}>
+      {cancelled ? (
+        <li className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-rose-700">Cancelled</li>
+      ) : null}
+      {steps.map((step, index) => {
+        const reached = !cancelled && index <= current
+        const active = !cancelled && index === current
+        return (
+          <li key={step.id} className="flex items-center gap-1">
+            <span
+              title={step.desc}
+              className={cn(
+                "px-1.5 py-0.5 text-[10px] font-semibold",
+                active && "bg-gray-900 text-white",
+                reached && !active && "text-gray-900",
+                !reached && "text-gray-400",
+              )}
+            >
+              {step.label}
+            </span>
+            {index < steps.length - 1 ? <span className="text-[10px] text-gray-300">→</span> : null}
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
 const selectClass =
   "h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
 
@@ -97,6 +131,7 @@ function blankLine(kind: DraftLine["kind"] = "material"): DraftLine {
 
 export function PurchasesPage() {
   const { user, can } = useAuth()
+  const [searchParams] = useSearchParams()
   const prices = canSeePrices(user?.role_name)
   const staff = user?.role_name === "staff"
   const { busy, guard } = useFormBusy()
@@ -173,6 +208,30 @@ export function PurchasesPage() {
   useEffect(() => {
     void load().catch((caught) => setError(errorMessage(caught)))
   }, [])
+
+  const openedDraft = useRef(false)
+  useEffect(() => {
+    if (openedDraft.current || loading) return
+    const kind = searchParams.get("draft")
+    const item = searchParams.get("item")
+    if ((kind !== "material" && kind !== "product") || !item) return
+    openedDraft.current = true
+    const supplier = suppliers.find((row) => {
+      if (kind === "material" && row.supply_kind === "products") return false
+      if (kind === "product" && row.supply_kind === "materials") return false
+      const allowed = kind === "material" ? row.raw_material_ids : row.product_ids
+      return !allowed?.length || allowed.includes(item)
+    })
+    setEditing(null)
+    setHeader({
+      supplier_id: supplier?.id || suppliers[0]?.id || "",
+      expected_vehicle_plate: "",
+      status: "initiated",
+      notes: "",
+    })
+    setLines([{ ...blankLine(kind), item_id: item }])
+    setShowCreate(true)
+  }, [loading, searchParams, suppliers])
 
   const currentSupplier = useMemo(
     () => suppliers.find((item) => item.id === header.supplier_id),
@@ -782,12 +841,14 @@ export function PurchasesPage() {
                           disabled={busy}
                         >
                           <CheckCircle2 className="mr-1 size-3.5" />
-                          Receive & Stock In
+                          Received and stocked
                         </Button>
                       ) : null
                     ) : null}
                   </div>
                 </div>
+
+                <OrderFlow status={order.status} />
 
                 {/* Order Body */}
                 <div className="p-5 space-y-4">
@@ -979,6 +1040,8 @@ export function PurchasesPage() {
                 </p>
                 <p className="text-gray-400 font-mono text-[11px]">PO #{quickOrder.id.slice(0, 8).toUpperCase()}</p>
               </div>
+
+              <OrderFlow status={quickForm.status} compact />
 
               <Field label="Status Stage" hint="Selecting 'Delivered' automatically credits warehouse stock">
                 <select

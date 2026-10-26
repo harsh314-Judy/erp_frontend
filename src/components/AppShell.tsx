@@ -197,8 +197,6 @@ const NAV = [
 ]
 
 // Show at most 4 items in bottom mobile nav (+ menu)
-const BOTTOM_NAV_LIMIT = 4
-
 export function AppShell() {
   const { user, setUser } = useAuth()
   const navigate = useNavigate()
@@ -254,14 +252,11 @@ export function AppShell() {
   const links = NAV.filter((item) => item.show(user?.role_name))
   const initials = [user?.first_name?.[0], user?.last_name?.[0]].filter(Boolean).join("").toUpperCase() || "U"
 
-  // Bottom nav = first BOTTOM_NAV_LIMIT visible links
-  const bottomLinks = links.slice(0, BOTTOM_NAV_LIMIT)
-
   // Group links by section for visual structure
   const sections = ["CORE", "OPERATIONS", "INVENTORY", "COMMERCE", "ADMINISTRATION"]
 
   return (
-    <div className="min-h-svh bg-[#f4f5f7]">
+    <div className="min-h-svh bg-[#e6e8ec]">
 
       {/* ── Mobile slide-over backdrop ─────────────────────── */}
       {mobileOpen && (
@@ -304,7 +299,7 @@ export function AppShell() {
                   ERP
                 </span>
               </div>
-              <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Plant Suite v2.6</p>
+              <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Beta</p>
             </div>
           )}
 
@@ -417,11 +412,10 @@ export function AppShell() {
       <div className={cn(
         "flex min-h-svh flex-col transition-[padding] duration-200 min-w-0 w-full max-w-full overflow-x-hidden",
         collapsed ? "lg:pl-16" : "lg:pl-64",
-        "pb-20 lg:pb-0" // space for mobile bottom nav
       )}>
 
         {/* ── Top header with sharp borders and black details ── */}
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 sm:gap-3 border-b border-gray-200/90 bg-white/95 px-3 sm:px-4 backdrop-blur-md shadow-2xs w-full max-w-full overflow-hidden">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 sm:gap-3 border-b border-gray-200/90 bg-[#f1f2f4]/95 px-3 sm:px-4 backdrop-blur-md shadow-2xs w-full max-w-full overflow-hidden">
 
           {/* Mobile hamburger */}
           <button
@@ -452,7 +446,6 @@ export function AppShell() {
 
           {/* Right actions */}
           <div className="relative ml-auto flex items-center gap-2">
-
             {/* Notification bell */}
             <button
               type="button"
@@ -516,56 +509,10 @@ export function AppShell() {
         </header>
 
         {/* ── Page content (App-like, fits 100% display without side scroll) ── */}
-        <main className="flex-1 min-w-0 w-full max-w-full p-2.5 sm:p-5 lg:p-6 animate-rise pb-24 lg:pb-6 overflow-x-hidden">
+        <main className="flex-1 min-w-0 w-full max-w-full p-2.5 sm:p-5 lg:p-6 animate-rise overflow-x-hidden">
           <Outlet />
         </main>
       </div>
-
-      {/* ── Mobile bottom navigation bar (Native App Tab Bar) ─── */}
-      <nav className="fixed bottom-0 inset-x-0 z-50 flex lg:hidden border-t border-black bg-white safe-bottom rounded-none shadow-lg w-full max-w-full overflow-hidden">
-        {bottomLinks.map((item) => {
-          const Icon = item.icon
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) => cn(
-                "flex flex-1 min-w-0 flex-col items-center justify-center gap-1 py-2 px-0.5 text-[10px] font-medium transition-all duration-150 rounded-none overflow-hidden",
-                isActive ? "text-emerald-950 font-bold bg-emerald-50/80" : "text-gray-500 hover:text-black"
-              )}
-            >
-              {({ isActive }) => (
-                <>
-                  <span className={cn(
-                    "grid size-6.5 place-items-center rounded-none border border-black/30 shadow-2xs transition-all duration-150 shrink-0",
-                    item.iconBg, item.iconColor,
-                    isActive ? "ring-2 ring-black scale-105" : "opacity-85"
-                  )}>
-                    <Icon className="size-3.5" />
-                  </span>
-                  <span className="truncate w-full text-center font-mono text-[8.5px] uppercase tracking-tight block">
-                    {item.shortLabel || item.label}
-                  </span>
-                </>
-              )}
-            </NavLink>
-          )
-        })}
-
-        {/* "More" button for remaining links */}
-        {links.length > BOTTOM_NAV_LIMIT && (
-          <button
-            type="button"
-            className="flex flex-1 min-w-0 flex-col items-center justify-center gap-1 py-2 px-0.5 text-[10px] font-medium text-gray-500 hover:text-black rounded-none overflow-hidden"
-            onClick={() => setMobileOpen(true)}
-          >
-            <span className="grid size-6.5 place-items-center rounded-none border border-black/20 bg-gray-50 text-gray-700 shrink-0">
-              <Menu className="size-3.5" />
-            </span>
-            <span className="truncate w-full text-center font-mono text-[8.5px] uppercase tracking-tight block">MENU</span>
-          </button>
-        )}
-      </nav>
     </div>
   )
 }
