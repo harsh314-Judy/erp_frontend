@@ -8,17 +8,22 @@ import {
 import { PageLoading } from "@/components/PlantLoader"
 import { EmptyState, Notice, PageTitle, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
-import { api, errorMessage, type Page } from "@/lib/api"
+import { api, errorMessage, peek, type Page } from "@/lib/api"
 import { useFormBusy } from "@/lib/busy"
+import { useRefreshWhenShown } from "@/lib/visible"
 
 type Job = { id: string; product_name: string | null; quantity: string; status: string }
 type Stage = { id: string; operation_name: string | null; status: string; assigned_user_id: string | null }
 type Detail = Job & { stages: Stage[] }
 
 export function StaffPage() {
-  const [jobs, setJobs] = useState<Job[]>([])
+  const [jobs, setJobs] = useState<Job[]>(
+    () => peek<Page<Job>>("/api/production-jobs/?page=1&page_size=50")?.items ?? [],
+  )
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(
+    () => peek<Page<Job>>("/api/production-jobs/?page=1&page_size=50") === undefined,
+  )
   const { busy, guard } = useFormBusy()
 
   async function load() {
@@ -32,6 +37,7 @@ export function StaffPage() {
   useEffect(() => {
     void load().catch((caught) => setError(errorMessage(caught)))
   }, [])
+  useRefreshWhenShown("/staff", load, (caught) => setError(errorMessage(caught)))
 
   async function finish(job: Job) {
     setError("")
@@ -48,7 +54,7 @@ export function StaffPage() {
         method: "POST",
         body: JSON.stringify(body),
       })
-      await load()
+      void load().catch((caught) => setError(errorMessage(caught)))
     } catch (caught) {
       setError(errorMessage(caught))
     }

@@ -52,6 +52,36 @@ type RequestOptions = RequestInit & {
 }
 
 let refreshPromise: Promise<boolean> | null = null
+const freshForMs = 20_000
+const memory = new Map<string, { at: number; data: unknown }>()
+const inflight = new Map<string, Promise<unknown>>()
+let cacheGeneration = 0
+
+function cacheKey(path: string) {
+  return `GET ${path}`
+}
+
+export function peek<T>(path: string): T | undefined {
+  const hit = memory.get(cacheKey(path))
+  if (!hit || Date.now() - hit.at >= freshForMs) return undefined
+  return hit.data as T
+}
+
+export function prefetch(paths: string[]) {
+  let cursor = 0
+  const run = async () => {
+    while (cursor < paths.length) {
+      const path = paths[cursor]
+      cursor += 1
+      try {
+        await api(path)
+      } catch {
+        // A failed warm-up must not interrupt the page the user is on.
+      }
+    }
+  }
+  void Promise.all([run(), run()])
+}
 
 function csrfToken(): string | null {
   const match = document.cookie.match(/(?:^|; )csrf_token=([^;]*)/)
@@ -73,6 +103,32 @@ function refreshSession(): Promise<boolean> {
 }
 
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const method = (options.method ?? "GET").toUpperCase()
+  const key = cacheKey(path)
+  if (method === "GET") {
+    const hit = memory.get(key)
+    if (hit && Date.now() - hit.at < freshForMs) return hit.data as T
+    const pending = inflight.get(key)
+    if (pending) return pending as Promise<T>
+  } else {
+    cacheGeneration += 1
+    memory.clear()
+  }
+  const generation = cacheGeneration
+  const promise = request<T>(path, options).then((data) => {
+    if (method === "GET" && generation === cacheGeneration) memory.set(key, { at: Date.now(), data })
+    return data
+  })
+  if (method === "GET") {
+    inflight.set(key, promise)
+    void promise.finally(() => {
+      if (inflight.get(key) === promise) inflight.delete(key)
+    })
+  }
+  return promise
+}
+
+async function request<T>(path: string, options: RequestOptions): Promise<T> {
   const headers = new Headers(options.headers)
   const method = (options.method ?? "GET").toUpperCase()
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
@@ -91,7 +147,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
   if (response.status === 401 && !options.retry && path !== "/api/auth/refresh") {
     const refreshed = await refreshSession()
-    if (refreshed) return api<T>(path, { ...options, retry: true })
+    if (refreshed) return request<T>(path, { ...options, retry: true })
   }
 
   if (response.status === 403 && !options.csrfRetry) {
@@ -102,7 +158,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     const detail = body && typeof body === "object" ? body.detail : null
     if (typeof detail === "string" && detail.toLowerCase().includes("csrf")) {
       const refreshed = await refreshSession()
-      if (refreshed) return api<T>(path, { ...options, csrfRetry: true })
+      if (refreshed) return request<T>(path, { ...options, csrfRetry: true })
     }
   }
 
@@ -119,6 +175,34 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
+}
+
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const pull = () => fetch(path, { credentials: "include" })
+  let response = await pull()
+  if (response.status === 401) {
+    const refreshed = await refreshSession()
+    if (refreshed) response = await pull()
+  }
+  if (!response.ok) {
+    let detail: unknown = response.statusText
+    try {
+      const body = await response.json()
+      detail = body.detail ?? body
+    } catch {
+      // The status text is already the fallback.
+    }
+    throw new ApiError(response.status, detail)
+  }
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }
 
 export async function uploadFile(file: File): Promise<{ id: string }> {

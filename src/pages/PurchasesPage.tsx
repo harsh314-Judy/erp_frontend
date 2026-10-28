@@ -30,8 +30,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { canSeePrices } from "@/lib/access"
-import { api, errorMessage, type Page } from "@/lib/api"
+import { api, errorMessage, peek, type Page } from "@/lib/api"
 import { useFormBusy } from "@/lib/busy"
+import { useRefreshWhenShown } from "@/lib/visible"
 import { cn } from "@/lib/utils"
 
 type Named = { id: string; name: string }
@@ -136,8 +137,8 @@ export function PurchasesPage() {
   const staff = user?.role_name === "staff"
   const { busy, guard } = useFormBusy()
 
-  const [loading, setLoading] = useState(true)
-  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(() => peek<Order[]>("/api/purchase-orders") === undefined)
+  const [orders, setOrders] = useState<Order[]>(() => peek<Order[]>("/api/purchase-orders") ?? [])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -208,6 +209,7 @@ export function PurchasesPage() {
   useEffect(() => {
     void load().catch((caught) => setError(errorMessage(caught)))
   }, [])
+  useRefreshWhenShown("/purchases", load, (caught) => setError(errorMessage(caught)))
 
   const openedDraft = useRef(false)
   useEffect(() => {
@@ -329,7 +331,7 @@ export function PurchasesPage() {
         }),
       })
       setQuickOrder(null)
-      await load()
+      void load().catch((caught) => setError(errorMessage(caught)))
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
@@ -345,7 +347,7 @@ export function PurchasesPage() {
           method: "PATCH",
           body: JSON.stringify({ status: nextStatus }),
         })
-        await load()
+        void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
         setError(errorMessage(caught))
       }
@@ -372,7 +374,7 @@ export function PurchasesPage() {
         setSupplierForm(emptySupplier)
         setPanel(null)
         setHeader((current) => ({ ...current, supplier_id: created.id }))
-        await load()
+        void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
         setError(errorMessage(caught))
       }
@@ -412,7 +414,7 @@ export function PurchasesPage() {
               : line,
           )
         })
-        await load()
+        void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
         setError(errorMessage(caught))
       }
@@ -461,7 +463,7 @@ export function PurchasesPage() {
               : line,
           )
         })
-        await load()
+        void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
         setError(errorMessage(caught))
       }
@@ -501,7 +503,7 @@ export function PurchasesPage() {
         setShowCreate(false)
         setEditing(null)
         setLines([blankLine()])
-        await load()
+        void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
         setError(errorMessage(caught))
       }
@@ -516,7 +518,7 @@ export function PurchasesPage() {
           method: "PATCH",
           body: JSON.stringify({ status: "cancelled" }),
         })
-        await load()
+        void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
         setError(errorMessage(caught))
       }

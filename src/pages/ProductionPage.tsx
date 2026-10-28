@@ -25,8 +25,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { api, errorMessage, type Page } from "@/lib/api"
+import { api, errorMessage, peek, type Page } from "@/lib/api"
 import { useFormBusy } from "@/lib/busy"
+import { useRefreshWhenShown } from "@/lib/visible"
 import { cn } from "@/lib/utils"
 
 type Option = { id: string; label: string }
@@ -58,11 +59,15 @@ type Detail = Job & { stages: Stage[]; inputs: InputRow[]; produced_quantity: st
 
 export function ProductionPage() {
   const { can, user } = useAuth()
-  const [jobs, setJobs] = useState<Job[]>([])
+  const [jobs, setJobs] = useState<Job[]>(
+    () => peek<Page<Job>>("/api/production-jobs/?page=1&page_size=50")?.items ?? [],
+  )
   const [products, setProducts] = useState<Option[]>([])
   const [selected, setSelected] = useState<Detail | null>(null)
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(
+    () => peek<Page<Job>>("/api/production-jobs/?page=1&page_size=50") === undefined,
+  )
   const { busy, guard } = useFormBusy()
   const [searchParams] = useSearchParams()
   const [form, setForm] = useState({ product_id: "", quantity: "1", estimated_minutes: "60", notes: "" })
@@ -87,6 +92,7 @@ export function ProductionPage() {
   useEffect(() => {
     void load().catch((caught) => setError(errorMessage(caught)))
   }, [])
+  useRefreshWhenShown("/production", load, (caught) => setError(errorMessage(caught)))
 
   useEffect(() => {
     const product = searchParams.get("product")
@@ -110,7 +116,7 @@ export function ProductionPage() {
       })
       setSelected(job)
       setShowCreate(false)
-      await load()
+      void load().catch((caught) => setError(errorMessage(caught)))
     } catch (caught) {
       setError(errorMessage(caught))
     }
@@ -127,7 +133,7 @@ export function ProductionPage() {
           body: body ? JSON.stringify(body) : undefined,
         })
         setSelected(job)
-        await load()
+        void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
         setError(errorMessage(caught))
       }
