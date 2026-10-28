@@ -14,8 +14,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { api, errorMessage, type Page } from "@/lib/api"
+import { api, errorMessage, peek, type Page } from "@/lib/api"
 import { useFormBusy } from "@/lib/busy"
+import { useRefreshWhenShown } from "@/lib/visible"
 
 type Named = { id: string; name: string }
 type Product = { id: string; product_name: string; category_id?: string }
@@ -48,14 +49,18 @@ const selectClass =
   "h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 shadow-2xs focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
 
 export function SuppliersPage() {
-  const [rows, setRows] = useState<Supplier[]>([])
+  const [rows, setRows] = useState<Supplier[]>(
+    () => peek<Page<Supplier>>("/api/suppliers?page=1&page_size=100")?.items ?? [],
+  )
   const [materials, setMaterials] = useState<Named[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [units, setUnits] = useState<Named[]>([])
   const [materialCategories, setMaterialCategories] = useState<Named[]>([])
   const [productCategories, setProductCategories] = useState<Named[]>([])
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(
+    () => peek<Page<Supplier>>("/api/suppliers?page=1&page_size=100") === undefined,
+  )
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Supplier | null>(null)
   const [form, setForm] = useState(emptyForm)
@@ -99,6 +104,7 @@ export function SuppliersPage() {
   useEffect(() => {
     void load().catch((caught) => setError(errorMessage(caught)))
   }, [])
+  useRefreshWhenShown("/suppliers", load, (caught) => setError(errorMessage(caught)))
 
   function openCreate() {
     setEditing(null)
@@ -142,17 +148,18 @@ export function SuppliersPage() {
       product_ids: form.supply_kind === "materials" ? [] : form.product_ids,
     }
     await guard(async () => {
+      setShowForm(false)
       try {
         if (editing) {
           await api(`/api/suppliers/${editing.id}`, { method: "PATCH", body: JSON.stringify(body) })
         } else {
           await api("/api/suppliers", { method: "POST", body: JSON.stringify(body) })
         }
-        setShowForm(false)
         setForm(emptyForm)
         setEditing(null)
-        await load()
+        void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
+        setShowForm(true)
         setError(errorMessage(caught))
       }
     })
@@ -183,7 +190,7 @@ export function SuppliersPage() {
         setForm((current) => ({ ...current, raw_material_ids: [...current.raw_material_ids, created.id] }))
         setDraftMaterial((current) => ({ ...current, name: "" }))
         setNewMaterial(false)
-        await load()
+        void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
         setError(errorMessage(caught))
       }
@@ -216,7 +223,7 @@ export function SuppliersPage() {
         setForm((current) => ({ ...current, product_ids: [...current.product_ids, created.id] }))
         setDraftProduct((current) => ({ ...current, product_name: "", sku_number: "" }))
         setNewProduct(false)
-        await load()
+        void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
         setError(errorMessage(caught))
       }

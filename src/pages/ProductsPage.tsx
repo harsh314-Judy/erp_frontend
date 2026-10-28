@@ -23,8 +23,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { api, errorMessage, type Page } from "@/lib/api"
+import { api, errorMessage, peek, type Page } from "@/lib/api"
 import { useFormBusy } from "@/lib/busy"
+import { useRefreshWhenShown } from "@/lib/visible"
 import { canSeePrices } from "@/lib/access"
 import { cn } from "@/lib/utils"
 
@@ -68,7 +69,9 @@ export function ProductsPage() {
   const { user, can } = useAuth()
   const prices = canSeePrices(user?.role_name)
   const editor = can("edit_inventory")
-  const [rows, setRows] = useState<Product[]>([])
+  const [rows, setRows] = useState<Product[]>(
+    () => peek<Page<Product>>("/api/products?page=1&page_size=100&q=")?.items ?? [],
+  )
   const [units, setUnits] = useState<Named[]>([])
   const [categories, setCategories] = useState<Named[]>([])
   const [materials, setMaterials] = useState<Option[]>([])
@@ -77,7 +80,9 @@ export function ProductsPage() {
   const [query, setQuery] = useState("")
   const [error, setError] = useState("")
   const [formError, setFormError] = useState("")
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(
+    () => peek<Page<Product>>("/api/products?page=1&page_size=100&q=") === undefined,
+  )
   const { busy, guard } = useFormBusy()
   const [mode, setMode] = useState<Mode | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -118,6 +123,7 @@ export function ProductsPage() {
     void load("").catch((caught) => setError(errorMessage(caught)))
     loadRecipeOptions().catch((caught) => setError(errorMessage(caught)))
   }, [])
+  useRefreshWhenShown("/products", () => load(), (caught) => setError(errorMessage(caught)))
 
   useEffect(() => {
     setForm((current) => ({
@@ -131,7 +137,7 @@ export function ProductsPage() {
     setError("")
     try {
       const created = await api<{ id: string }>(path, { method: "POST", body: JSON.stringify({ name }) })
-      await load()
+      void load().catch((caught) => setError(errorMessage(caught)))
       return created.id
     } catch (caught) {
       setError(errorMessage(caught))
@@ -144,7 +150,7 @@ export function ProductsPage() {
     try {
       await api(`/api/product-categories/${id}`, { method: "DELETE" })
       setForm((current) => ({ ...current, category_id: current.category_id === id ? "" : current.category_id }))
-      await load()
+      void load().catch((caught) => setError(errorMessage(caught)))
     } catch (caught) {
       setError(errorMessage(caught))
     }
@@ -235,24 +241,27 @@ export function ProductsPage() {
           alert_quantity: form.alert_quantity.trim() || "0",
           description: form.description || null,
         })
+        setMode(null)
         const saved =
           mode === "edit" && editingId
             ? await api<Product>(`/api/products/${editingId}`, { method: "PATCH", body })
             : await api<Product>("/api/products", { method: "POST", body })
         if (recipeOn || mode === "edit") {
-          await api(`/api/products/${saved.id}/recipe`, {
-            method: "PUT",
-            body: JSON.stringify(recipeOn ? lines : []),
-          })
-          await api(`/api/products/${saved.id}/route`, {
-            method: "PUT",
-            body: JSON.stringify({ operation_ids: recipeOn ? route : [] }),
-          })
+          await Promise.all([
+            api(`/api/products/${saved.id}/recipe`, {
+              method: "PUT",
+              body: JSON.stringify(recipeOn ? lines : []),
+            }),
+            api(`/api/products/${saved.id}/route`, {
+              method: "PUT",
+              body: JSON.stringify({ operation_ids: recipeOn ? route : [] }),
+            }),
+          ])
         }
-        setMode(null)
-        await load()
-        await loadRecipeOptions()
+        void load().catch((caught) => setError(errorMessage(caught)))
+        void loadRecipeOptions().catch((caught) => setFormError(errorMessage(caught)))
       } catch (caught) {
+        setMode(mode)
         setFormError(errorMessage(caught))
       }
     })

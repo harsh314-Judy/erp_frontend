@@ -16,7 +16,7 @@ import { Notice, PageTitle, StatCard, StatusBadge } from "@/components/plant-ui"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { roleCan } from "@/lib/access"
-import { api, errorMessage } from "@/lib/api"
+import { api, errorMessage, peek } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 type Sales = { total_orders: number; pending_orders: number; total_sales?: string; gst_sales?: string; non_gst_sales?: string }
@@ -26,12 +26,23 @@ type Movement = { created_at: string; quantity: string; reason: string; note: st
 
 export function ReportsPage() {
   const { user } = useAuth()
-  const [sales, setSales] = useState<Sales | null>(null)
-  const [production, setProduction] = useState<Production | null>(null)
-  const [stock, setStock] = useState<Stock[]>([])
-  const [movements, setMovements] = useState<Movement[]>([])
+  const [sales, setSales] = useState<Sales | null>(() => peek<Sales>("/api/reports/sales") ?? null)
+  const [production, setProduction] = useState<Production | null>(
+    () => peek<Production>("/api/reports/production") ?? null,
+  )
+  const [stock, setStock] = useState<Stock[]>(
+    () => peek<{ stock: Stock[] }>("/api/reports/inventory")?.stock ?? [],
+  )
+  const [movements, setMovements] = useState<Movement[]>(
+    () => peek<{ movements: Movement[] }>("/api/reports/inventory")?.movements ?? [],
+  )
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(
+    () =>
+      peek("/api/reports/sales") === undefined ||
+      peek("/api/reports/production") === undefined ||
+      peek("/api/reports/inventory") === undefined,
+  )
   const money = roleCan(user?.role_name, "view_financials")
 
   useEffect(() => {

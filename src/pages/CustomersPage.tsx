@@ -2,12 +2,14 @@ import { useEffect, useState, type FormEvent } from "react"
 import {
   Mail,
   MessageSquare,
+  Pencil,
   Phone,
   PlusCircle,
+  Trash2,
   UserRound,
 } from "lucide-react"
 
-import { FormBusy, PageLoading } from "@/components/PlantLoader"
+import { PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,12 +18,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { api, errorMessage, type Page } from "@/lib/api"
-import { useFormBusy } from "@/lib/busy"
+import { api, errorMessage, peek, type Page } from "@/lib/api"
+import { useRefreshWhenShown } from "@/lib/visible"
 
 type Customer = {
   id: string
@@ -31,25 +32,32 @@ type Customer = {
   email: string
   gst_number: string | null
   whatsapp_mode: string
+  whatsapp_number: string | null
   address: string
 }
 
+const emptyForm = {
+  name: "",
+  email: "",
+  phone_number: "",
+  address: "",
+  state: "",
+  gst_number: "",
+  whatsapp_mode: "main",
+  whatsapp_number: "",
+}
+
 export function CustomersPage() {
-  const [rows, setRows] = useState<Customer[]>([])
+  const [rows, setRows] = useState<Customer[]>(
+    () => peek<Page<Customer>>("/api/customers/?page=1&page_size=100")?.items ?? [],
+  )
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(true)
-  const { busy, guard } = useFormBusy()
+  const [loading, setLoading] = useState(
+    () => peek<Page<Customer>>("/api/customers/?page=1&page_size=100") === undefined,
+  )
   const [showCreate, setShowCreate] = useState(false)
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone_number: "",
-    address: "",
-    state: "",
-    gst_number: "",
-    whatsapp_mode: "main",
-    whatsapp_number: "",
-  })
+  const [editing, setEditing] = useState<Customer | null>(null)
+  const [form, setForm] = useState(emptyForm)
 
   async function load() {
     try {
@@ -63,29 +71,96 @@ export function CustomersPage() {
   useEffect(() => {
     void load().catch((caught) => setError(errorMessage(caught)))
   }, [])
+  useRefreshWhenShown("/customers", load, (caught) => setError(errorMessage(caught)))
 
-  async function create(event: FormEvent) {
+  function closeForm() {
+    setShowCreate(false)
+    setEditing(null)
+    setForm(emptyForm)
+  }
+
+  function openCreate() {
+    setEditing(null)
+    setForm(emptyForm)
+    setShowCreate(true)
+  }
+
+  function openEdit(row: Customer) {
+    setEditing(row)
+    setForm({
+      name: row.name,
+      email: row.email,
+      phone_number: row.phone_number,
+      address: row.address,
+      state: row.state,
+      gst_number: row.gst_number ?? "",
+      whatsapp_mode: row.whatsapp_mode || "main",
+      whatsapp_number: row.whatsapp_number ?? "",
+    })
+    setShowCreate(true)
+  }
+
+  function payload() {
+    return {
+      ...form,
+      gst_number: form.gst_number || null,
+      whatsapp_number: form.whatsapp_mode === "separate" ? form.whatsapp_number || null : null,
+      is_whatsapp_different: form.whatsapp_mode !== "main",
+      is_company: Boolean(form.gst_number),
+    }
+  }
+
+  async function save(event: FormEvent) {
     event.preventDefault()
     setError("")
-    await guard(async () => {
+    const body = payload()
+    const previous = rows
+    const draft = form
+    const currentEdit = editing
+    const tempId = currentEdit?.id ?? crypto.randomUUID()
+    const optimistic: Customer = {
+      id: tempId,
+      name: form.name,
+      state: form.state,
+      phone_number: form.phone_number,
+      email: form.email,
+      gst_number: form.gst_number || null,
+      whatsapp_mode: form.whatsapp_mode,
+      whatsapp_number: form.whatsapp_mode === "separate" ? form.whatsapp_number || null : null,
+      address: form.address,
+    }
+    setRows((current) =>
+      currentEdit ? current.map((row) => (row.id === currentEdit.id ? optimistic : row)) : [optimistic, ...current],
+    )
+    closeForm()
     try {
-      await api("/api/customers/", {
-        method: "POST",
-        body: JSON.stringify({
-          ...form,
-          gst_number: form.gst_number || null,
-          whatsapp_number: form.whatsapp_mode === "main" ? null : form.whatsapp_number || null,
-          is_whatsapp_different: form.whatsapp_mode !== "main",
-          is_company: Boolean(form.gst_number),
-        }),
-      })
-      setForm({ name: "", email: "", phone_number: "", address: "", state: "", gst_number: "", whatsapp_mode: "main", whatsapp_number: "" })
-      setShowCreate(false)
-      await load()
+      const saved = currentEdit
+        ? await api<Customer>(`/api/customers/${currentEdit.id}`, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          })
+        : await api<Customer>("/api/customers/", { method: "POST", body: JSON.stringify(body) })
+      setRows((current) => current.map((row) => (row.id === tempId ? saved : row)))
     } catch (caught) {
+      setRows(previous)
+      setForm(draft)
+      setEditing(currentEdit)
+      setShowCreate(true)
       setError(errorMessage(caught))
     }
-    })
+  }
+
+  async function remove(row: Customer) {
+    if (!window.confirm(`Delete ${row.name}?`)) return
+    setError("")
+    const previous = rows
+    setRows((current) => current.filter((item) => item.id !== row.id))
+    try {
+      await api(`/api/customers/${row.id}`, { method: "DELETE" })
+    } catch (caught) {
+      setRows(previous)
+      setError(errorMessage(caught))
+    }
   }
 
   return (
@@ -96,27 +171,27 @@ export function CustomersPage() {
         icon={UserRound}
         badge={`${rows.length} Clients`}
         action={
-          <Dialog open={showCreate} onOpenChange={setShowCreate}>
-            <DialogTrigger asChild>
-              <Button
-                type="button"
-                className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs transition-all active:scale-[0.98]"
-              >
-                <PlusCircle className="mr-1.5 size-4" />
-                Add New Customer
-              </Button>
-            </DialogTrigger>
+          <Dialog open={showCreate} onOpenChange={(open) => (open ? setShowCreate(true) : closeForm())}>
+            <Button
+              type="button"
+              className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs transition-all active:scale-[0.98]"
+              onClick={openCreate}
+            >
+              <PlusCircle className="mr-1.5 size-4" />
+              Add New Customer
+            </Button>
             <DialogContent className="sm:max-w-2xl bg-white border-gray-200/90 shadow-xl">
-              <FormBusy show={busy} />
               <DialogHeader>
                 <div className="flex items-center gap-2.5">
                   <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
                     <UserRound className="size-5" />
                   </div>
-                  <DialogTitle className="text-lg font-bold text-gray-900">Register New Customer Client</DialogTitle>
+                  <DialogTitle className="text-lg font-bold text-gray-900">
+                    {editing ? "Edit Customer Client" : "Register New Customer Client"}
+                  </DialogTitle>
                 </div>
               </DialogHeader>
-              <form className="mt-2 grid gap-4 sm:grid-cols-2" onSubmit={(event) => void create(event)}>
+              <form className="mt-2 grid gap-4 sm:grid-cols-2" onSubmit={(event) => void save(event)}>
                 <Field label="Customer / Business Name" required className="sm:col-span-2">
                   <Input
                     required
@@ -189,16 +264,15 @@ export function CustomersPage() {
                     type="button"
                     variant="outline"
                     className="border-gray-200 text-gray-700 hover:bg-gray-50"
-                    onClick={() => setShowCreate(false)}
+                    onClick={closeForm}
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    disabled={busy}
                     className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs"
                   >
-                    Save Customer Account
+                    {editing ? "Save changes" : "Save Customer Account"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -228,12 +302,13 @@ export function CustomersPage() {
                 <TableHead className="text-xs font-bold text-gray-700">Contact</TableHead>
                 <TableHead className="text-xs font-bold text-gray-700">GSTIN</TableHead>
                 <TableHead className="text-xs font-bold text-gray-700">WhatsApp Alert</TableHead>
+                <TableHead className="text-xs font-bold text-gray-700">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-xs text-gray-500">
+                  <TableCell colSpan={6} className="py-8 text-center text-xs text-gray-500">
                     No customers registered yet.
                   </TableCell>
                 </TableRow>
@@ -284,6 +359,30 @@ export function CustomersPage() {
                         <MessageSquare className="size-3" />
                         {row.whatsapp_mode}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl border-gray-200"
+                          onClick={() => openEdit(row)}
+                        >
+                          <Pencil className="mr-1 size-3.5" />
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl border-red-200 text-red-700 hover:bg-red-50"
+                          onClick={() => void remove(row)}
+                        >
+                          <Trash2 className="mr-1 size-3.5" />
+                          Delete
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

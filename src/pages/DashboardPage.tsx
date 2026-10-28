@@ -18,7 +18,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageLoading } from "@/components/PlantLoader"
 import { Notice, PageTitle, StatCard } from "@/components/plant-ui"
-import { api, errorMessage } from "@/lib/api"
+import { api, errorMessage, peek } from "@/lib/api"
 import { roleCan } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/auth/AuthContext"
@@ -53,9 +53,9 @@ type Dashboard = {
 
 export function DashboardPage() {
   const { user } = useAuth()
-  const [data, setData] = useState<Dashboard | null>(null)
+  const [data, setData] = useState<Dashboard | null>(() => peek<Dashboard>("/api/dashboard") ?? null)
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => peek<Dashboard>("/api/dashboard") === undefined)
   const [sync, setSync] = useState<SyncState>("connecting")
 
   useEffect(() => {

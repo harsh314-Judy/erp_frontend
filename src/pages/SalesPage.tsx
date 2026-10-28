@@ -1,16 +1,16 @@
 import { useEffect, useState, type FormEvent } from "react"
 import {
-  CreditCard,
+  Download,
   FileText,
   PackageCheck,
   PlusCircle,
-  Printer,
   Receipt,
   Send,
+  Trash2,
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
-import { FormBusy, PageLoading } from "@/components/PlantLoader"
+import { PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,10 +22,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { canSeePrices } from "@/lib/access"
-import { api, errorMessage, type Page, uploadFile } from "@/lib/api"
-import { useFormBusy } from "@/lib/busy"
+import { api, downloadFile, errorMessage, peek, type Page } from "@/lib/api"
+import { useRefreshWhenShown } from "@/lib/visible"
 
 type Option = { id: string; label: string }
 type Customer = { id: string; name: string }
@@ -46,35 +45,48 @@ type Order = {
   delivery_charge: string
   packaging_user_id: string | null
   invoice_id: string | null
+  invoice_has_pdf: boolean
   lines: Line[]
 }
-type Invoice = {
-  id: string
-  number: string
-  status: string
-  same_state: boolean
-  taxable_amount: string
-  cgst_amount: string
-  sgst_amount: string
-  igst_amount: string
-  delivery_charge: string
-  total_amount: string
-  amount_paid: string
-  lines: { description: string; hsn_code: string; quantity: string; unit_price: string; taxable_amount: string }[]
+type DraftLine = {
+  line_id: string
+  product_name: string
+  quantity: string
+  unit: string
+  mrp: string
+  gst_percent: string
 }
+type Draft = {
+  customer_name: string
+  customer_address: string
+  customer_state: string
+  customer_gst_number: string | null
+  customer_phone: string
+  delivery_charge: string
+  same_state: boolean
+  seller_name: string
+  seller_gstin: string
+  lines: DraftLine[]
+  has_pdf: boolean
+  invoice_id: string | null
+  invoice_number: string | null
+}
+type Rate = { mrp: string; gst: string }
+type SavedInvoice = { id: string; has_pdf: boolean }
 
 export function SalesPage() {
   const { user } = useAuth()
   const prices = canSeePrices(user?.role_name)
-  const [orders, setOrders] = useState<Order[]>([])
+  const [orders, setOrders] = useState<Order[]>(() => peek<Order[]>("/api/sales/orders") ?? [])
   const [customers, setCustomers] = useState<Option[]>([])
   const [products, setProducts] = useState<(Option & { type: string })[]>([])
   const [people, setPeople] = useState<Option[]>([])
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(true)
-  const { busy, guard } = useFormBusy()
-  const [invoice, setInvoice] = useState<Invoice | null>(null)
+  const [loading, setLoading] = useState(() => peek<Order[]>("/api/sales/orders") === undefined)
   const [showCreate, setShowCreate] = useState(false)
+  const [billFor, setBillFor] = useState<string | null>(null)
+  const [draft, setDraft] = useState<Draft | null>(null)
+  const [rates, setRates] = useState<Record<string, Rate>>({})
   const [form, setForm] = useState({
     customer_id: "",
     product_id: "",
@@ -83,7 +95,6 @@ export function SalesPage() {
     packaging_user_id: "",
     notes: "",
   })
-  const [payment, setPayment] = useState({ amount: "", method: "cash", note: "" })
 
   async function load() {
     try {
@@ -117,15 +128,34 @@ export function SalesPage() {
   useEffect(() => {
     void load().catch((caught) => setError(errorMessage(caught)))
   }, [])
+  useRefreshWhenShown("/sales", load, (caught) => setError(errorMessage(caught)))
 
   const selectedType = products.find((item) => item.id === form.product_id)?.type
 
   async function create(event: FormEvent) {
     event.preventDefault()
     setError("")
-    await guard(async () => {
+    const tempId = crypto.randomUUID()
+    const optimistic: Order = {
+      id: tempId,
+      customer_name: customers.find((item) => item.id === form.customer_id)?.label ?? null,
+      status: "open",
+      delivery_charge: "0",
+      packaging_user_id: form.packaging_user_id || null,
+      invoice_id: null,
+      invoice_has_pdf: false,
+      lines: [
+        {
+          product_id: form.product_id,
+          product_name: products.find((item) => item.id === form.product_id)?.label ?? null,
+          quantity: form.quantity,
+        },
+      ],
+    }
+    setOrders((current) => [optimistic, ...current])
+    setShowCreate(false)
     try {
-      await api("/api/sales/orders", {
+      const created = await api<Order>("/api/sales/orders", {
         method: "POST",
         body: JSON.stringify({
           customer_id: form.customer_id,
@@ -140,42 +170,108 @@ export function SalesPage() {
           ],
         }),
       })
-      setShowCreate(false)
-      await load()
+      setOrders((current) => current.map((order) => (order.id === tempId ? created : order)))
     } catch (caught) {
+      setOrders((current) => current.filter((order) => order.id !== tempId))
+      setShowCreate(true)
       setError(errorMessage(caught))
     }
-    })
   }
 
-  async function showInvoice(order: Order) {
-    if (!order.invoice_id) return
-    setInvoice(await api<Invoice>(`/api/invoices/${order.invoice_id}`))
-  }
-
-  async function pay(event: FormEvent) {
-    event.preventDefault()
-    if (!invoice) return
+  async function openInvoice(order: Order) {
     setError("")
-    await guard(async () => {
     try {
-      const file = (event.currentTarget as HTMLFormElement).querySelector<HTMLInputElement>("input[type=file]")?.files?.[0]
-      const attachment = file ? await uploadFile(file) : null
-      const next = await api<Invoice>(`/api/invoices/${invoice.id}/payments`, {
-        method: "POST",
-        body: JSON.stringify({
-          amount: payment.amount,
-          method: payment.method,
-          note: payment.note || null,
-          attachment_id: attachment?.id ?? null,
-        }),
-      })
-      setInvoice(next)
-      await load()
+      const next = await api<Draft>(`/api/sales/orders/${order.id}/invoice-draft`)
+      const seeded: Record<string, Rate> = {}
+      for (const line of next.lines) {
+        seeded[line.line_id] = { mrp: line.mrp, gst: String(Number(line.gst_percent)) }
+      }
+      setRates(seeded)
+      setDraft(next)
+      setBillFor(order.id)
     } catch (caught) {
       setError(errorMessage(caught))
     }
+  }
+
+  async function createBill(event: FormEvent) {
+    event.preventDefault()
+    if (!billFor || !draft) return
+    setError("")
+    const orderId = billFor
+    const body = JSON.stringify({
+      lines: draft.lines.map((line) => ({
+        line_id: line.line_id,
+        mrp: rates[line.line_id]?.mrp,
+        gst_percent: rates[line.line_id]?.gst,
+      })),
     })
+    setBillFor(null)
+    setDraft(null)
+    try {
+      const saved = await api<SavedInvoice>(`/api/sales/orders/${orderId}/invoice`, {
+        method: "POST",
+        body,
+      })
+      setOrders((current) =>
+        current.map((order) =>
+          order.id === orderId ? { ...order, invoice_id: saved.id, invoice_has_pdf: saved.has_pdf } : order,
+        ),
+      )
+    } catch (caught) {
+      setError(errorMessage(caught))
+    }
+  }
+
+  function money(value: number) {
+    return Math.round(value * 100) / 100
+  }
+
+  const preview = draft
+    ? draft.lines.reduce(
+        (total, line) => {
+          const amount = money(Number(line.quantity) * Number(rates[line.line_id]?.mrp || 0))
+          const tax = money(amount * Number(rates[line.line_id]?.gst || 0) / 100)
+          const cgst = draft.same_state ? money(tax / 2) : 0
+          const sgst = draft.same_state ? money(tax - cgst) : 0
+          return {
+            taxable: money(total.taxable + amount),
+            cgst: money(total.cgst + cgst),
+            sgst: money(total.sgst + sgst),
+            igst: money(total.igst + (draft.same_state ? 0 : tax)),
+          }
+        },
+        { taxable: 0, cgst: 0, sgst: 0, igst: 0 },
+      )
+    : null
+  const previewTotal = preview
+    ? money(preview.taxable + preview.cgst + preview.sgst + preview.igst + Number(draft?.delivery_charge || 0))
+    : 0
+  const doneCount = orders.filter((order) => order.status === "dispatched").length
+
+  async function deleteDone() {
+    if (!window.confirm(`Delete all ${doneCount} dispatched orders and their invoices? This cannot be undone.`)) return
+    setError("")
+    const previous = orders
+    setOrders((current) => current.filter((order) => order.status !== "dispatched"))
+    try {
+      await api("/api/sales/orders/dispatched", { method: "DELETE" })
+    } catch (caught) {
+      setOrders(previous)
+      setError(errorMessage(caught))
+    }
+  }
+
+  async function dispatch(order: Order) {
+    setError("")
+    setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: "dispatched" } : item)))
+    try {
+      const next = await api<Order>(`/api/sales/orders/${order.id}/dispatch`, { method: "POST" })
+      setOrders((current) => current.map((item) => (item.id === next.id ? next : item)))
+    } catch (caught) {
+      setOrders((current) => current.map((item) => (item.id === order.id ? order : item)))
+      setError(errorMessage(caught))
+    }
   }
 
   return (
@@ -186,6 +282,18 @@ export function SalesPage() {
         icon={Receipt}
         badge={`${orders.length} Orders`}
         action={
+          <div className="flex flex-wrap items-center gap-2">
+            {doneCount > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl border-red-200 text-red-700 hover:bg-red-50"
+                onClick={() => void deleteDone()}
+              >
+                <Trash2 className="mr-1.5 size-4" />
+                Delete done orders
+              </Button>
+            ) : null}
           <Dialog open={showCreate} onOpenChange={setShowCreate}>
             <DialogTrigger asChild>
               <Button
@@ -197,7 +305,6 @@ export function SalesPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-2xl bg-white border-gray-200/90 shadow-xl">
-              <FormBusy show={busy} />
               <DialogHeader>
                 <div className="flex items-center gap-2.5">
                   <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
@@ -263,7 +370,6 @@ export function SalesPage() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={busy}
                     className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs"
                   >
                     Confirm & Reserve Stock
@@ -272,6 +378,7 @@ export function SalesPage() {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         }
       />
 
@@ -286,7 +393,7 @@ export function SalesPage() {
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center shadow-xs">
             <Receipt className="mx-auto size-10 text-gray-400" />
             <p className="mt-2 text-sm font-semibold text-gray-800">No Sales Orders Found</p>
-            <p className="text-xs text-gray-500">Created customer orders and GST invoices will be listed here.</p>
+            <p className="text-xs text-gray-500">Dispatch an order, then raise its invoice from here.</p>
           </div>
         ) : (
           orders.map((order) => {
@@ -314,26 +421,40 @@ export function SalesPage() {
                   </div>
                   <div className="flex items-center gap-2.5">
                     <StatusBadge status={order.status} />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="rounded-xl border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                      onClick={() => void showInvoice(order)}
-                    >
-                      <FileText className="mr-1 size-3.5 text-blue-600" />
-                      GST Invoice
-                    </Button>
+                    {isDispatched && order.invoice_has_pdf && order.invoice_id ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                        onClick={() =>
+                          void downloadFile(`/api/invoices/${order.invoice_id}/pdf`, "invoice.pdf").catch((caught) =>
+                            setError(errorMessage(caught)),
+                          )
+                        }
+                      >
+                        <Download className="mr-1 size-3.5 text-green-700" />
+                        Download PDF
+                      </Button>
+                    ) : null}
+                    {isDispatched && !order.invoice_has_pdf ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                        onClick={() => void openInvoice(order)}
+                      >
+                        <FileText className="mr-1 size-3.5 text-blue-600" />
+                        Invoice
+                      </Button>
+                    ) : null}
                     {!isDispatched ? (
                       <Button
                         type="button"
                         size="sm"
                         className="rounded-xl bg-green-600 hover:bg-green-700 text-xs font-semibold text-white shadow-xs"
-                        onClick={() =>
-                          void api(`/api/sales/orders/${order.id}/dispatch`, { method: "POST" })
-                            .then(load)
-                            .catch((caught) => setError(errorMessage(caught)))
-                        }
+                        onClick={() => void dispatch(order)}
                       >
                         <Send className="mr-1 size-3.5" />
                         Dispatch Order
@@ -374,141 +495,102 @@ export function SalesPage() {
       </div>
       )}
 
-      {/* GST Tax Invoice Viewer */}
-      {invoice ? (
-        <section
-          className="rounded-2xl border border-gray-200/90 bg-white p-6 shadow-xs text-gray-800 print:m-0 print:border-0 print:p-0 print:bg-white print:text-gray-900"
-          id="invoice"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 pb-5">
-            <div>
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1 text-xs font-bold text-green-700">
-                <span>TAX INVOICE</span>
+      <Dialog open={billFor !== null} onOpenChange={(open) => { if (!open) { setBillFor(null); setDraft(null) } }}>
+        <DialogContent className="sm:max-w-3xl bg-white border-gray-200/90 shadow-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5">
+              <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
+                <FileText className="size-5" />
               </div>
-              <h2 className="mt-2 text-2xl font-bold tracking-tight text-gray-900">{invoice.number}</h2>
-              <p className="text-xs text-gray-500">
-                GST Regime: <strong className="text-gray-800">{invoice.same_state ? "Intrastate (CGST + SGST)" : "Interstate (IGST)"}</strong>
-              </p>
+              <DialogTitle className="text-lg font-bold text-gray-900">Create invoice</DialogTitle>
             </div>
-            <div className="flex items-center gap-3">
-              <StatusBadge status={invoice.status} />
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-xl print:hidden text-xs font-semibold border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                onClick={() => window.print()}
-              >
-                <Printer className="mr-1.5 size-4" />
-                Print Tax Invoice
-              </Button>
-            </div>
-          </div>
-
-          {/* Invoice Table */}
-          <div className="my-5 overflow-hidden rounded-xl border border-gray-200/90 bg-white">
-            <Table>
-              <TableHeader className="bg-gray-50/75">
-                <TableRow>
-                  <TableHead>Description</TableHead>
-                  <TableHead>HSN/SAC</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Rate</TableHead>
-                  <TableHead className="text-right">Taxable Value</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoice.lines.map((line, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell className="font-semibold text-gray-900">{line.description}</TableCell>
-                    <TableCell className="font-mono text-xs text-gray-500">{line.hsn_code || "–"}</TableCell>
-                    <TableCell className="text-right font-medium text-gray-700">{line.quantity}</TableCell>
-                    <TableCell className="text-right font-medium text-gray-700">₹{line.unit_price}</TableCell>
-                    <TableCell className="text-right font-bold text-gray-900">₹{line.taxable_amount}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Tax Breakdown & Totals */}
-          <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-gray-100">
-            <div className="space-y-1.5 rounded-xl bg-gray-50/80 border border-gray-200/90 p-4 text-xs text-gray-600">
-              <p className="font-bold uppercase tracking-wider text-gray-500 mb-2">Tax Breakdown</p>
-              <div className="flex justify-between">
-                <span>Taxable Total:</span>
-                <span className="font-semibold text-gray-900">₹{invoice.taxable_amount}</span>
-              </div>
-              {invoice.same_state ? (
-                <>
-                  <div className="flex justify-between text-blue-600">
-                    <span>Central GST (CGST):</span>
-                    <span className="font-semibold">₹{invoice.cgst_amount}</span>
-                  </div>
-                  <div className="flex justify-between text-blue-600">
-                    <span>State GST (SGST):</span>
-                    <span className="font-semibold">₹{invoice.sgst_amount}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between text-indigo-600">
-                  <span>Integrated GST (IGST):</span>
-                  <span className="font-semibold">₹{invoice.igst_amount}</span>
+          </DialogHeader>
+          {draft ? (
+            <form className="mt-2 space-y-4" onSubmit={(event) => void createBill(event)}>
+              <div className="grid gap-3 rounded-xl border border-gray-200 bg-gray-50/80 p-4 text-sm sm:grid-cols-2">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Seller</p>
+                  <p className="mt-1 font-semibold text-gray-900">{draft.seller_name}</p>
+                  <p className="text-xs text-gray-600">GSTIN: {draft.seller_gstin || "Not set in company settings"}</p>
                 </div>
-              )}
-              <div className="flex justify-between text-gray-500 pt-1 border-t border-gray-200">
-                <span>Delivery Freight (exempt):</span>
-                <span>₹{invoice.delivery_charge}</span>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Buyer (Bill to)</p>
+                  <p className="mt-1 font-semibold text-gray-900">{draft.customer_name}</p>
+                  <p className="text-xs text-gray-600">{draft.customer_address}</p>
+                  <p className="text-xs text-gray-600">{[draft.customer_state, draft.customer_phone].filter(Boolean).join(" · ")}</p>
+                  <p className="text-xs text-gray-600">GSTIN: {draft.customer_gst_number || "—"}</p>
+                </div>
               </div>
-            </div>
-
-            <div className="flex flex-col justify-between rounded-xl bg-gray-900 border border-gray-800 p-5 text-white shadow-xs">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-gray-400">Total Invoice Amount</p>
-                <p className="mt-1 text-3xl font-black tracking-tight text-white">₹{invoice.total_amount}</p>
+              <div className="space-y-3">
+                {draft.lines.map((line) => (
+                  <div key={line.line_id} className="grid gap-3 rounded-xl border border-gray-200 p-3 sm:grid-cols-4">
+                    <div className="sm:col-span-2">
+                      <p className="text-sm font-semibold text-gray-900">{line.product_name}</p>
+                      <p className="text-xs text-gray-500">Qty {line.quantity} {line.unit}</p>
+                    </div>
+                    <Field label="MRP (₹)" required>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        required
+                        value={rates[line.line_id]?.mrp ?? ""}
+                        onChange={(event) =>
+                          setRates((current) => ({
+                            ...current,
+                            [line.line_id]: { mrp: event.target.value, gst: current[line.line_id]?.gst ?? "0" },
+                          }))
+                        }
+                      />
+                    </Field>
+                    <Field label="GST %" required>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        required
+                        value={rates[line.line_id]?.gst ?? ""}
+                        onChange={(event) =>
+                          setRates((current) => ({
+                            ...current,
+                            [line.line_id]: { gst: event.target.value, mrp: current[line.line_id]?.mrp ?? "0" },
+                          }))
+                        }
+                      />
+                    </Field>
+                  </div>
+                ))}
               </div>
-              <div className="mt-4 flex items-center justify-between border-t border-gray-800 pt-3 text-xs">
-                <span className="text-gray-300">Amount Paid: ₹{invoice.amount_paid}</span>
-                <span className="rounded-md bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 font-bold text-emerald-300">
-                  Balance: ₹{(Number(invoice.total_amount) - Number(invoice.amount_paid)).toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Record Payment Form */}
-          <div className="mt-6 rounded-xl border border-gray-200/90 bg-gray-50/80 p-4 print:hidden">
-            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-700">
-              Record Customer Payment
-            </p>
-            <form className="grid gap-3 sm:grid-cols-4" onSubmit={(event) => void pay(event)}>
-              <Input
-                placeholder="Payment Amount (₹)"
-                value={payment.amount}
-                onChange={(event) => setPayment({ ...payment, amount: event.target.value })}
-                required
-                className="bg-white border-gray-200"
-              />
-              <select
-                className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-800 shadow-2xs focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
-                value={payment.method}
-                onChange={(event) => setPayment({ ...payment, method: event.target.value })}
-              >
-                <option value="cash">Cash Payment</option>
-                <option value="online">Online / NEFT / UPI</option>
-              </select>
-              <Input type="file" accept="image/*,.pdf" className="text-xs bg-white border-gray-200" />
-              <Button
-                type="submit"
-                disabled={busy}
-                className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs"
-              >
-                <CreditCard className="mr-1.5 size-4" />
-                Record Payment
-              </Button>
+              {preview ? (
+                <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 text-xs text-gray-600">
+                  <div className="flex justify-between"><span>Taxable</span><span className="font-semibold text-gray-900">₹{preview.taxable.toFixed(2)}</span></div>
+                  {draft.same_state ? (
+                    <>
+                      <div className="mt-1 flex justify-between"><span>CGST</span><span>₹{preview.cgst.toFixed(2)}</span></div>
+                      <div className="mt-1 flex justify-between"><span>SGST</span><span>₹{preview.sgst.toFixed(2)}</span></div>
+                    </>
+                  ) : (
+                    <div className="mt-1 flex justify-between"><span>IGST</span><span>₹{preview.igst.toFixed(2)}</span></div>
+                  )}
+                  <div className="mt-1 flex justify-between"><span>Delivery</span><span>₹{Number(draft.delivery_charge).toFixed(2)}</span></div>
+                  <div className="mt-2 flex justify-between border-t border-gray-200 pt-2 text-sm font-bold text-gray-900">
+                    <span>Total</span><span>₹{previewTotal.toFixed(2)}</span>
+                  </div>
+                </div>
+              ) : null}
+              <DialogFooter className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+                <Button type="button" variant="outline" className="border-gray-200 hover:bg-gray-50 text-gray-700" onClick={() => { setBillFor(null); setDraft(null) }}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs">
+                  Create bill
+                </Button>
+              </DialogFooter>
             </form>
-          </div>
-        </section>
-      ) : null}
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
-import { NavLink, Outlet, useNavigate } from "react-router-dom"
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import { NavLink, useLocation, useNavigate, useOutlet } from "react-router-dom"
 import {
   BarChart3,
   Bell,
@@ -22,7 +22,7 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
-import { api, type UserProfile } from "@/lib/api"
+import { api, prefetch, type UserProfile } from "@/lib/api"
 import { roleCan } from "@/lib/access"
 import { roleLabel } from "@/lib/roles"
 import { cn } from "@/lib/utils"
@@ -200,6 +200,19 @@ const NAV = [
 export function AppShell() {
   const { user, setUser } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const outlet = useOutlet()
+  const pages = useRef(new Map<string, ReactNode>())
+  if (outlet && !pages.current.has(location.pathname)) {
+    pages.current.set(location.pathname, outlet)
+  }
+
+  useEffect(() => {
+    if (!document.querySelector("[role='dialog']")) return
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true, cancelable: true }),
+    )
+  }, [location.pathname])
   const [collapsed, setCollapsed] = useState(() => window.localStorage.getItem(STORAGE_KEY) === "1")
   const [mobileOpen, setMobileOpen] = useState(false)
   const [company, setCompany] = useState("Sai Daya Steel")
@@ -213,8 +226,35 @@ export function AppShell() {
 
   useEffect(() => {
     api<{ company_name: string }>("/api/company")
-      .then((r) => setCompany(r.company_name || "Sai Daya Steel"))
+      .then((row) => setCompany(row.company_name || "Sai Daya Steel"))
       .catch(() => {})
+    const timer = window.setTimeout(() => {
+      prefetch([
+        "/api/dashboard",
+        "/api/sales/orders",
+        "/api/customers/?page=1&page_size=100",
+        "/api/products?page=1&page_size=100&brief=true",
+        "/api/products?page=1&page_size=100&q=",
+        "/api/products?page=1&page_size=500&brief=true",
+        "/api/users/options",
+        "/api/raw-materials/?page=1&page_size=100&q=",
+        "/api/raw-materials/?page=1&page_size=100&brief=true",
+        "/api/raw-materials/?page=1&page_size=500&brief=true",
+        "/api/suppliers?page=1&page_size=100",
+        "/api/suppliers?page=1&page_size=500",
+        "/api/production-jobs/?page=1&page_size=50",
+        "/api/purchase-orders",
+        "/api/measurement-units?page=1&page_size=100",
+        "/api/product-categories?page=1&page_size=100",
+        "/api/raw-materials/categories?page=1&page_size=100",
+        "/api/operations?page=1&page_size=100",
+        "/api/reports/sales",
+        "/api/reports/production",
+        "/api/reports/inventory",
+        "/api/company",
+      ])
+    }, 250)
+    return () => window.clearTimeout(timer)
   }, [])
 
   useEffect(() => {
@@ -509,8 +549,12 @@ export function AppShell() {
         </header>
 
         {/* ── Page content (App-like, fits 100% display without side scroll) ── */}
-        <main className="flex-1 min-w-0 w-full max-w-full p-2.5 sm:p-5 lg:p-6 animate-rise overflow-x-hidden">
-          <Outlet />
+        <main className="flex-1 min-w-0 w-full max-w-full p-2.5 sm:p-5 lg:p-6 overflow-x-hidden">
+          {[...pages.current.entries()].map(([path, node]) => (
+            <div key={path} className={path === location.pathname ? "min-w-0" : "hidden"}>
+              {node}
+            </div>
+          ))}
         </main>
       </div>
     </div>

@@ -16,8 +16,9 @@ import {
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { canSeePrices } from "@/lib/access"
-import { api, errorMessage, type Page } from "@/lib/api"
+import { api, errorMessage, peek, type Page } from "@/lib/api"
 import { useFormBusy } from "@/lib/busy"
+import { useRefreshWhenShown } from "@/lib/visible"
 import { cn } from "@/lib/utils"
 
 type Named = { id: string; name: string }
@@ -55,13 +56,17 @@ const emptyForm = {
 export function MaterialsPage() {
   const { user, can } = useAuth()
   const prices = canSeePrices(user?.role_name)
-  const [rows, setRows] = useState<Material[]>([])
+  const [rows, setRows] = useState<Material[]>(
+    () => peek<Page<Material>>("/api/raw-materials/?page=1&page_size=100&q=")?.items ?? [],
+  )
   const [units, setUnits] = useState<Named[]>([])
   const [categories, setCategories] = useState<Named[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [query, setQuery] = useState("")
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(
+    () => peek<Page<Material>>("/api/raw-materials/?page=1&page_size=100&q=") === undefined,
+  )
   const { busy, guard } = useFormBusy()
   const [showCreate, setShowCreate] = useState(false)
   const [editing, setEditing] = useState<Material | null>(null)
@@ -92,6 +97,7 @@ export function MaterialsPage() {
   useEffect(() => {
     void load("").catch((caught) => setError(errorMessage(caught)))
   }, [])
+  useRefreshWhenShown("/materials", () => load(), (caught) => setError(errorMessage(caught)))
 
   async function addCategory(name: string) {
     setError("")
@@ -101,7 +107,7 @@ export function MaterialsPage() {
         body: JSON.stringify({ name }),
       })
       setForm((current) => ({ ...current, category_id: created.id }))
-      await load()
+      void load().catch((caught) => setError(errorMessage(caught)))
     } catch (caught) {
       setError(errorMessage(caught))
     }
@@ -112,7 +118,7 @@ export function MaterialsPage() {
     try {
       await api(`/api/raw-materials/categories/${id}`, { method: "DELETE" })
       setForm((current) => ({ ...current, category_id: current.category_id === id ? "" : current.category_id }))
-      await load()
+      void load().catch((caught) => setError(errorMessage(caught)))
     } catch (caught) {
       setError(errorMessage(caught))
     }
@@ -137,12 +143,13 @@ export function MaterialsPage() {
     event.preventDefault()
     setError("")
     await guard(async () => {
+      setShowCreate(false)
       try {
         await api("/api/raw-materials/", { method: "POST", body: JSON.stringify(payload()) })
         setForm((current) => ({ ...current, name: "", description: "", quantity: "0" }))
-        setShowCreate(false)
-        await load()
+        void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
+        setShowCreate(true)
         setError(errorMessage(caught))
       }
     })
@@ -153,10 +160,10 @@ export function MaterialsPage() {
     if (!editing) return
     setError("")
     await guard(async () => {
+      setEditing(null)
       try {
         await api(`/api/raw-materials/${editing.id}`, { method: "PATCH", body: JSON.stringify(payload()) })
-        setEditing(null)
-        await load()
+        void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
         setError(errorMessage(caught))
       }
