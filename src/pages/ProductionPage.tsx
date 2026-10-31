@@ -159,7 +159,7 @@ function stageColor(name: string, index = 0) {
 
 function stageInk(name: string) {
   const color = stageColor(name)
-  return color === "#1e293b" ? "#cbd5e1" : color
+  return color === "#1e293b" ? "var(--stage-fallback)" : color
 }
 
 function WorkflowCurve({ stages }: { stages: Stage[] }) {
@@ -754,7 +754,7 @@ export function ProductionPage() {
             </span>
             <span className="text-xs text-gray-400">Open a job to work the stage</span>
           </div>
-          <div className="h-px bg-white/10" />
+          <div className="h-px bg-gray-200" />
           <div className="space-y-2.5">
                 {jobs.length === 0 ? (
                   <p className="px-4 py-8 text-center text-xs text-gray-400">
@@ -768,12 +768,11 @@ export function ProductionPage() {
                       : undefined
                     return (
                       <Fragment key={job.id}>
-                      {index > 0 ? <div className="mx-6 h-px bg-white/10" /> : null}
+                      {index > 0 ? <div className="mx-6 h-px bg-gray-200" /> : null}
                       {isSelected ? null : (
                       <div
                         className={cn(
                           "grid cursor-pointer grid-cols-[minmax(0,1.1fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_auto] items-center gap-x-8 rounded-2xl border border-gray-200/90 bg-white px-5 py-4 shadow-xs transition-all duration-300 hover:bg-gray-50/70",
-                          selected && "bg-[#1a1d23]",
                         )}
                         onClick={() => void toggle(job.id)}
                       >
@@ -788,7 +787,7 @@ export function ProductionPage() {
                           <span className="mx-2 text-gray-300">·</span>
                           Target {quantityLabel(job.quantity)}
                           <span className="mx-2 text-gray-300">·</span>
-                          <span className="font-semibold" style={{ color: ink ?? "#f2f4f7" }}>{currentStage(job)}</span>
+                          <span className="font-semibold text-gray-700" style={ink ? { color: ink } : undefined}>{currentStage(job)}</span>
                         </span>
                         {user?.role_name === "super_admin" && job.status !== "completed" && job.status !== "cancelled" ? (
                           <button
@@ -808,7 +807,7 @@ export function ProductionPage() {
                           <div className={cn("grid transition-[grid-template-rows] duration-500 ease-out", isSelected ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
                             <div className={cn("min-h-0 overflow-hidden", isSelected && "py-3")}>
                               {isSelected && selected ? (
-          <section className={cn("relative z-10 @container space-y-4 rounded-2xl border border-white/10 bg-white p-4 text-gray-900 shadow-[0_2px_6px_rgba(0,0,0,0.35),0_18px_40px_rgba(0,0,0,0.45)]", held && "pointer-events-none")}>
+          <section className={cn("relative z-10 @container space-y-4 rounded-2xl border border-gray-200 bg-white p-4 text-gray-900 shadow-xs", held && "pointer-events-none")}>
             {held ? (
               <p className="text-xs font-medium text-emerald-700">Recorded. Other actions stay locked until the plant confirms it.</p>
             ) : null}
@@ -820,7 +819,7 @@ export function ProductionPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-lg font-bold text-gray-900">{selected.product_name}</h2>
                   <StatusBadge status={selected.status} />
-                  <span className="text-xs font-semibold" style={{ color: selected.current_operation_name && (selected.status === "in_progress" || selected.status === "active") ? stageInk(selected.current_operation_name) : "#f2f4f7" }}>{currentStage(selected)}</span>
+                  <span className="text-xs font-semibold text-gray-700" style={selected.current_operation_name && (selected.status === "in_progress" || selected.status === "active") ? { color: stageInk(selected.current_operation_name) } : undefined}>{currentStage(selected)}</span>
                 </div>
                 <p className="mt-1 text-xs text-gray-800">
                   Started {localStamp(selected.created_at)}
