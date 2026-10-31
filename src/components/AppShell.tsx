@@ -1,29 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { NavLink, useLocation, useNavigate, useOutlet } from "react-router-dom"
-import {
-  BarChart3,
-  Bell,
-  Boxes,
-  Factory,
-  FileText,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  Package,
-  PanelLeft,
-  Receipt,
-  Settings,
-  ShoppingCart,
-  Truck,
-  UserRound,
-  Users,
-  Wrench,
-  X,
-} from "lucide-react"
+import { Bell, LogOut, Menu, PanelLeft, X } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
 import { api, prefetch, type UserProfile } from "@/lib/api"
-import { roleCan } from "@/lib/access"
+import { NAV } from "@/lib/nav"
+import { PageChromeProvider, usePageChrome } from "@/lib/page-chrome"
 import { roleLabel } from "@/lib/roles"
 import { cn } from "@/lib/utils"
 
@@ -37,166 +19,31 @@ type Notice = {
   read_at: string | null
 }
 
-const NAV = [
-  {
-    to: "/dashboard",
-    label: "Dashboard",
-    shortLabel: "Home",
-    icon: LayoutDashboard,
-    iconColor: "text-white",
-    iconBg: "bg-emerald-600",
-    activeBorder: "border-l-emerald-600",
-    dot: "bg-emerald-600",
-    section: "CORE",
-    show: () => true,
-  },
-  {
-    to: "/reports",
-    label: "Analytics & Reports",
-    shortLabel: "Reports",
-    icon: BarChart3,
-    iconColor: "text-white",
-    iconBg: "bg-indigo-600",
-    activeBorder: "border-l-indigo-600",
-    dot: "bg-indigo-600",
-    section: "CORE",
-    show: (r: string|null|undefined) => roleCan(r, "view_reports"),
-  },
-  {
-    to: "/production",
-    label: "Production Floor",
-    shortLabel: "Floor",
-    icon: Factory,
-    iconColor: "text-white",
-    iconBg: "bg-cyan-600",
-    activeBorder: "border-l-cyan-600",
-    dot: "bg-cyan-600",
-    section: "OPERATIONS",
-    show: (r: string|null|undefined) => roleCan(r, "view_assigned_work"),
-  },
-  {
-    to: "/staff",
-    label: "Operator Station",
-    shortLabel: "Station",
-    icon: Wrench,
-    iconColor: "text-white",
-    iconBg: "bg-amber-600",
-    activeBorder: "border-l-amber-600",
-    dot: "bg-amber-600",
-    section: "OPERATIONS",
-    show: (r: string|null|undefined) => r === "staff",
-  },
-  {
-    to: "/products",
-    label: "Products Catalog",
-    shortLabel: "Products",
-    icon: Package,
-    iconColor: "text-white",
-    iconBg: "bg-blue-600",
-    activeBorder: "border-l-blue-600",
-    dot: "bg-blue-600",
-    section: "INVENTORY",
-    show: (r: string|null|undefined) => roleCan(r, "view_inventory"),
-  },
-  {
-    to: "/materials",
-    label: "Raw Materials",
-    shortLabel: "Stock",
-    icon: Boxes,
-    iconColor: "text-white",
-    iconBg: "bg-teal-600",
-    activeBorder: "border-l-teal-600",
-    dot: "bg-teal-600",
-    section: "INVENTORY",
-    show: (r: string|null|undefined) => roleCan(r, "view_inventory"),
-  },
-  {
-    to: "/purchases",
-    label: "Purchase Orders",
-    shortLabel: "Orders",
-    icon: ShoppingCart,
-    iconColor: "text-white",
-    iconBg: "bg-rose-600",
-    activeBorder: "border-l-rose-600",
-    dot: "bg-rose-600",
-    section: "COMMERCE",
-    show: (r: string|null|undefined) => roleCan(r, "manage_purchasing") || r === "staff",
-  },
-  {
-    to: "/sales",
-    label: "Sales & Dispatch",
-    shortLabel: "Sales",
-    icon: FileText,
-    iconColor: "text-white",
-    iconBg: "bg-emerald-600",
-    activeBorder: "border-l-emerald-600",
-    dot: "bg-emerald-600",
-    section: "COMMERCE",
-    show: (r: string|null|undefined) => roleCan(r, "manage_sales"),
-  },
-  {
-    to: "/customers",
-    label: "Customer Clients",
-    shortLabel: "Clients",
-    icon: UserRound,
-    iconColor: "text-white",
-    iconBg: "bg-fuchsia-600",
-    activeBorder: "border-l-fuchsia-600",
-    dot: "bg-fuchsia-600",
-    section: "COMMERCE",
-    show: (r: string|null|undefined) => roleCan(r, "manage_sales"),
-  },
-  {
-    to: "/suppliers",
-    label: "Supplier Vendors",
-    shortLabel: "Vendors",
-    icon: Truck,
-    iconColor: "text-white",
-    iconBg: "bg-lime-600",
-    activeBorder: "border-l-lime-600",
-    dot: "bg-lime-600",
-    section: "COMMERCE",
-    show: (r: string|null|undefined) => roleCan(r, "view_suppliers"),
-  },
-  {
-    to: "/accountant",
-    label: "Approval Queue",
-    shortLabel: "Approvals",
-    icon: Receipt,
-    iconColor: "text-white",
-    iconBg: "bg-orange-600",
-    activeBorder: "border-l-orange-600",
-    dot: "bg-orange-600",
-    section: "ADMINISTRATION",
-    show: (r: string|null|undefined) => roleCan(r, "approve_jobs"),
-  },
-  {
-    to: "/users",
-    label: "Personnel & Access",
-    shortLabel: "Staff",
-    icon: Users,
-    iconColor: "text-white",
-    iconBg: "bg-purple-600",
-    activeBorder: "border-l-purple-600",
-    dot: "bg-purple-600",
-    section: "ADMINISTRATION",
-    show: (r: string|null|undefined) => roleCan(r, "manage_staff_users"),
-  },
-  {
-    to: "/settings",
-    label: "Company Profile",
-    shortLabel: "Settings",
-    icon: Settings,
-    iconColor: "text-white",
-    iconBg: "bg-neutral-800",
-    activeBorder: "border-l-black",
-    dot: "bg-black",
-    section: "ADMINISTRATION",
-    show: (r: string|null|undefined) => roleCan(r, "manage_company"),
-  },
-]
+function HeaderIdentity({ company }: { company: string }) {
+  const chromeApi = usePageChrome()
+  const chrome = chromeApi?.scrolled ? chromeApi.chrome : null
+  const Icon = chrome?.icon
+  return (
+    <>
+      <div className={cn("flex min-w-0 items-center gap-2.5", chrome && "hidden sm:flex")}>
+        <span className="truncate text-sm font-bold tracking-tight text-gray-900">{company}</span>
+        <span className="hidden sm:inline-flex items-center gap-1.5 rounded-none border border-black bg-emerald-50 px-2 py-0.5 text-[9px] font-mono font-bold tracking-wider text-emerald-800">
+          <span className="size-1.5 animate-pulse rounded-none bg-emerald-500" />
+          PLANT LIVE
+        </span>
+      </div>
+      {chrome && Icon ? (
+        <div className="flex min-w-0 items-center gap-2">
+          <div className={cn("grid size-7 shrink-0 place-items-center border border-black/30 text-white", chrome.iconBg)}>
+            <Icon className="size-3.5" />
+          </div>
+          <span className="truncate text-sm font-bold tracking-tight text-gray-900">{chrome.title}</span>
+        </div>
+      ) : null}
+    </>
+  )
+}
 
-// Show at most 4 items in bottom mobile nav (+ menu)
 export function AppShell() {
   const { user, setUser } = useAuth()
   const navigate = useNavigate()
@@ -219,10 +66,18 @@ export function AppShell() {
   const [notices, setNotices] = useState<Notice[]>([])
   const [unread, setUnread] = useState(0)
   const [bellOpen, setBellOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0")
   }, [collapsed])
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8)
+    onScroll()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
 
   useEffect(() => {
     api<{ company_name: string }>("/api/company")
@@ -296,6 +151,7 @@ export function AppShell() {
   const sections = ["CORE", "OPERATIONS", "INVENTORY", "COMMERCE", "ADMINISTRATION"]
 
   return (
+    <PageChromeProvider scrolled={scrolled}>
     <div className="min-h-svh bg-[#e6e8ec]">
 
       {/* ── Mobile slide-over backdrop ─────────────────────── */}
@@ -455,7 +311,15 @@ export function AppShell() {
       )}>
 
         {/* ── Top header with sharp borders and black details ── */}
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 sm:gap-3 border-b border-gray-200/90 bg-[#f1f2f4]/95 px-3 sm:px-4 backdrop-blur-md shadow-2xs w-full max-w-full overflow-hidden">
+        <header
+          className={cn(
+            "fixed top-0 right-0 left-0 z-30 flex h-14 items-center gap-2 sm:gap-3 px-3 sm:px-4 w-full max-w-full transition-[left,background-color,border-color,box-shadow] duration-200",
+            collapsed ? "lg:left-16" : "lg:left-64",
+            scrolled
+              ? "border-b border-transparent bg-transparent shadow-none before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-24 before:backdrop-blur-md before:bg-[linear-gradient(to_bottom,rgba(230,232,236,0.94),rgba(230,232,236,0.55)_58%,transparent)] before:[mask-image:linear-gradient(to_bottom,black_42%,transparent)]"
+              : "border-b border-gray-200/90 bg-[#f1f2f4]/95 shadow-2xs",
+          )}
+        >
 
           {/* Mobile hamburger */}
           <button
@@ -475,14 +339,7 @@ export function AppShell() {
             <PanelLeft className="size-4.5" />
           </button>
 
-          {/* Company name + black micro tag + live indicator */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="text-sm font-bold text-gray-900 truncate tracking-tight">{company}</span>
-            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-none bg-emerald-50 text-emerald-800 border border-black px-2 py-0.5 text-[9px] font-mono font-bold tracking-wider">
-              <span className="size-1.5 bg-emerald-500 rounded-none animate-pulse" />
-              PLANT LIVE
-            </span>
-          </div>
+          <HeaderIdentity company={company} />
 
           {/* Right actions */}
           <div className="relative ml-auto flex items-center gap-2">
@@ -549,15 +406,16 @@ export function AppShell() {
         </header>
 
         {/* ── Page content (App-like, fits 100% display without side scroll) ── */}
-        <main className="flex-1 min-w-0 w-full max-w-full p-2.5 sm:p-5 lg:p-6 overflow-x-hidden">
+        <main className="flex-1 min-w-0 w-full max-w-full p-2.5 pt-16 sm:p-5 sm:pt-20 lg:p-6 lg:pt-20 overflow-x-hidden">
           {[...pages.current.entries()].map(([path, node]) => (
-            <div key={path} className={path === location.pathname ? "min-w-0" : "hidden"}>
+            <div key={path} data-page={path} className={path === location.pathname ? "min-w-0" : "hidden"}>
               {node}
             </div>
           ))}
         </main>
       </div>
     </div>
+    </PageChromeProvider>
   )
 }
 

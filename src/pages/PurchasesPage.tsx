@@ -4,20 +4,20 @@ import {
   Building2,
   CheckCircle2,
   FileText,
-  Package,
   Pencil,
   PlusCircle,
   Search,
   ShoppingCart,
   Sparkles,
   Truck,
+  Undo2,
   X,
   XCircle,
   Zap,
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
-import { CardListSkeleton, FormBusy, StatGridSkeleton } from "@/components/PlantLoader"
+import { CardListSkeleton, FormBusy } from "@/components/PlantLoader"
 import { CategoryManager, Field, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
@@ -150,6 +150,7 @@ export function PurchasesPage() {
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [kept, setKept] = useState<string[]>([])
 
   // Create / Edit modal
   const [showCreate, setShowCreate] = useState(false)
@@ -323,13 +324,14 @@ export function PurchasesPage() {
     setError("")
     setQuickSaving(true)
     try {
-      await api(`/api/purchase-orders/${quickOrder.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          status: quickForm.status,
-          expected_vehicle_plate: quickForm.expected_vehicle_plate.trim().toUpperCase() || null,
-        }),
-      })
+        await api(`/api/purchase-orders/${quickOrder.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            status: quickForm.status,
+            expected_vehicle_plate: quickForm.expected_vehicle_plate.trim().toUpperCase() || null,
+          }),
+        })
+        remember(quickOrder.id)
       setQuickOrder(null)
       void load().catch((caught) => setError(errorMessage(caught)))
     } catch (caught) {
@@ -341,6 +343,7 @@ export function PurchasesPage() {
 
   async function quickAdvanceStatus(order: Order, nextStatus: string) {
     setError("")
+    remember(order.id)
     await guard(async () => {
       try {
         await api(`/api/purchase-orders/${order.id}`, {
@@ -512,6 +515,7 @@ export function PurchasesPage() {
 
   async function cancelOrder(order: Order) {
     if (!window.confirm("Cancel this purchase order? Stock will not be credited.")) return
+    remember(order.id)
     await guard(async () => {
       try {
         await api(`/api/purchase-orders/${order.id}`, {
@@ -528,9 +532,9 @@ export function PurchasesPage() {
   // Filtered orders list
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      if (statusFilter !== "all" && order.status !== statusFilter) {
-        return false
-      }
+      const matchesStatus =
+        statusFilter === "all" || order.status === statusFilter || kept.includes(order.id)
+      if (!matchesStatus) return false
       if (!searchQuery.trim()) return true
       const q = searchQuery.toLowerCase()
       const supplierMatch = (order.supplier_name || "").toLowerCase().includes(q)
@@ -539,7 +543,16 @@ export function PurchasesPage() {
       const notesMatch = (order.notes || "").toLowerCase().includes(q)
       return supplierMatch || plateMatch || itemMatch || notesMatch
     })
-  }, [orders, statusFilter, searchQuery])
+  }, [orders, statusFilter, searchQuery, kept])
+
+  function chooseStatus(next: string) {
+    setStatusFilter(next)
+    setKept([])
+  }
+
+  function remember(id: string) {
+    setKept((current) => (current.includes(id) ? current : [...current, id]))
+  }
 
   // Count metrics
   const counts = useMemo(() => {
@@ -557,6 +570,26 @@ export function PurchasesPage() {
       <PageTitle
         title="Purchase Orders"
         hint="Procure raw materials & manufactured parts from verified suppliers. Track shipment status, logistics vehicle numbers, and warehouse stock receipts."
+        guide={[
+          {
+            heading: "How an order moves",
+            items: [
+              { label: "Initiated", detail: "The purchase is logged with the supplier." },
+              { label: "In Process", detail: "The supplier is preparing the goods. Quick Update can set this step." },
+              { label: "In Delivery", detail: "The shipment is on the way to the plant. Step back returns it to Initiated, and stock stays unchanged." },
+              { label: "Delivered", detail: "Received and stocked adds the quantity to inventory." },
+              { label: "Cancelled", detail: "The order is voided and no stock is credited." },
+            ],
+          },
+          {
+            heading: "The card",
+            items: [
+              { label: "Supplier and lines", detail: "Each card shows the supplier, every raw material or manufactured part, and the order total." },
+              { label: "Vehicle", detail: "Set the vehicle plate expected at the gate, then record the receipt note when it arrives." },
+              { label: "Tabs", detail: "A status change stays on the current tab until you switch tabs." },
+            ],
+          },
+        ]}
         icon={ShoppingCart}
         badge={`${orders.length} Orders`}
         action={
@@ -575,70 +608,6 @@ export function PurchasesPage() {
 
       {error ? <Notice variant="error">{error}</Notice> : null}
 
-      {/* KPI Stats Bar */}
-      {loading ? (
-        <StatGridSkeleton count={5} />
-      ) : (
-        <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-500">Total Purchase Orders</span>
-              <div className="grid size-8.5 place-items-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-500/20">
-                <ShoppingCart className="size-4" />
-              </div>
-            </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-gray-900">{counts.total}</p>
-            <p className="mt-1 text-xs text-gray-400">Across all vendor accounts</p>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-500">Awaiting / In Process</span>
-              <div className="grid size-8.5 place-items-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-500/20">
-                <Package className="size-4" />
-              </div>
-            </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-amber-600">
-              {counts.initiated + counts.process}
-            </p>
-            <p className="mt-1 text-xs text-gray-400">{counts.initiated} initiated, {counts.process} processing</p>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-500">In Delivery / En Route</span>
-              <div className="grid size-8.5 place-items-center rounded-xl bg-sky-50 text-sky-600 ring-1 ring-sky-500/20">
-                <Truck className="size-4" />
-              </div>
-            </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-sky-600">{counts.inDelivery}</p>
-            <p className="mt-1 text-xs text-gray-400">Vehicles scheduled for gate arrival</p>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-500">Delivered & Stocked</span>
-              <div className="grid size-8.5 place-items-center rounded-xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-500/20">
-                <CheckCircle2 className="size-4" />
-              </div>
-            </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-emerald-600">{counts.delivered}</p>
-            <p className="mt-1 text-xs text-gray-400">Goods verified & inventory credited</p>
-          </div>
-
-          <div className="rounded-2xl border border-gray-200/90 bg-white p-4 shadow-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-500">Cancelled Orders</span>
-              <div className="grid size-8.5 place-items-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-500/20">
-                <XCircle className="size-4" />
-              </div>
-            </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-rose-600">{counts.cancelled}</p>
-            <p className="mt-1 text-xs text-gray-400">Voided / non-credited orders</p>
-          </div>
-        </div>
-      )}
-
       {/* Filter Tabs and Search Bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {/* Status Pills */}
@@ -651,7 +620,7 @@ export function PurchasesPage() {
                 ? "bg-green-600 text-white shadow-xs"
                 : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
             )}
-            onClick={() => setStatusFilter("all")}
+            onClick={() => chooseStatus("all")}
           >
             All ({counts.total})
           </button>
@@ -663,7 +632,7 @@ export function PurchasesPage() {
                 ? "bg-amber-600 text-white shadow-xs"
                 : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
             )}
-            onClick={() => setStatusFilter("initiated")}
+            onClick={() => chooseStatus("initiated")}
           >
             Initiated ({counts.initiated})
           </button>
@@ -675,7 +644,7 @@ export function PurchasesPage() {
                 ? "bg-blue-600 text-white shadow-xs"
                 : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
             )}
-            onClick={() => setStatusFilter("process")}
+            onClick={() => chooseStatus("process")}
           >
             Process ({counts.process})
           </button>
@@ -687,7 +656,7 @@ export function PurchasesPage() {
                 ? "bg-sky-600 text-white shadow-xs"
                 : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
             )}
-            onClick={() => setStatusFilter("in_delivery")}
+            onClick={() => chooseStatus("in_delivery")}
           >
             In Delivery ({counts.inDelivery})
           </button>
@@ -699,7 +668,7 @@ export function PurchasesPage() {
                 ? "bg-emerald-600 text-white shadow-xs"
                 : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
             )}
-            onClick={() => setStatusFilter("delivered")}
+            onClick={() => chooseStatus("delivered")}
           >
             Delivered ({counts.delivered})
           </button>
@@ -711,7 +680,7 @@ export function PurchasesPage() {
                 ? "bg-rose-600 text-white shadow-xs"
                 : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
             )}
-            onClick={() => setStatusFilter("cancelled")}
+            onClick={() => chooseStatus("cancelled")}
           >
             Cancelled ({counts.cancelled})
           </button>
@@ -764,7 +733,7 @@ export function PurchasesPage() {
               className="mt-4 rounded-xl border-gray-200 text-gray-700 hover:bg-gray-100"
               onClick={() => {
                 setSearchQuery("")
-                setStatusFilter("all")
+                chooseStatus("all")
               }}
             >
               Clear filters
@@ -817,7 +786,7 @@ export function PurchasesPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex flex-wrap items-center gap-2.5">
                     <StatusBadge status={order.status} />
 
                     {/* Quick advance shortcut */}
@@ -835,16 +804,29 @@ export function PurchasesPage() {
                           Mark In Delivery
                         </Button>
                       ) : order.status === "in_delivery" ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="rounded-xl h-8 bg-green-600 font-semibold text-white shadow-xs text-xs hover:bg-green-700"
-                          onClick={() => void quickAdvanceStatus(order, "delivered")}
-                          disabled={busy}
-                        >
-                          <CheckCircle2 className="mr-1 size-3.5" />
-                          Received and stocked
-                        </Button>
+                        <>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-xl border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                            onClick={() => void quickAdvanceStatus(order, "initiated")}
+                            disabled={busy}
+                          >
+                            <Undo2 className="mr-1 size-3.5" />
+                            Step back
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="rounded-xl h-8 bg-green-600 font-semibold text-white shadow-xs text-xs hover:bg-green-700"
+                            onClick={() => void quickAdvanceStatus(order, "delivered")}
+                            disabled={busy}
+                          >
+                            <CheckCircle2 className="mr-1 size-3.5" />
+                            Received and stocked
+                          </Button>
+                        </>
                       ) : null
                     ) : null}
                   </div>
