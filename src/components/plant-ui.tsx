@@ -444,7 +444,10 @@ export function SearchSelect({
             top: place.above ? undefined : place.top,
             bottom: place.above ? window.innerHeight - place.top : undefined,
           }}
-          className="pointer-events-auto fixed z-[70] overflow-auto rounded-xl border border-gray-100 bg-white p-1.5 shadow-xl animate-scale-in"
+          className={cn(
+            "pointer-events-auto fixed z-[70] overflow-auto rounded-xl border border-gray-100 bg-white p-1.5 shadow-xl animate-scale-in",
+            anchorRef.current?.closest(".production-floor") && "production-pop",
+          )}
         >
           {matches.length === 0 ? (
             <p className="px-3 py-2 text-xs text-gray-400">No matches</p>

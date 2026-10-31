@@ -1,3 +1,4 @@
+@layer production;
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -276,6 +277,168 @@
 /* ─── Safe area padding for mobile ─────────────────── */
 .safe-bottom {
   padding-bottom: max(env(safe-area-inset-bottom), 16px);
+}
+
+/* Production floor only. The class is absent on every other route.
+   This layer is declared before Tailwind's base layer so its important
+   corners beat the global sharp-corner reset. */
+@layer production {
+html:has(.production-shell) {
+  color-scheme: dark;
+  background: #16181c;
+}
+.production-shell {
+  background: #16181c;
+  color: #e7eaee;
+}
+
+/* G2 corners: squircle is a superellipse whose curvature falls to zero where it meets the straight edge. */
+.production-shell :is(.rounded-2xl, .rounded-3xl, .rounded-t-3xl, .sm\:rounded-2xl),
+.production-dialog:is(.rounded-2xl, .rounded-3xl, .rounded-t-3xl, .sm\:rounded-2xl),
+.production-dialog :is(.rounded-2xl, .rounded-3xl) {
+  border-radius: 26px !important;
+  corner-shape: squircle;
+}
+.production-shell :is(.rounded-xl, .rounded-lg),
+.production-dialog :is(.rounded-xl, .rounded-lg),
+.production-pop,
+.production-pop :is(.rounded-xl, .rounded-lg) {
+  border-radius: 16px !important;
+  corner-shape: squircle;
+}
+.production-shell :is(button, input, select, textarea, .rounded-none, .rounded-full),
+.production-dialog :is(button, input, select, textarea, .rounded-none, .rounded-full),
+.production-pop :is(button, .rounded-lg),
+.production-shell aside a {
+  border-radius: 12px !important;
+  corner-shape: squircle;
+}
+.production-shell .grid[class*="size-"],
+.production-dialog .grid[class*="size-"] {
+  border-radius: 14px !important;
+  corner-shape: squircle;
+}
+.production-shell :is(.size-1\.5, .size-2),
+.production-dialog :is(.size-1\.5, .size-2) {
+  border-radius: 999px !important;
+  corner-shape: round;
+}
+.production-shell .rounded-full,
+.production-dialog .rounded-full {
+  border-radius: 999px !important;
+  corner-shape: squircle;
+}
+
+.production-shell :is(.bg-white, .bg-white\/70, .bg-white\/95),
+.production-dialog.bg-white,
+.production-dialog .bg-white,
+.production-pop.bg-white,
+.production-pop .bg-white {
+  background-color: #24282f !important;
+}
+.production-shell :is(.bg-gray-50, .bg-gray-50\/30, .bg-gray-50\/50, .bg-gray-50\/60, .bg-gray-50\/70, .bg-gray-100),
+.production-dialog :is(.bg-gray-50, .bg-gray-100),
+.production-pop :is(.bg-gray-50, .bg-gray-100) {
+  background-color: #2c313a !important;
+}
+.production-shell :is(.hover\:bg-gray-50, .hover\:bg-gray-50\/70, .hover\:bg-gray-100):hover,
+.production-dialog :is(.hover\:bg-gray-50, .hover\:bg-gray-100):hover,
+.production-pop :is(.hover\:bg-gray-50, .hover\:bg-gray-100):hover {
+  background-color: #353b46 !important;
+}
+.production-shell :is(input, select, textarea),
+.production-dialog :is(input, select, textarea) {
+  background-color: #1a1d23 !important;
+  color: #f3f4f6 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+.production-shell :is(input, textarea)::placeholder,
+.production-dialog :is(input, textarea)::placeholder {
+  color: #8d95a1;
+}
+
+.production-shell :is(.text-gray-950, .text-gray-900, .text-black),
+.production-dialog :is(.text-gray-950, .text-gray-900, .text-black),
+.production-pop :is(.text-gray-950, .text-gray-900, .text-black, .text-gray-700) {
+  color: #f2f4f7 !important;
+}
+.production-shell :is(.text-gray-800, .text-gray-700),
+.production-dialog :is(.text-gray-800, .text-gray-700) {
+  color: #d5dae2 !important;
+}
+.production-shell :is(.text-gray-600, .text-gray-500),
+.production-dialog :is(.text-gray-600, .text-gray-500),
+.production-pop .text-gray-400 {
+  color: #a8b0bb !important;
+}
+.production-shell .text-gray-400,
+.production-dialog .text-gray-400,
+.production-pop .text-gray-400 {
+  color: #8d95a1 !important;
+}
+.production-shell .hover\:text-black:hover,
+.production-shell .hover\:text-gray-900:hover,
+.production-dialog .hover\:text-gray-700:hover {
+  color: #f2f4f7 !important;
+}
+
+.production-floor :is(.border-black, .border-gray-100, .border-gray-200, .border-gray-200\/90, .border-gray-300),
+.production-dialog :is(.border-black, .border-gray-100, .border-gray-200, .border-gray-300),
+.production-pop :is(.border-gray-100, .border-gray-200),
+.production-shell header :is(.border-black, .border-gray-200),
+.production-shell aside .border-black,
+.production-shell aside .border-gray-100 {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+.production-shell aside a.border-gray-200 {
+  border-top-color: rgba(255, 255, 255, 0.12) !important;
+  border-right-color: rgba(255, 255, 255, 0.12) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+}
+.production-shell aside a[class*="border-l-emerald"] {
+  border-left-color: #34d399 !important;
+}
+.production-shell .border-black\/30,
+.production-shell .border-black\/20,
+.production-shell .border-black\/40 {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+.production-shell :is(.bg-emerald-50, .bg-emerald-50\/70, .bg-emerald-50\/90, .bg-green-50),
+.production-dialog :is(.bg-emerald-50, .bg-green-50),
+.production-pop .bg-green-50 {
+  background-color: #12352c !important;
+}
+.production-shell :is(.bg-blue-50, .bg-blue-50\/70, .bg-sky-50) {
+  background-color: #152a48 !important;
+}
+.production-shell :is(.bg-amber-50, .bg-amber-50\/70, .bg-amber-100),
+.production-dialog :is(.bg-amber-50, .bg-amber-100) {
+  background-color: #3a2c12 !important;
+}
+.production-shell :is(.bg-rose-50, .bg-rose-50\/70, .bg-rose-100, .bg-red-50, .bg-red-50\/70),
+.production-dialog :is(.bg-rose-50, .bg-red-50, .bg-red-50\/70) {
+  background-color: #3a1820 !important;
+}
+.production-shell .bg-emerald-100 {
+  background-color: #12382c !important;
+}
+.production-shell :is(.text-emerald-950, .text-emerald-900, .text-emerald-800, .text-emerald-700, .text-green-700),
+.production-dialog :is(.text-emerald-800, .text-emerald-700, .text-green-700),
+.production-pop .text-green-700 {
+  color: #6ee7b7 !important;
+}
+.production-shell :is(.text-blue-800, .text-sky-800) {
+  color: #93c5fd !important;
+}
+.production-shell :is(.text-amber-900, .text-amber-800, .text-amber-700),
+.production-dialog :is(.text-amber-800, .text-amber-700) {
+  color: #fbbf24 !important;
+}
+.production-shell :is(.text-rose-900, .text-rose-800, .text-red-900, .text-red-600),
+.production-dialog :is(.text-rose-800, .text-red-900, .text-red-600) {
+  color: #fda4af !important;
+}
 }
 
 @layer utilities {

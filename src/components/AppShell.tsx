@@ -143,6 +143,7 @@ export function AppShell() {
     if (item.link) navigate(item.link)
   }
 
+  const dim = location.pathname === "/production"
   const name = [user?.first_name, user?.last_name].filter(Boolean).join(" ")
   const links = NAV.filter((item) => item.show(user?.role_name))
   const initials = [user?.first_name?.[0], user?.last_name?.[0]].filter(Boolean).join("").toUpperCase() || "U"
@@ -152,7 +153,7 @@ export function AppShell() {
 
   return (
     <PageChromeProvider scrolled={scrolled}>
-    <div className="min-h-svh bg-[#e6e8ec]">
+    <div className={cn("min-h-svh", dim ? "production-shell" : "bg-[#e6e8ec]")}>
 
       {/* ── Mobile slide-over backdrop ─────────────────────── */}
       {mobileOpen && (
@@ -167,7 +168,8 @@ export function AppShell() {
       {/* ── Sidebar (desktop + mobile slide-over) ─────────── */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-black shadow-2xl rounded-none",
+          "fixed inset-y-0 left-0 z-50 flex flex-col shadow-2xl rounded-none",
+          dim ? "border-r border-white/10 bg-[#1c1f25]" : "border-r border-black bg-white",
           "transition-[width,transform] duration-200 ease-out",
           "w-72 max-w-[85vw] lg:max-w-none",
           collapsed ? "lg:w-16" : "lg:w-64",
@@ -316,8 +318,12 @@ export function AppShell() {
             "fixed top-0 right-0 left-0 z-30 flex h-14 items-center gap-2 sm:gap-3 px-3 sm:px-4 w-full max-w-full transition-[left,background-color,border-color,box-shadow] duration-200",
             collapsed ? "lg:left-16" : "lg:left-64",
             scrolled
-              ? "border-b border-transparent bg-transparent shadow-none before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-24 before:backdrop-blur-md before:bg-[linear-gradient(to_bottom,rgba(230,232,236,0.94),rgba(230,232,236,0.55)_58%,transparent)] before:[mask-image:linear-gradient(to_bottom,black_42%,transparent)]"
-              : "border-b border-gray-200/90 bg-[#f1f2f4]/95 shadow-2xs",
+              ? dim
+                ? "border-b border-transparent bg-transparent shadow-none before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-24 before:backdrop-blur-md before:bg-[linear-gradient(to_bottom,rgba(22,24,28,0.94),rgba(22,24,28,0.55)_58%,transparent)] before:[mask-image:linear-gradient(to_bottom,black_42%,transparent)]"
+                : "border-b border-transparent bg-transparent shadow-none before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-24 before:backdrop-blur-md before:bg-[linear-gradient(to_bottom,rgba(230,232,236,0.94),rgba(230,232,236,0.55)_58%,transparent)] before:[mask-image:linear-gradient(to_bottom,black_42%,transparent)]"
+              : dim
+                ? "border-b border-white/10 bg-[#1c1f25]/95 shadow-none"
+                : "border-b border-gray-200/90 bg-[#f1f2f4]/95 shadow-2xs",
           )}
         >
 
