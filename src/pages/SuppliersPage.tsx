@@ -28,6 +28,8 @@ type Supplier = {
   email: string
   gst_number: string | null
   address: string
+  state?: string
+  payment_terms?: string | null
   supply_kind: "materials" | "products" | "both"
   raw_material_ids: string[]
   product_ids: string[]
@@ -40,6 +42,8 @@ const emptyForm = {
   email: "",
   gst_number: "",
   address: "",
+  state: "",
+  payment_terms: "",
   supply_kind: "both" as Supplier["supply_kind"],
   raw_material_ids: [] as string[],
   product_ids: [] as string[],
@@ -121,6 +125,8 @@ export function SuppliersPage() {
       email: row.email,
       gst_number: row.gst_number ?? "",
       address: row.address,
+      state: row.state ?? "",
+      payment_terms: row.payment_terms ?? "",
       supply_kind: row.supply_kind,
       raw_material_ids: row.raw_material_ids,
       product_ids: row.product_ids,
@@ -143,6 +149,7 @@ export function SuppliersPage() {
     const body = {
       ...form,
       gst_number: form.gst_number || null,
+      payment_terms: form.payment_terms || null,
       is_gst: Boolean(form.gst_number),
       raw_material_ids: form.supply_kind === "products" ? [] : form.raw_material_ids,
       product_ids: form.supply_kind === "materials" ? [] : form.product_ids,
@@ -385,6 +392,12 @@ export function SuppliersPage() {
                     ) : null}
                   </div>
                 ) : null}
+                <Field label="State" required>
+                  <Input required value={form.state} onChange={(event) => setForm({ ...form, state: event.target.value })} />
+                </Field>
+                <Field label="Payment terms">
+                  <Input placeholder="Net 15" value={form.payment_terms} onChange={(event) => setForm({ ...form, payment_terms: event.target.value })} />
+                </Field>
                 <Field label="Plant / Billing Address" required className="sm:col-span-2">
                   <Input required value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} />
                 </Field>

@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
+import { WorkerPicker, type WorkerChoice } from "@/components/WorkerPicker"
 import { FormBusy, PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
@@ -46,14 +47,19 @@ type Job = {
   assigned_user_id: string | null
   assigned_user_name: string | null
   current_operation_name: string | null
+  stages_done?: number
+  stages_total?: number
 }
 type Person = { id: string; first_name: string; last_name: string | null }
 type Stage = {
   id: string
+  operation_id?: string
   operation_name: string | null
   status: string
   polish_type: string | null
   assigned_user_id: string | null
+  worker_id?: string | null
+  worker_name?: string | null
   completed_at: string | null
 }
 type InputRow = {
@@ -70,6 +76,7 @@ type JobEvent = {
   action: string
   stage: string | null
   detail: string
+  worker?: string | null
 }
 type Variance = {
   at: string
@@ -144,6 +151,7 @@ function personLabel(person: Person) {
 }
 
 const DOTS = ["#1e293b", "#0ea5e9", "#d946ef", "#f97316", "#10b981"]
+const ROUTE = ["cutting", "shaping", "assembly", "polishing", "coloring", "packaging"]
 const STAGE_COLOR: Record<string, string> = {
   cutting: "#1e293b",
   shaping: "#0ea5e9",
@@ -285,7 +293,10 @@ export function ProductionPage() {
   })
   const [people, setPeople] = useState<Option[]>([])
   const [statusFilter, setStatusFilter] = useState("all")
+  const [deptFilter, setDeptFilter] = useState("all")
   const [sortBy, setSortBy] = useState("newest")
+  const [workerChoice, setWorkerChoice] = useState<WorkerChoice | null>(null)
+  const [workerLabel, setWorkerLabel] = useState("")
   const [held, setHeld] = useState(false)
   const hold = useRef(false)
   const [editJob, setEditJob] = useState<Job | null>(null)
@@ -379,9 +390,9 @@ export function ProductionPage() {
 
   function preview(path: string, body: unknown, job: Detail): Detail {
     const stamp = new Date().toISOString()
-    const note = (detail: string, action: string, stage: string | null): Detail => ({
+    const note = (detail: string, action: string, stage: string | null, worker?: string | null): Detail => ({
       ...job,
-      events: [{ at: stamp, user_name: actorName(), action, stage, detail }, ...job.events],
+      events: [{ at: stamp, user_name: actorName(), action, stage, detail, worker: worker ?? null }, ...job.events],
     })
     if (path === "/start") {
       const stages = job.stages.map((stage, index) =>
@@ -395,7 +406,9 @@ export function ProductionPage() {
       }
     }
     if (path.endsWith("/complete")) {
-      const polish = (body as { polish_type?: string } | undefined)?.polish_type ?? null
+      const payload = (body as { polish_type?: string; worker_name?: string } | undefined) ?? {}
+      const polish = payload.polish_type ?? null
+      const by = workerLabel || payload.worker_name || "the chosen person"
       const stages = job.stages.map((stage) => ({ ...stage }))
       const active = stages.find((stage) => stage.status === "active")
       if (!active) return job
@@ -407,9 +420,10 @@ export function ProductionPage() {
       const moved = upcoming ? upcoming.operation_name ?? "the next stage" : "awaiting approval"
       return {
         ...note(
-          `Finished ${active.operation_name ?? "stage"}${polish ? ` (${polish})` : ""} → ${moved}`,
+          `Finished ${active.operation_name ?? "stage"}${polish ? ` (${polish})` : ""} → ${moved} · by ${by}`,
           "advanced",
           active.operation_name,
+          by,
         ),
         status: upcoming ? "in_progress" : "awaiting_approval",
         stages,
@@ -466,7 +480,10 @@ export function ProductionPage() {
       })
       return { ...note("Requirements updated", "requirement", job.current_operation_name), inputs }
     }
-    if (path === "/approve") return { ...note("Approved the finished output", "approved", null), status: "completed" }
+    if (path === "/approve") {
+      const made = (body as { produced_quantity?: string } | undefined)?.produced_quantity ?? job.quantity
+      return { ...note(`Approved · produced ${Number(made)} (target ${Number(job.quantity)})`, "approved", null), status: "completed" }
+    }
     if (path === "/cancel") return { ...note("Job cancelled", "cancelled", null), status: "cancelled" }
     return job
   }
@@ -511,6 +528,10 @@ export function ProductionPage() {
   }
 
   const active = selected?.stages.find((stage) => stage.status === "active")
+  useEffect(() => {
+    setWorkerChoice(null)
+    setWorkerLabel("")
+  }, [selected?.id, active?.id])
   const priorFinish = selected ? [...selected.stages].reverse().find((stage) => stage.completed_at) : undefined
   const counts = {
     all: jobs.length,
@@ -520,13 +541,28 @@ export function ProductionPage() {
     completed: jobs.filter((job) => job.status === "completed").length,
     cancelled: jobs.filter((job) => job.status === "cancelled").length,
   }
+  const routeIndex = (name: string | null) => {
+    const index = ROUTE.indexOf((name ?? "").toLowerCase())
+    return index === -1 ? ROUTE.length : index
+  }
+  const departments = [
+    ...ROUTE,
+    ...jobs
+      .map((job) => job.current_operation_name?.toLowerCase() ?? "")
+      .filter((name) => name && !ROUTE.includes(name)),
+  ]
   const visibleJobs = [...jobs]
     .filter((job) => statusFilter === "all" || job.status === statusFilter)
+    .filter((job) => deptFilter === "all" || (job.status === "in_progress" && (job.current_operation_name ?? "").toLowerCase() === deptFilter))
     .sort((left, right) => {
       if (sortBy === "oldest") return (left.created_at ?? "").localeCompare(right.created_at ?? "")
       if (sortBy === "deadline") return (left.due_at ?? "9999").localeCompare(right.due_at ?? "9999")
       if (sortBy === "quantity") return Number(right.quantity) - Number(left.quantity)
-      if (sortBy === "stage") return (left.current_operation_name ?? "").localeCompare(right.current_operation_name ?? "")
+      if (sortBy === "stage") return routeIndex(left.current_operation_name) - routeIndex(right.current_operation_name)
+      if (sortBy === "complete") {
+        const ratio = (job: Job) => (job.stages_total ? (job.stages_done ?? 0) / job.stages_total : 0)
+        return ratio(right) - ratio(left)
+      }
       return (right.created_at ?? "").localeCompare(left.created_at ?? "")
     })
 
@@ -745,6 +781,7 @@ export function ProductionPage() {
             <option value="deadline">Deadline</option>
             <option value="quantity">Quantity</option>
             <option value="stage">Workflow stage</option>
+            <option value="complete">Most complete first</option>
           </select>
         </div>
         <div className="space-y-2.5">
@@ -754,11 +791,26 @@ export function ProductionPage() {
             </span>
             <span className="text-xs text-gray-400">Open a job to work the stage</span>
           </div>
+          <div className="flex flex-wrap gap-1.5">
+            <button type="button" className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", deptFilter === "all" ? "bg-gray-900 text-white" : "bg-white text-gray-600")} onClick={() => setDeptFilter("all")}>
+              All departments
+            </button>
+            {departments.map((name) => {
+              const count = jobs.filter((job) => job.status === "in_progress" && (job.current_operation_name ?? "").toLowerCase() === name).length
+              const label = name.charAt(0).toUpperCase() + name.slice(1)
+              return (
+                <button key={name} type="button" className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold", deptFilter === name ? "bg-gray-900 text-white" : "bg-white text-gray-600")} onClick={() => setDeptFilter(name)}>
+                  <span className="size-1.5 rounded-full" style={{ background: stageColor(name) }} />
+                  {label} {count}
+                </button>
+              )
+            })}
+          </div>
           <div className="h-px bg-gray-200" />
           <div className="space-y-2.5">
-                {jobs.length === 0 ? (
+                {visibleJobs.length === 0 ? (
                   <p className="px-4 py-8 text-center text-xs text-gray-400">
-                    No production jobs active. Create one above to get started.
+                    {deptFilter === "all" ? "No production jobs active. Create one above to get started." : `No jobs in ${deptFilter.charAt(0).toUpperCase()}${deptFilter.slice(1)} right now.`}
                   </p>
                 ) : (
                   visibleJobs.map((job, index) => {
@@ -901,6 +953,9 @@ export function ProductionPage() {
                           {localStamp(event.at)} · {event.user_name}
                         </p>
                         <p className="text-xs leading-snug text-gray-900">{event.detail}</p>
+                        {event.worker ? (
+                          <p className="text-[11px] font-semibold" style={{ color: stageInk(event.stage ?? "") }}>Done by {event.worker}</p>
+                        ) : null}
                       </li>
                     ))}
                     {selected.events.length === 0
@@ -1089,19 +1144,31 @@ export function ProductionPage() {
 
               {active && (active.assigned_user_id === user?.id || can("edit_inventory")) ? (
                 <>
+                  {active.operation_id ? (
+                    <WorkerPicker
+                      operationId={active.operation_id}
+                      value={workerChoice}
+                      onChange={(choice, label) => {
+                        setWorkerChoice(choice)
+                        setWorkerLabel(label)
+                      }}
+                    />
+                  ) : null}
                   {active.operation_name?.toLowerCase() === "polishing" ? (
                     <div className="flex gap-2">
                       <Button
                         type="button"
+                        disabled={!workerChoice}
                         className="rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
-                        onClick={() => void act(`/stages/${active.id}/complete`, { polish_type: "dry" })}
+                        onClick={() => void act(`/stages/${active.id}/complete`, { polish_type: "dry", ...workerChoice })}
                       >
                         Finish Dry Polish
                       </Button>
                       <Button
                         type="button"
+                        disabled={!workerChoice}
                         className="rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
-                        onClick={() => void act(`/stages/${active.id}/complete`, { polish_type: "wet" })}
+                        onClick={() => void act(`/stages/${active.id}/complete`, { polish_type: "wet", ...workerChoice })}
                       >
                         Finish Wet Polish
                       </Button>
@@ -1109,8 +1176,9 @@ export function ProductionPage() {
                   ) : (
                     <Button
                       type="button"
+                      disabled={!workerChoice}
                       className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
-                      onClick={() => void act(`/stages/${active.id}/complete`, {})}
+                      onClick={() => void act(`/stages/${active.id}/complete`, { ...workerChoice })}
                     >
                       <CheckCircle2 className="mr-1.5 size-4" />
                       Mark Stage Complete
@@ -1120,23 +1188,30 @@ export function ProductionPage() {
               ) : null}
 
               {selected.status === "awaiting_approval" && can("approve_jobs") ? (
-                <Button
-                  type="button"
-                  className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
-                  onClick={() =>
+                <form
+                  className="flex flex-wrap items-end gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    const made = new FormData(event.currentTarget).get("produced")
                     void act("/approve", {
-                      produced_quantity: selected.quantity,
+                      produced_quantity: String(made || "0"),
                       inputs: selected.inputs.map((input) => ({
                         input_id: input.id,
                         actual_quantity: input.planned_quantity,
                         wastage_quantity: "0",
                       })),
                     })
-                  }
+                  }}
                 >
-                  <CheckCircle2 className="mr-1.5 size-4" />
-                  Approve Finished Output
-                </Button>
+                  <label className="grid gap-1 text-xs font-semibold text-gray-700">
+                    Pieces produced
+                    <Input name="produced" type="number" min="0" step="any" required defaultValue={String(Number(selected.quantity))} className="h-9 w-28" />
+                  </label>
+                  <Button type="submit" className="rounded-xl bg-green-600 font-semibold text-white">
+                    <CheckCircle2 className="mr-1.5 size-4" />
+                    Approve Finished Output
+                  </Button>
+                </form>
               ) : null}
             </div>
 

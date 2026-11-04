@@ -16,7 +16,7 @@ import { Notice, PageTitle, StatCard, StatusBadge } from "@/components/plant-ui"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { roleCan } from "@/lib/access"
-import { api, errorMessage, peek } from "@/lib/api"
+import { api, downloadFile, errorMessage, peek } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 type Sales = { total_orders: number; pending_orders: number; total_sales?: string; gst_sales?: string; non_gst_sales?: string }
@@ -37,6 +37,11 @@ export function ReportsPage() {
     () => peek<{ movements: Movement[] }>("/api/reports/inventory")?.movements ?? [],
   )
   const [error, setError] = useState("")
+  const [month, setMonth] = useState(() => {
+    const now = new Date()
+    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit" }).format(now)
+    return parts.slice(0, 7)
+  })
   const [loading, setLoading] = useState(
     () =>
       peek("/api/reports/sales") === undefined ||
@@ -80,6 +85,16 @@ export function ReportsPage() {
         }
         icon={BarChart3}
         badge="Analytics"
+        action={
+          money ? (
+            <div className="flex items-center gap-2">
+              <input type="month" className="h-9 rounded-xl border border-gray-200 bg-white px-2 text-sm" value={month} onChange={(event) => setMonth(event.target.value)} />
+              <button type="button" className="h-9 rounded-xl bg-indigo-600 px-3 text-xs font-semibold text-white" onClick={() => void downloadFile(`/api/reports/ca-export?month=${month}`, `ca-${month}.csv`).catch((caught) => setError(errorMessage(caught)))}>
+                Export for CA
+              </button>
+            </div>
+          ) : null
+        }
       />
 
       {error ? <Notice variant="error">{error}</Notice> : null}

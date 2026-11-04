@@ -293,6 +293,17 @@ export function DashboardPage() {
         ) : null}
       </div>
 
+      <TradingCard money={roleCan(user?.role_name, "view_financials")} />
+      {data ? (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <StatCard label="Incoming deliveries" value={data.incoming_shipments} />
+          <StatCard label="Active jobs" value={data.production?.jobs_in_progress ?? 0} />
+          <StatCard label="Completed jobs" value={data.production?.completed_jobs ?? 0} />
+          <StatCard label="Unpaid billings" value={data.unpaid_invoices} />
+          <StatCard label="Open sales" value={data.sales?.pending_orders ?? 0} />
+        </div>
+      ) : null}
+
       {/* Production Chart & Floor Quick Access */}
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -523,5 +534,33 @@ function LowStockCard({ items, count }: { items: LowStockItem[]; count: number }
         </ul>
       ) : null}
     </div>
+  )
+}
+
+function TradingCard({ money }: { money: boolean }) {
+  const [summary, setSummary] = useState<{
+    revenue: string | null
+    cost: string | null
+    profit: string | null
+    margin_pct: string | null
+    incoming_orders: number
+    incoming_qty: string
+  } | null>(null)
+  useEffect(() => {
+    api<NonNullable<typeof summary>>("/api/trading/summary?period=month").then(setSummary).catch(() => {})
+  }, [])
+  if (!summary) return null
+  const profit = summary.profit == null ? null : Number(summary.profit)
+  const figure = (value: string | null) => (value == null ? "—" : `₹${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`)
+  return (
+    <Link to="/trading" className="block rounded-none border border-black bg-white p-4 shadow-2xs">
+      <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-600">Trading</p>
+      <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div><p className="text-[10px] text-gray-500">Revenue</p><p className="text-lg font-black">{money ? figure(summary.revenue) : "—"}</p></div>
+        <div><p className="text-[10px] text-gray-500">Cost</p><p className="text-lg font-black">{money ? figure(summary.cost) : "—"}</p></div>
+        <div><p className="text-[10px] text-gray-500">Profit / loss</p><p className={cn("text-lg font-black", profit != null && profit < 0 ? "text-rose-700" : "text-emerald-700")}>{money ? figure(summary.profit) : "—"}</p></div>
+        <div><p className="text-[10px] text-gray-500">Incoming traded deliveries</p><p className="text-lg font-black">{summary.incoming_orders}</p></div>
+      </div>
+    </Link>
   )
 }
