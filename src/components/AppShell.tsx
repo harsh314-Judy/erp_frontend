@@ -16,8 +16,66 @@ type Notice = {
   id: string
   title: string
   body: string
+  kind?: string
   link: string | null
   read_at: string | null
+  created_at?: string
+}
+
+const ALERT_DOT: Record<string, string> = {
+  job_completed: "bg-emerald-500",
+  job_cancelled: "bg-rose-500",
+  purchase_incoming: "bg-sky-500",
+  purchase_received: "bg-emerald-600",
+  sales_dispatched: "bg-indigo-500",
+  low_stock: "bg-amber-500",
+  job_approval: "bg-amber-600",
+  job_stage: "bg-cyan-500",
+}
+
+function alertAge(value?: string) {
+  if (!value) return ""
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000))
+  if (minutes < 1) return "now"
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.round(hours / 24)}d ago`
+}
+
+function HeaderAlert({
+  notices,
+  dim,
+  onOpen,
+  onDismiss,
+}: {
+  notices: Notice[]
+  dim: boolean
+  onOpen: (item: Notice) => void
+  onDismiss: (item: Notice) => void
+}) {
+  const unread = notices.filter((item) => !item.read_at)
+  const [index, setIndex] = useState(0)
+  useEffect(() => {
+    if (unread.length < 2) return
+    const timer = window.setInterval(() => setIndex((current) => current + 1), 6000)
+    return () => window.clearInterval(timer)
+  }, [unread.length])
+  if (unread.length === 0) return null
+  const item = unread[index % unread.length]
+  return (
+    <div className={cn("flex min-w-0 flex-1 items-center", dim && "text-gray-100")}>
+      <button type="button" className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-full border px-3 py-1 text-left", dim ? "border-white/15 bg-white/5" : "border-gray-300 bg-white")} onClick={() => onOpen(item)}>
+        <span className={cn("size-2 shrink-0 rounded-full", ALERT_DOT[item.kind ?? ""] ?? "bg-gray-400")} />
+        <span className="truncate text-xs font-semibold">{item.title}</span>
+        <span className="hidden min-w-0 truncate text-xs text-gray-500 sm:inline">{item.body}</span>
+        <span className="hidden shrink-0 text-[10px] text-gray-400 sm:inline">{alertAge(item.created_at)}</span>
+      </button>
+      <button type="button" aria-label="Dismiss alert" className="ml-1 grid size-7 shrink-0 place-items-center text-gray-400" onClick={() => onDismiss(item)}>
+        <X className="size-3.5" />
+      </button>
+    </div>
+  )
 }
 
 function HeaderIdentity({ company }: { company: string }) {
@@ -141,6 +199,12 @@ export function AppShell() {
     await api("/api/auth/logout", { method: "POST" }).catch(() => {})
     setUser(null)
     navigate("/")
+  }
+
+  async function dismissNotice(item: Notice) {
+    await api(`/api/notifications/${item.id}/read`, { method: "POST" }).catch(() => {})
+    setNotices((current) => current.map((row) => (row.id === item.id ? { ...row, read_at: new Date().toISOString() } : row)))
+    setUnread((count) => Math.max(0, count - 1))
   }
 
   async function openNotice(item: Notice) {
@@ -349,6 +413,7 @@ export function AppShell() {
           </button>
 
           <HeaderIdentity company={company} />
+          <HeaderAlert notices={notices} dim={location.pathname === "/production"} onOpen={(item) => void openNotice(item)} onDismiss={(item) => void dismissNotice(item)} />
 
           {/* Right actions */}
           <div className="relative ml-auto flex items-center gap-2">

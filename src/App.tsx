@@ -9,6 +9,7 @@ import { AccountantPage } from "@/pages/AccountantPage"
 import { AdminPage } from "@/pages/AdminPage"
 import { CustomersPage } from "@/pages/CustomersPage"
 import { DashboardPage } from "@/pages/DashboardPage"
+import { DepartmentsPage } from "@/pages/DepartmentsPage"
 import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage"
 import { LandingPage } from "@/pages/LandingPage"
 import { LoginPage } from "@/pages/LoginPage"
@@ -22,6 +23,7 @@ import { ResetPasswordPage } from "@/pages/ResetPasswordPage"
 import { SalesPage } from "@/pages/SalesPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { StaffPage } from "@/pages/StaffPage"
+import { TradingPage } from "@/pages/TradingPage"
 import { SuppliersPage } from "@/pages/SuppliersPage"
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -66,9 +68,11 @@ export default function App() {
         <Route path="members" element={<Navigate to="/users" replace />} />
         <Route path="accountant" element={<AccountantPage />} />
         <Route path="staff" element={<StaffPage />} />
+        <Route path="departments" element={<DepartmentsPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="products" element={<ProductsPage />} />
         <Route path="materials" element={<MaterialsPage />} />
+        <Route path="trading" element={<TradingPage />} />
         <Route path="bom" element={<Navigate to="/products" replace />} />
         <Route path="production" element={<ProductionPage />} />
         <Route path="suppliers" element={<SuppliersPage />} />

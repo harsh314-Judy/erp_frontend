@@ -6,6 +6,7 @@ import {
 } from "lucide-react"
 
 import { PageLoading } from "@/components/PlantLoader"
+import { WorkerPicker, type WorkerChoice } from "@/components/WorkerPicker"
 import { EmptyState, Notice, PageTitle, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import { api, errorMessage, peek, type Page } from "@/lib/api"
@@ -13,7 +14,7 @@ import { useFormBusy } from "@/lib/busy"
 import { useRefreshWhenShown } from "@/lib/visible"
 
 type Job = { id: string; product_name: string | null; quantity: string; status: string }
-type Stage = { id: string; operation_name: string | null; status: string; assigned_user_id: string | null }
+type Stage = { id: string; operation_id: string; operation_name: string | null; status: string; assigned_user_id: string | null }
 type Detail = Job & { stages: Stage[] }
 
 export function StaffPage() {
@@ -25,6 +26,8 @@ export function StaffPage() {
     () => peek<Page<Job>>("/api/production-jobs/?page=1&page_size=50") === undefined,
   )
   const { busy, guard } = useFormBusy()
+  const [signing, setSigning] = useState<Detail | null>(null)
+  const [workerChoice, setWorkerChoice] = useState<WorkerChoice | null>(null)
 
   async function load() {
     try {
@@ -39,25 +42,39 @@ export function StaffPage() {
   }, [])
   useRefreshWhenShown("/staff", load, (caught) => setError(errorMessage(caught)))
 
-  async function finish(job: Job) {
+  async function openSign(job: Job) {
     setError("")
-    await guard(async () => {
+    setWorkerChoice(null)
     try {
       const detail = await api<Detail>(`/api/production-jobs/${job.id}`)
-      const active = detail.stages.find((stage) => stage.status === "active")
-      if (!active) return
       if (job.status === "pending") {
         await api(`/api/production-jobs/${job.id}/start`, { method: "POST" })
+        setSigning(await api<Detail>(`/api/production-jobs/${job.id}`))
+        return
       }
-      const body = active.operation_name?.toLowerCase() === "polishing" ? { polish_type: "dry" } : {}
-      await api(`/api/production-jobs/${job.id}/stages/${active.id}/complete`, {
-        method: "POST",
-        body: JSON.stringify(body),
-      })
-      void load().catch((caught) => setError(errorMessage(caught)))
+      setSigning(detail)
     } catch (caught) {
       setError(errorMessage(caught))
     }
+  }
+
+  async function finish() {
+    if (!signing || !workerChoice) return
+    const active = signing.stages.find((stage) => stage.status === "active")
+    if (!active) return
+    setError("")
+    await guard(async () => {
+      try {
+        const polish = active.operation_name?.toLowerCase() === "polishing" ? { polish_type: "dry" } : {}
+        await api(`/api/production-jobs/${signing.id}/stages/${active.id}/complete`, {
+          method: "POST",
+          body: JSON.stringify({ ...polish, ...workerChoice }),
+        })
+        setSigning(null)
+        void load().catch((caught) => setError(errorMessage(caught)))
+      } catch (caught) {
+        setError(errorMessage(caught))
+      }
     })
   }
 
@@ -99,16 +116,29 @@ export function StaffPage() {
               </p>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-gray-100">
-              <Button
-                type="button"
-                disabled={busy}
-                className="w-full rounded-xl bg-green-600 hover:bg-green-700 font-semibold text-white shadow-xs transition-all active:scale-[0.98]"
-                onClick={() => void finish(job)}
-              >
-                <CheckCircle2 className="mr-1.5 size-4" />
-                Sign Off & Advance Stage
-              </Button>
+            <div className="mt-4 space-y-2 border-t border-gray-100 pt-3">
+              {signing?.id === job.id ? (
+                <>
+                  {signing.stages.find((stage) => stage.status === "active") ? (
+                    <WorkerPicker
+                      operationId={signing.stages.find((stage) => stage.status === "active")!.operation_id}
+                      value={workerChoice}
+                      onChange={(choice) => setWorkerChoice(choice)}
+                    />
+                  ) : (
+                    <p className="text-xs text-gray-500">This job has no open stage.</p>
+                  )}
+                  <Button type="button" disabled={busy || !workerChoice} className="w-full rounded-xl bg-green-600 font-semibold text-white" onClick={() => void finish()}>
+                    <CheckCircle2 className="mr-1.5 size-4" />
+                    Sign Off & Advance Stage
+                  </Button>
+                </>
+              ) : (
+                <Button type="button" disabled={busy} className="w-full rounded-xl bg-green-600 font-semibold text-white" onClick={() => void openSign(job)}>
+                  <CheckCircle2 className="mr-1.5 size-4" />
+                  Sign Off & Advance Stage
+                </Button>
+              )}
             </div>
           </article>
         ))}

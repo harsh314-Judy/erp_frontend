@@ -27,6 +27,7 @@ type Material = {
   id: string
   name: string
   kind: string
+  stock_group?: string
   quantity: string
   alert_quantity: string
   available?: string | null
@@ -44,6 +45,7 @@ const selectClass =
 const emptyForm = {
   name: "",
   kind: "sheet",
+  stock_group: "core",
   quantity: "0",
   purchase_price: "0",
   alert_quantity: "0",
@@ -63,6 +65,7 @@ export function MaterialsPage() {
   const [categories, setCategories] = useState<Named[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [query, setQuery] = useState("")
+  const [group, setGroup] = useState<"core" | "other" | "all">("core")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(
     () => peek<Page<Material>>("/api/raw-materials/?page=1&page_size=100&q=") === undefined,
@@ -128,6 +131,7 @@ export function MaterialsPage() {
     return {
       name: form.name,
       kind: form.kind,
+      stock_group: form.stock_group,
       quantity: form.quantity,
       alert_quantity: form.alert_quantity,
       measurement_unit_id: form.measurement_unit_id,
@@ -174,6 +178,7 @@ export function MaterialsPage() {
     setForm({
       name: row.name,
       kind: row.kind,
+      stock_group: row.stock_group || "core",
       quantity: row.quantity,
       purchase_price: row.purchase_price ?? "0",
       alert_quantity: row.alert_quantity ?? "0",
@@ -245,9 +250,24 @@ export function MaterialsPage() {
         }
       />
 
-      {can("edit_inventory") ? (
-        <CategoryManager categories={categories} onAdd={addCategory} onRemove={(id) => void removeCategory(id)} />
-      ) : null}
+      <div className="flex flex-wrap items-start gap-3">
+        {can("edit_inventory") ? (
+          <div className="min-w-64 flex-1">
+            <CategoryManager categories={categories} onAdd={addCategory} onRemove={(id) => void removeCategory(id)} />
+          </div>
+        ) : null}
+        <div className="flex h-fit flex-wrap gap-1 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
+          {([
+            ["core", "Raw Material", rows.filter((row) => (row.stock_group || "core") === "core").length],
+            ["other", "Others", rows.filter((row) => row.stock_group === "other").length],
+            ["all", "All", rows.length],
+          ] as const).map(([id, label, count]) => (
+            <button key={id} type="button" className={cn("rounded-xl px-3 py-2 text-xs font-semibold", group === id ? "bg-teal-700 text-white" : "text-gray-600")} onClick={() => setGroup(id)}>
+              {label} ({count})
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-64">
@@ -308,7 +328,7 @@ export function MaterialsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                rows.map((row) => (
+                rows.filter((row) => group === "all" || (row.stock_group || "core") === group).map((row) => (
                   <TableRow key={row.id} className="border-b border-gray-100 hover:bg-gray-50/70 transition-colors">
                     <TableCell className="font-semibold text-gray-900">
                       <div>
@@ -448,6 +468,12 @@ function MaterialForm({
               {supplier.supplier_company_name}
             </option>
           ))}
+        </select>
+      </Field>
+      <Field label="Stock Group" required>
+        <select className={selectClass} value={form.stock_group} onChange={(event) => setForm({ ...form, stock_group: event.target.value })}>
+          <option value="core">Raw Material (used often)</option>
+          <option value="other">Others (rarely used)</option>
         </select>
       </Field>
       <Field label="Material Classification" required>

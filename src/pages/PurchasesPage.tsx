@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
+import { SlipUpload, type SlipFile } from "@/components/SlipUpload"
 import { CardListSkeleton, FormBusy } from "@/components/PlantLoader"
 import { CategoryManager, Field, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
@@ -53,7 +54,9 @@ type Line = {
   raw_material_id: string | null
   quantity: string
   unit_price: string | null
+  product_type?: string | null
 }
+type OrderFile = SlipFile & { kind: string }
 type Order = {
   id: string
   supplier_id: string | null
@@ -63,6 +66,7 @@ type Order = {
   stock_received: boolean
   expected_vehicle_plate: string | null
   lines: Line[]
+  attachments?: OrderFile[]
 }
 type DraftLine = {
   key: string
@@ -123,6 +127,8 @@ const emptySupplier = {
   phone: "",
   email: "",
   address: "",
+  state: "",
+  payment_terms: "",
   supply_kind: "materials",
 }
 
@@ -150,6 +156,7 @@ export function PurchasesPage() {
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [goodsFilter, setGoodsFilter] = useState("all")
   const [kept, setKept] = useState<string[]>([])
 
   // Create / Edit modal
@@ -166,6 +173,12 @@ export function PurchasesPage() {
     notes: "",
   })
   const [lines, setLines] = useState<DraftLine[]>([blankLine()])
+  const [dispatchSlips, setDispatchSlips] = useState<SlipFile[]>([])
+  const [receivedSlips, setReceivedSlips] = useState<SlipFile[]>([])
+  const [cargoPhotos, setCargoPhotos] = useState<SlipFile[]>([])
+  const [receiveOrder, setReceiveOrder] = useState<Order | null>(null)
+  const [challanNumber, setChallanNumber] = useState("")
+  const [challanNote, setChallanNote] = useState("")
 
   // Quick update modal
   const [quickOrder, setQuickOrder] = useState<Order | null>(null)
@@ -321,6 +334,11 @@ export function PurchasesPage() {
   async function handleQuickSave(event: FormEvent) {
     event.preventDefault()
     if (!quickOrder) return
+    if (quickForm.status === "delivered" && !quickOrder.stock_received) {
+      setReceiveOrder(quickOrder)
+      setQuickOrder(null)
+      return
+    }
     setError("")
     setQuickSaving(true)
     try {
@@ -342,6 +360,12 @@ export function PurchasesPage() {
   }
 
   async function quickAdvanceStatus(order: Order, nextStatus: string) {
+    if (nextStatus === "delivered") {
+      setReceivedSlips((order.attachments ?? []).filter((file) => file.kind === "received_slip"))
+      setCargoPhotos((order.attachments ?? []).filter((file) => file.kind === "cargo_photo"))
+      setReceiveOrder(order)
+      return
+    }
     setError("")
     remember(order.id)
     await guard(async () => {
@@ -357,15 +381,58 @@ export function PurchasesPage() {
     })
   }
 
+  async function linkFile(order: Order, file: SlipFile, kind: string) {
+    await api(`/api/purchase-orders/${order.id}/attachments`, {
+      method: "POST",
+      body: JSON.stringify({ attachment_id: file.attachment_id, kind }),
+    })
+    void load().catch((caught) => setError(errorMessage(caught)))
+  }
+
+  async function confirmReceive() {
+    if (!receiveOrder) return
+    if (!receivedSlips.length || !cargoPhotos.length) return
+    setError("")
+    await guard(async () => {
+      try {
+        for (const file of receivedSlips) {
+          if (!(receiveOrder.attachments ?? []).some((row) => row.attachment_id === file.attachment_id)) {
+            await api(`/api/purchase-orders/${receiveOrder.id}/attachments`, {
+              method: "POST",
+              body: JSON.stringify({ attachment_id: file.attachment_id, kind: "received_slip" }),
+            })
+          }
+        }
+        for (const file of cargoPhotos) {
+          if (!(receiveOrder.attachments ?? []).some((row) => row.attachment_id === file.attachment_id)) {
+            await api(`/api/purchase-orders/${receiveOrder.id}/attachments`, {
+              method: "POST",
+              body: JSON.stringify({ attachment_id: file.attachment_id, kind: "cargo_photo" }),
+            })
+          }
+        }
+        await api(`/api/purchase-orders/${receiveOrder.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "delivered", challan_number: challanNumber || null, challan_note: challanNote || null }),
+        })
+        setReceiveOrder(null)
+        void load().catch((caught) => setError(errorMessage(caught)))
+      } catch (caught) {
+        setError(errorMessage(caught))
+      }
+    })
+  }
+
   async function createSupplier() {
     if (
       !supplierForm.supplier_company_name ||
       !supplierForm.contact_person_name ||
       !supplierForm.phone ||
       !supplierForm.email ||
-      !supplierForm.address
+      !supplierForm.address ||
+      !supplierForm.state
     ) {
-      setError("Fill in the new supplier's company, contact, phone, email, and address.")
+      setError("Fill in the new supplier's company, contact, phone, email, address, and state.")
       return
     }
     await guard(async () => {
@@ -376,8 +443,16 @@ export function PurchasesPage() {
         })
         setSupplierForm(emptySupplier)
         setPanel(null)
-        setHeader((current) => ({ ...current, supplier_id: created.id }))
-        void load().catch((caught) => setError(errorMessage(caught)))
+    setHeader((current) => ({ ...current, supplier_id: created.id }))
+    const productIds = lines.filter((line) => line.kind === "product" && line.item_id).map((line) => line.item_id)
+    const materialIds = lines.filter((line) => line.kind === "material" && line.item_id).map((line) => line.item_id)
+    if (productIds.length || materialIds.length) {
+      await api(`/api/suppliers/${created.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ product_ids: productIds, raw_material_ids: materialIds }),
+      })
+    }
+    void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
         setError(errorMessage(caught))
       }
@@ -491,12 +566,24 @@ export function PurchasesPage() {
     }
     await guard(async () => {
       try {
+        const attachments = [
+          ...dispatchSlips.map((file) => ({ attachment_id: file.attachment_id, kind: "dispatch_slip" })),
+          ...receivedSlips.map((file) => ({ attachment_id: file.attachment_id, kind: "received_slip" })),
+          ...cargoPhotos.map((file) => ({ attachment_id: file.attachment_id, kind: "cargo_photo" })),
+        ]
+        if (header.status === "delivered" && (!receivedSlips.length || !cargoPhotos.length)) {
+          setError("Upload the received slip and a cargo photo before stocking.")
+          return
+        }
         const body = {
           supplier_id: header.supplier_id,
           notes: header.notes || null,
           status: header.status,
           expected_vehicle_plate: header.expected_vehicle_plate.trim().toUpperCase() || null,
+          challan_number: header.status === "delivered" ? challanNumber || null : null,
+          challan_note: header.status === "delivered" ? challanNote || null : null,
           lines: payloadLines(),
+          attachments,
         }
         if (editing) {
           await api(`/api/purchase-orders/${editing.id}`, { method: "PATCH", body: JSON.stringify(body) })
@@ -535,6 +622,12 @@ export function PurchasesPage() {
       const matchesStatus =
         statusFilter === "all" || order.status === statusFilter || kept.includes(order.id)
       if (!matchesStatus) return false
+      const traded = order.lines.some((line) => line.product_type === "purchased")
+      const material = order.lines.some((line) => line.raw_material_id)
+      const other = order.lines.some((line) => line.product_id && line.product_type !== "purchased")
+      if (goodsFilter === "traded" && !traded) return false
+      if (goodsFilter === "material" && !material) return false
+      if (goodsFilter === "other" && !other) return false
       if (!searchQuery.trim()) return true
       const q = searchQuery.toLowerCase()
       const supplierMatch = (order.supplier_name || "").toLowerCase().includes(q)
@@ -543,7 +636,7 @@ export function PurchasesPage() {
       const notesMatch = (order.notes || "").toLowerCase().includes(q)
       return supplierMatch || plateMatch || itemMatch || notesMatch
     })
-  }, [orders, statusFilter, searchQuery, kept])
+  }, [orders, statusFilter, goodsFilter, searchQuery, kept])
 
   function chooseStatus(next: string) {
     setStatusFilter(next)
@@ -684,6 +777,18 @@ export function PurchasesPage() {
           >
             Cancelled ({counts.cancelled})
           </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium">
+          {([
+            ["all", "All items", orders.length],
+            ["traded", "Traded products", orders.filter((order) => order.lines.some((line) => line.product_type === "purchased")).length],
+            ["material", "Raw materials", orders.filter((order) => order.lines.some((line) => line.raw_material_id)).length],
+            ["other", "Other products", orders.filter((order) => order.lines.some((line) => line.product_id && line.product_type !== "purchased")).length],
+          ] as const).filter(([id, , count]) => id !== "other" || count > 0).map(([id, label, count]) => (
+            <button key={id} type="button" className={cn("rounded-xl px-3 py-1.5 font-semibold", goodsFilter === id ? "bg-violet-700 text-white" : "bg-white text-gray-600")} onClick={() => setGoodsFilter(id)}>
+              {label} ({count})
+            </button>
+          ))}
         </div>
 
         {/* Search */}
@@ -924,11 +1029,16 @@ export function PurchasesPage() {
                         <span className="text-xs text-gray-400">Vehicle not assigned</span>
                       )}
 
-                      {/* Stock Received pill */}
+                      <div className="grid w-full gap-2 rounded-xl border border-gray-100 p-3 sm:grid-cols-3">
+                        <SlipUpload label="Dispatch slip" files={(order.attachments ?? []).filter((file) => file.kind === "dispatch_slip")} onUploaded={(file) => linkFile(order, file, "dispatch_slip")} />
+                        <SlipUpload label="Received slip" files={(order.attachments ?? []).filter((file) => file.kind === "received_slip")} onUploaded={(file) => linkFile(order, file, "received_slip")} />
+                        <SlipUpload label="Cargo photo" files={(order.attachments ?? []).filter((file) => file.kind === "cargo_photo")} onUploaded={(file) => linkFile(order, file, "cargo_photo")} />
+                      </div>
                       {order.stock_received ? (
                         <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1 font-semibold text-emerald-700">
                           <CheckCircle2 className="size-3.5" />
                           <span>Inventory Stock Credited</span>
+                          <span className="text-emerald-800">Verified · slip + {(order.attachments ?? []).filter((file) => file.kind === "cargo_photo").length} photos</span>
                         </span>
                       ) : null}
                     </div>
@@ -1082,10 +1192,33 @@ export function PurchasesPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={receiveOrder !== null} onOpenChange={(open) => { if (!open) setReceiveOrder(null) }}>
+        <DialogContent className="sm:max-w-lg border-gray-200 bg-white">
+          {error ? <Notice variant="error">{error}</Notice> : null}
+          <DialogHeader>
+            <DialogTitle>Receive Goods</DialogTitle>
+            <DialogDescription>Upload the received slip and a photo of the unloaded cargo before stock is credited.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <SlipUpload label="Received Slip" required files={receivedSlips} onUploaded={(file) => setReceivedSlips((current) => [...current, file])} />
+            <SlipUpload label="Cargo Photos" required files={cargoPhotos} onUploaded={(file) => setCargoPhotos((current) => [...current, file])} />
+            <Field label="Challan / slip number"><Input value={challanNumber} onChange={(event) => setChallanNumber(event.target.value)} /></Field>
+            <Field label="Note from the slip"><Input value={challanNote} onChange={(event) => setChallanNote(event.target.value)} /></Field>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setReceiveOrder(null)}>Cancel</Button>
+            <Button type="button" className="bg-green-600 text-white" disabled={!receivedSlips.length || !cargoPhotos.length || busy} onClick={() => void confirmReceive()}>
+              Confirm & stock
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* FULL CREATE / EDIT PURCHASE ORDER MODAL */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="sm:max-w-3xl border-gray-200 bg-white">
           <FormBusy show={busy} label={editing ? "Updating order" : "Placing orders"} />
+          {error ? <Notice variant="error">{error}</Notice> : null}
           <DialogHeader>
             <div className="flex items-center gap-2.5">
               <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-600">
@@ -1166,6 +1299,12 @@ export function PurchasesPage() {
                       placeholder="contact@supplier.com"
                       onChange={(event) => setSupplierForm({ ...supplierForm, email: event.target.value })}
                     />
+                  </Field>
+                  <Field label="State" required>
+                    <Input required value={supplierForm.state} onChange={(event) => setSupplierForm({ ...supplierForm, state: event.target.value })} />
+                  </Field>
+                  <Field label="Payment terms">
+                    <Input value={supplierForm.payment_terms} placeholder="Against delivery" onChange={(event) => setSupplierForm({ ...supplierForm, payment_terms: event.target.value })} />
                   </Field>
                   <Field label="Address" className="sm:col-span-2">
                     <Input
@@ -1490,6 +1629,15 @@ export function PurchasesPage() {
               ))}
             </div>
 
+            <div className="grid gap-3 sm:grid-cols-3">
+              <SlipUpload label="Supplier Dispatch Slip" files={dispatchSlips} onUploaded={(file) => setDispatchSlips((current) => [...current, file])} />
+              {header.status === "delivered" ? (
+                <>
+                  <SlipUpload label="Received Slip" required files={receivedSlips} onUploaded={(file) => setReceivedSlips((current) => [...current, file])} />
+                  <SlipUpload label="Cargo Photos" required files={cargoPhotos} onUploaded={(file) => setCargoPhotos((current) => [...current, file])} />
+                </>
+              ) : null}
+            </div>
             <DialogFooter className="border-t border-gray-100 pt-4">
               <Button type="button" variant="outline" className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50" onClick={() => setShowCreate(false)}>
                 Cancel

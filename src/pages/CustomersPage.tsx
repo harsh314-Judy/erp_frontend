@@ -9,8 +9,9 @@ import {
   UserRound,
 } from "lucide-react"
 
+import { CustomerFields, customerPayload, emptyCustomer } from "@/components/CustomerFields"
 import { PageLoading } from "@/components/PlantLoader"
-import { Field, Notice, PageTitle } from "@/components/plant-ui"
+import { Notice, PageTitle } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -19,7 +20,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { api, errorMessage, peek, type Page } from "@/lib/api"
 import { useRefreshWhenShown } from "@/lib/visible"
@@ -27,6 +27,9 @@ import { useRefreshWhenShown } from "@/lib/visible"
 type Customer = {
   id: string
   name: string
+  contact_person_name?: string | null
+  is_company?: boolean
+  alt_phone_number?: string | null
   state: string
   phone_number: string
   email: string
@@ -36,16 +39,7 @@ type Customer = {
   address: string
 }
 
-const emptyForm = {
-  name: "",
-  email: "",
-  phone_number: "",
-  address: "",
-  state: "",
-  gst_number: "",
-  whatsapp_mode: "main",
-  whatsapp_number: "",
-}
+const emptyForm = emptyCustomer
 
 export function CustomersPage() {
   const [rows, setRows] = useState<Customer[]>(
@@ -89,6 +83,9 @@ export function CustomersPage() {
     setEditing(row)
     setForm({
       name: row.name,
+      contact_person_name: row.contact_person_name ?? "",
+      alt_phone_number: row.alt_phone_number ?? "",
+      is_company: Boolean(row.is_company),
       email: row.email,
       phone_number: row.phone_number,
       address: row.address,
@@ -101,13 +98,7 @@ export function CustomersPage() {
   }
 
   function payload() {
-    return {
-      ...form,
-      gst_number: form.gst_number || null,
-      whatsapp_number: form.whatsapp_mode === "separate" ? form.whatsapp_number || null : null,
-      is_whatsapp_different: form.whatsapp_mode !== "main",
-      is_company: Boolean(form.gst_number),
-    }
+    return customerPayload(form)
   }
 
   async function save(event: FormEvent) {
@@ -192,73 +183,7 @@ export function CustomersPage() {
                 </div>
               </DialogHeader>
               <form className="mt-2 grid gap-4 sm:grid-cols-2" onSubmit={(event) => void save(event)}>
-                <Field label="Customer / Business Name" required className="sm:col-span-2">
-                  <Input
-                    required
-                    placeholder="e.g. Apex Steel Fabricators"
-                    value={form.name}
-                    onChange={(event) => setForm({ ...form, name: event.target.value })}
-                  />
-                </Field>
-                <Field label="Email Address" required>
-                  <Input
-                    required
-                    type="email"
-                    placeholder="billing@apexsteel.in"
-                    value={form.email}
-                    onChange={(event) => setForm({ ...form, email: event.target.value })}
-                  />
-                </Field>
-                <Field label="Primary Phone Number" required>
-                  <Input
-                    required
-                    placeholder="+91 98765 00000"
-                    value={form.phone_number}
-                    onChange={(event) => setForm({ ...form, phone_number: event.target.value })}
-                  />
-                </Field>
-                <Field label="State (Tax Jurisdiction)">
-                  <Input
-                    value={form.state}
-                    placeholder="Leave blank for Home State"
-                    onChange={(event) => setForm({ ...form, state: event.target.value })}
-                  />
-                </Field>
-                <Field label="GSTIN Number">
-                  <Input
-                    placeholder="27AAAAA0000A1Z5"
-                    value={form.gst_number}
-                    onChange={(event) => setForm({ ...form, gst_number: event.target.value })}
-                  />
-                </Field>
-                <Field label="WhatsApp Notification Route">
-                  <select
-                    className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 shadow-2xs focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
-                    value={form.whatsapp_mode}
-                    onChange={(event) => setForm({ ...form, whatsapp_mode: event.target.value })}
-                  >
-                    <option value="main">Use Primary Phone</option>
-                    <option value="alternate">Use Alternate Phone</option>
-                    <option value="separate">Dedicated WhatsApp Number</option>
-                  </select>
-                </Field>
-                {form.whatsapp_mode === "separate" ? (
-                  <Field label="Dedicated WhatsApp Number">
-                    <Input
-                      placeholder="+91 99999 88888"
-                      value={form.whatsapp_number}
-                      onChange={(event) => setForm({ ...form, whatsapp_number: event.target.value })}
-                    />
-                  </Field>
-                ) : null}
-                <Field label="Full Address / Delivery Destination" className="sm:col-span-2" required>
-                  <Input
-                    required
-                    placeholder="Plot 14, MIDC Bhosari, Pune"
-                    value={form.address}
-                    onChange={(event) => setForm({ ...form, address: event.target.value })}
-                  />
-                </Field>
+                <CustomerFields form={form} onChange={setForm} />
                 <DialogFooter className="mt-3 flex items-center justify-end gap-2 sm:col-span-2 border-t border-gray-100 pt-4">
                   <Button
                     type="button"

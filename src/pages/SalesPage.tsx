@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
+import { CustomerFields, customerPayload, emptyCustomer } from "@/components/CustomerFields"
 import { PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
@@ -26,7 +27,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { canSeePrices } from "@/lib/access"
+import { canSeePrices, roleCan } from "@/lib/access"
 import { api, downloadFile, errorMessage, peek, type Page } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { useRefreshWhenShown } from "@/lib/visible"
@@ -36,12 +37,15 @@ type Customer = { id: string; name: string }
 type Product = { id: string; product_name: string; product_type: string }
 type User = { id: string; first_name: string; last_name: string | null }
 type Line = {
+  id?: string
   product_id: string
   product_name?: string | null
+  product_type?: string | null
   quantity: string
   held_quantity?: string
   unit_price?: string | null
   shortfall_choice?: string | null
+  source_purchase_order_id?: string | null
 }
 type Order = {
   id: string
@@ -51,6 +55,8 @@ type Order = {
   packaging_user_id: string | null
   packaging_name?: string | null
   notes?: string | null
+  dispatch_by?: string | null
+  gst_billing?: boolean
   invoice_id: string | null
   invoice_has_pdf: boolean
   updated_at?: string | null
@@ -150,7 +156,7 @@ function blankLine(productId = ""): FormLine {
 }
 
 export function SalesPage() {
-  const { user } = useAuth()
+  const { user, can } = useAuth()
   const prices = canSeePrices(user?.role_name)
   const [orders, setOrders] = useState<Order[]>(() => peek<Order[]>("/api/sales/orders") ?? [])
   const [customers, setCustomers] = useState<Option[]>([])
@@ -160,6 +166,25 @@ export function SalesPage() {
   const [loading, setLoading] = useState(() => peek<Order[]>("/api/sales/orders") === undefined)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [goodsFilter, setGoodsFilter] = useState("all")
+  const [clientOpen, setClientOpen] = useState(false)
+  const [clientForm, setClientForm] = useState(emptyCustomer)
+  const [clientError, setClientError] = useState("")
+  const [productKey, setProductKey] = useState<string | null>(null)
+  const [productError, setProductError] = useState("")
+  const [units, setUnits] = useState<Option[]>([])
+  const [categories, setCategories] = useState<Option[]>([])
+  const [productDraft, setProductDraft] = useState({
+    product_name: "",
+    sku_number: "",
+    product_type: "purchased",
+    hsn_code: "",
+    gst_percent: "18",
+    sale_price_without_gst: "0",
+    alert_quantity: "0",
+    measurement_unit_id: "",
+    category_id: "",
+  })
   const [kept, setKept] = useState<string[]>([])
   const [showCreate, setShowCreate] = useState(false)
   const [billFor, setBillFor] = useState<string | null>(null)
@@ -169,17 +194,27 @@ export function SalesPage() {
     customer_id: "",
     packaging_user_id: "",
     notes: "",
+    turnaround: "7",
+    dispatch_by: "",
+    gst_billing: true,
   })
+  const [purchaseOrders, setPurchaseOrders] = useState<{ id: string; supplier_name: string | null; stock_received: boolean; lines: { product_id: string | null; quantity: string }[] }[]>([])
+  const [sources, setSources] = useState<Record<string, string>>({})
   const [lines, setLines] = useState<FormLine[]>(() => [blankLine()])
 
   async function load() {
     try {
-    const [orderRows, customerPage, productPage, userPage] = await Promise.all([
+    const editor = roleCan(user?.role_name, "edit_inventory")
+    const [orderRows, customerPage, productPage, userPage, unitPage, categoryPage] = await Promise.all([
       api<Order[]>("/api/sales/orders"),
       api<Page<Customer>>("/api/customers/?page=1&page_size=100"),
       api<Page<Product>>("/api/products?page=1&page_size=100&brief=true"),
       api<User[]>("/api/users/options"),
+      editor ? api<Page<{ id: string; name: string }>>("/api/measurement-units?page=1&page_size=100") : Promise.resolve(null),
+      editor ? api<Page<{ id: string; name: string }>>("/api/product-categories?page=1&page_size=100") : Promise.resolve(null),
     ])
+    if (unitPage) setUnits(unitPage.items.map((item) => ({ id: item.id, label: item.name })))
+    if (categoryPage) setCategories(categoryPage.items.map((item) => ({ id: item.id, label: item.name })))
     setOrders(orderRows)
     const customerOptions = customerPage.items.map((item) => ({ id: item.id, label: item.name }))
     const productOptions = productPage.items.map((item) => ({ id: item.id, label: item.product_name, type: item.product_type }))
@@ -199,6 +234,7 @@ export function SalesPage() {
       current.map((line) => ({ ...line, product_id: line.product_id || productOptions[0]?.id || "" })),
     )
     setError("")
+    void api<typeof purchaseOrders>("/api/purchase-orders").then(setPurchaseOrders).catch(() => {})
     } finally {
       setLoading(false)
     }
@@ -218,6 +254,46 @@ export function SalesPage() {
 
   function remember(id: string) {
     setKept((current) => (current.includes(id) ? current : [...current, id]))
+  }
+
+  async function createClient() {
+    setClientError("")
+    try {
+      const saved = await api<Customer>("/api/customers/", { method: "POST", body: JSON.stringify(customerPayload(clientForm)) })
+      setCustomers((current) => [{ id: saved.id, label: saved.name }, ...current])
+      setForm((current) => ({ ...current, customer_id: saved.id }))
+      setClientForm(emptyCustomer)
+      setClientOpen(false)
+    } catch (caught) {
+      setClientError(errorMessage(caught))
+    }
+  }
+
+  async function createProduct(lineKey: string) {
+    setProductError("")
+    if (!productDraft.product_name || !productDraft.sku_number || !productDraft.measurement_unit_id || !productDraft.category_id) {
+      setProductError("Name, SKU, unit, and category are required.")
+      return
+    }
+    const gstPercent = Number(productDraft.gst_percent || 0)
+    try {
+      const saved = await api<Product>("/api/products", {
+        method: "POST",
+        body: JSON.stringify({
+          ...productDraft,
+          gst: gstPercent > 0,
+          gst_percent: gstPercent,
+          sale_price_without_gst: productDraft.sale_price_without_gst.trim() || "0",
+          alert_quantity: productDraft.alert_quantity.trim() || "0",
+          description: null,
+        }),
+      })
+      setProducts((current) => [...current, { id: saved.id, label: saved.product_name, type: saved.product_type }])
+      setLines((current) => current.map((line) => (line.key === lineKey ? { ...line, product_id: saved.id } : line)))
+      setProductKey(null)
+    } catch (caught) {
+      setProductError(errorMessage(caught))
+    }
   }
 
   async function create(event: FormEvent) {
@@ -248,6 +324,9 @@ export function SalesPage() {
           customer_id: form.customer_id,
           notes: form.notes || null,
           packaging_user_id: form.packaging_user_id || null,
+          turnaround_days: form.turnaround === "custom" ? null : Number(form.turnaround),
+          dispatch_by: form.turnaround === "custom" ? (form.dispatch_by ? new Date(form.dispatch_by).toISOString() : null) : new Date(Date.now() + Number(form.turnaround) * 86400000).toISOString(),
+          gst_billing: form.gst_billing,
           lines: lines.map((line) => ({
             product_id: line.product_id,
             quantity: line.quantity,
@@ -337,13 +416,25 @@ export function SalesPage() {
     : 0
 
   async function advance(order: Order, next: string) {
+    if (next === "delivered" && order.lines.some((line) => line.product_type === "purchased" && !(sources[line.id ?? ""] || line.source_purchase_order_id))) {
+      setError("Choose the purchase this traded item came from")
+      return
+    }
     setError("")
     remember(order.id)
     setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: next } : item)))
     try {
       const updated =
         next === "delivered"
-          ? await api<Order>(`/api/sales/orders/${order.id}/dispatch`, { method: "POST" })
+          ? await api<Order>(`/api/sales/orders/${order.id}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                status: "delivered",
+                sources: order.lines
+                  .filter((line) => line.product_type === "purchased" && line.id)
+                  .map((line) => ({ line_id: line.id, source_purchase_order_id: sources[line.id!] || line.source_purchase_order_id })),
+              }),
+            })
           : await api<Order>(`/api/sales/orders/${order.id}`, {
               method: "PATCH",
               body: JSON.stringify({ status: next }),
@@ -366,6 +457,9 @@ export function SalesPage() {
       const current = stage(order.status)
       const matchesStatus = statusFilter === "all" || current === statusFilter || kept.includes(order.id)
       if (!matchesStatus) return false
+      const traded = order.lines.some((line) => line.product_type === "purchased")
+      if (goodsFilter === "traded" && !traded) return false
+      if (goodsFilter === "made" && traded) return false
       if (!query) return true
       const packer = (order.packaging_name || packerName(order.packaging_user_id) || "").toLowerCase()
       const haystack = [order.customer_name, packer, order.notes, ...order.lines.map((line) => line.product_name)]
@@ -374,7 +468,7 @@ export function SalesPage() {
         .toLowerCase()
       return haystack.includes(query)
     })
-  }, [orders, statusFilter, searchQuery, kept, people])
+  }, [orders, statusFilter, goodsFilter, searchQuery, kept, people])
 
   const counts = useMemo(() => {
     const of = (id: string) => orders.filter((order) => stage(order.status) === id).length
@@ -445,6 +539,7 @@ export function SalesPage() {
                 </div>
               </DialogHeader>
               <form className="mt-2 grid gap-4 sm:grid-cols-2" onSubmit={(event) => void create(event)}>
+                {error ? <div className="sm:col-span-2"><Notice variant="error">{error}</Notice></div> : null}
                 <SearchSelect
                   label="Customer Client"
                   options={customers}
@@ -452,6 +547,20 @@ export function SalesPage() {
                   onChange={(customer_id) => setForm({ ...form, customer_id })}
                   required
                 />
+                <div className="sm:col-span-2">
+                  <Button type="button" variant="outline" className="h-8 rounded-xl text-xs" onClick={() => setClientOpen((open) => !open)}>
+                    {clientOpen ? "Hide client form" : "+ Add a New Client"}
+                  </Button>
+                  {clientOpen ? (
+                    <div className="mt-3 grid gap-3 rounded-2xl border border-gray-200 p-3 sm:grid-cols-2">
+                      <CustomerFields form={clientForm} onChange={setClientForm} />
+                      {clientError ? <p className="text-xs text-rose-700 sm:col-span-2">{clientError}</p> : null}
+                      <Button type="button" className="rounded-xl bg-green-600 text-white sm:col-span-2" onClick={() => void createClient()}>
+                        Save & Select Client
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
                 <SearchSelect
                   label="Packaging Staff Assigned"
                   options={people}
@@ -472,6 +581,44 @@ export function SalesPage() {
                           }
                           required
                         />
+                        {can("edit_inventory") ? (
+                          <div className="sm:col-span-2">
+                            <Button type="button" variant="outline" className="h-8 rounded-xl text-xs" onClick={() => setProductKey(productKey === line.key ? null : line.key)}>
+                              {productKey === line.key ? "Hide product form" : "+ New product"}
+                            </Button>
+                            {productKey === line.key ? (
+                              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                <Field label="Product Name" required><Input value={productDraft.product_name} onChange={(event) => setProductDraft({ ...productDraft, product_name: event.target.value })} /></Field>
+                                <Field label="SKU" required><Input value={productDraft.sku_number} onChange={(event) => setProductDraft({ ...productDraft, sku_number: event.target.value })} /></Field>
+                                <Field label="Sourcing Type">
+                                  <select className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm" value={productDraft.product_type} onChange={(event) => setProductDraft({ ...productDraft, product_type: event.target.value })}>
+                                    <option value="purchased">Purchased</option>
+                                    <option value="manufactured">Manufactured</option>
+                                    <option value="both">Both</option>
+                                  </select>
+                                </Field>
+                                <Field label="HSN"><Input value={productDraft.hsn_code} onChange={(event) => setProductDraft({ ...productDraft, hsn_code: event.target.value })} /></Field>
+                                <Field label="GST %"><Input value={productDraft.gst_percent} onChange={(event) => setProductDraft({ ...productDraft, gst_percent: event.target.value })} /></Field>
+                                <Field label="Unit" required>
+                                  <select className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm" value={productDraft.measurement_unit_id} onChange={(event) => setProductDraft({ ...productDraft, measurement_unit_id: event.target.value })}>
+                                    <option value="">Choose</option>
+                                    {units.map((unit) => <option key={unit.id} value={unit.id}>{unit.label}</option>)}
+                                  </select>
+                                </Field>
+                                <Field label="Category" required>
+                                  <select className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm" value={productDraft.category_id} onChange={(event) => setProductDraft({ ...productDraft, category_id: event.target.value })}>
+                                    <option value="">Choose</option>
+                                    {categories.map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}
+                                  </select>
+                                </Field>
+                                {prices ? <Field label="Sale Price"><Input value={productDraft.sale_price_without_gst} onChange={(event) => setProductDraft({ ...productDraft, sale_price_without_gst: event.target.value })} /></Field> : null}
+                                <Field label="Alert Qty"><Input value={productDraft.alert_quantity} onChange={(event) => setProductDraft({ ...productDraft, alert_quantity: event.target.value })} /></Field>
+                                {productError ? <p className="text-xs text-rose-700 sm:col-span-2">{productError}</p> : null}
+                                <Button type="button" className="rounded-xl bg-green-600 text-white" onClick={() => void createProduct(line.key)}>Save & Select Product</Button>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
                         <Field label="Order Quantity" required>
                           <Input
                             type="number"
@@ -527,6 +674,24 @@ export function SalesPage() {
                     Add another product
                   </Button>
                 </div>
+                <Field label="Dispatch in">
+                  <select className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm" value={form.turnaround} onChange={(event) => setForm({ ...form, turnaround: event.target.value })}>
+                    <option value="7">7 days</option>
+                    <option value="10">10 days</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </Field>
+                {form.turnaround === "custom" ? (
+                  <Field label="Dispatch by">
+                    <Input type="datetime-local" value={form.dispatch_by} onChange={(event) => setForm({ ...form, dispatch_by: event.target.value })} />
+                  </Field>
+                ) : null}
+                <Field label="Billing">
+                  <select className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm" value={form.gst_billing ? "gst" : "non"} onChange={(event) => setForm({ ...form, gst_billing: event.target.value === "gst" })}>
+                    <option value="gst">GST</option>
+                    <option value="non">Non-GST</option>
+                  </select>
+                </Field>
                 <Field label="Order Instructions" className="sm:col-span-2">
                   <Input
                     placeholder="e.g. Export bubble packaging"
@@ -565,6 +730,8 @@ export function SalesPage() {
               ["in_delivery", `In Delivery (${counts.inDelivery})`, "bg-sky-600"],
               ["delivered", `Delivered (${counts.delivered})`, "bg-emerald-600"],
               ["cancelled", `Cancelled (${counts.cancelled})`, "bg-rose-600"],
+              ["traded", "Traded goods", "bg-violet-600"],
+              ["made", "Made in-house", "bg-blue-700"],
             ] as const
           ).map(([id, label, active]) => (
             <button
@@ -572,9 +739,9 @@ export function SalesPage() {
               type="button"
               className={cn(
                 "rounded-xl px-3 py-1.5 font-semibold transition-all",
-                statusFilter === id ? `${active} text-white shadow-xs` : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
+                (id === "traded" || id === "made" ? goodsFilter === id : statusFilter === id) ? `${active} text-white shadow-xs` : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
               )}
-              onClick={() => chooseStatus(id)}
+                onClick={() => (id === "traded" || id === "made" ? setGoodsFilter(goodsFilter === id ? "all" : id) : chooseStatus(id))}
             >
               {label}
             </button>
@@ -639,6 +806,10 @@ export function SalesPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-bold text-gray-900">{order.customer_name ?? "Direct Walk-in"}</h3>
+                        <p className="text-[11px] text-gray-500">
+                          {order.gst_billing === false ? "NON-GST" : "GST"}
+                          {order.dispatch_by ? ` · Dispatch by ${new Date(order.dispatch_by).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}` : ""}
+                        </p>
                         <span className="font-mono text-[11px] font-medium text-gray-500">#{order.id.slice(0, 8).toUpperCase()}</span>
                       </div>
                       <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-gray-500">
@@ -737,6 +908,17 @@ export function SalesPage() {
                           <tr key={`${line.product_id}-${index}`}>
                             <td className="px-4 py-2.5 font-semibold text-gray-900">
                               {line.product_name ?? "Steel Product"}
+                              {line.product_type === "purchased" ? (
+                                <span className="ml-2 rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold text-violet-800">TRADED</span>
+                              ) : null}
+                              {line.product_type === "purchased" && order.status !== "delivered" && order.status !== "cancelled" ? (
+                                <select className="mt-1 block h-8 max-w-56 rounded-lg border border-gray-200 bg-white px-2 text-[11px]" value={sources[line.id ?? ""] || line.source_purchase_order_id || ""} onChange={(event) => setSources((current) => ({ ...current, [line.id ?? ""]: event.target.value }))}>
+                                  <option value="">Source purchase</option>
+                                  {purchaseOrders.filter((item) => item.stock_received && item.lines.some((row) => row.product_id === line.product_id)).map((item) => (
+                                    <option key={item.id} value={item.id}>{item.supplier_name || "Supplier"} · {item.lines.find((row) => row.product_id === line.product_id)?.quantity}</option>
+                                  ))}
+                                </select>
+                              ) : null}
                               {line.shortfall_choice ? (
                                 <span className="ml-2 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 uppercase">
                                   {line.shortfall_choice}
