@@ -914,8 +914,8 @@ export function SalesPage() {
                               {line.product_type === "purchased" && order.status !== "delivered" && order.status !== "cancelled" ? (
                                 <select className="mt-1 block h-8 max-w-56 rounded-lg border border-gray-200 bg-white px-2 text-[11px]" value={sources[line.id ?? ""] || line.source_purchase_order_id || ""} onChange={(event) => setSources((current) => ({ ...current, [line.id ?? ""]: event.target.value }))}>
                                   <option value="">Source purchase</option>
-                                  {purchaseOrders.filter((item) => item.stock_received && item.lines.some((row) => row.product_id === line.product_id)).map((item) => (
-                                    <option key={item.id} value={item.id}>{item.supplier_name || "Supplier"} · {item.lines.find((row) => row.product_id === line.product_id)?.quantity}</option>
+                                  {purchaseOrders.filter((item) => item.stock_received && (item.lines ?? []).some((row) => row.product_id === line.product_id)).map((item) => (
+                                    <option key={item.id} value={item.id}>{item.supplier_name || "Supplier"} · {(item.lines ?? []).find((row) => row.product_id === line.product_id)?.quantity}</option>
                                   ))}
                                 </select>
                               ) : null}
