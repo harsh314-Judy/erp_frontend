@@ -236,11 +236,18 @@ export function PurchasesPage() {
       if (kind === "material" && row.supply_kind === "products") return false
       if (kind === "product" && row.supply_kind === "materials") return false
       const allowed = kind === "material" ? row.raw_material_ids : row.product_ids
-      return !allowed?.length || allowed.includes(item)
+      return (allowed ?? []).includes(item)
     })
+    if (!supplier) {
+      setError(
+        kind === "product"
+          ? "No supplier is linked to this product. Add a supplier here, or link the product on the supplier page."
+          : "No supplier is linked to this material. Add a supplier here, or link the material on the supplier page.",
+      )
+    }
     setEditing(null)
     setHeader({
-      supplier_id: supplier?.id || suppliers[0]?.id || "",
+      supplier_id: supplier?.id || "",
       expected_vehicle_plate: "",
       status: "initiated",
       notes: "",
@@ -262,18 +269,19 @@ export function PurchasesPage() {
   }, [currentSupplier])
 
   function optionsFor(line: DraftLine): Option[] {
-    const rawIds = Array.isArray(currentSupplier?.raw_material_ids) ? currentSupplier.raw_material_ids : []
-    const prodIds = Array.isArray(currentSupplier?.product_ids) ? currentSupplier.product_ids : []
+    if (!currentSupplier) return []
+    const rawIds = Array.isArray(currentSupplier.raw_material_ids) ? currentSupplier.raw_material_ids : []
+    const prodIds = Array.isArray(currentSupplier.product_ids) ? currentSupplier.product_ids : []
 
     if (line.kind === "product") {
-      const filtered = prodIds.length > 0 ? products.filter((item) => prodIds.includes(item.id)) : products
-      return filtered
+      return products
+        .filter((item) => prodIds.includes(item.id))
         .filter((item) => !line.category_id || item.category_id === line.category_id)
         .map((item) => ({ id: item.id, label: item.product_name }))
     }
 
-    const filtered = rawIds.length > 0 ? materials.filter((item) => rawIds.includes(item.id)) : materials
-    return filtered
+    return materials
+      .filter((item) => rawIds.includes(item.id))
       .filter((item) => !line.category_id || item.category_id === line.category_id)
       .map((item) => ({ id: item.id, label: item.name }))
   }
@@ -437,6 +445,7 @@ export function PurchasesPage() {
     }
     await guard(async () => {
       try {
+        setError("")
         const created = await api<Supplier>("/api/suppliers", {
           method: "POST",
           body: JSON.stringify({ ...supplierForm, gst_number: null, is_gst: false, raw_material_ids: [], product_ids: [] }),

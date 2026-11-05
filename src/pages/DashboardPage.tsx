@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import {
   AlertTriangle,
@@ -53,6 +53,7 @@ type Dashboard = {
 
 export function DashboardPage() {
   const { user } = useAuth()
+  const shown = useLocation().pathname === "/dashboard"
   const [data, setData] = useState<Dashboard | null>(() => peek<Dashboard>("/api/dashboard") ?? null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(() => peek<Dashboard>("/api/dashboard") === undefined)
@@ -338,7 +339,7 @@ export function DashboardPage() {
               </CardHeader>
               <CardContent className="p-2 sm:p-6 pt-3 sm:pt-6">
                 <div className="chart-wide h-48 sm:h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
+                  {shown ? <ResponsiveContainer width="100%" height="100%" minWidth={1}>
                     <BarChart data={chart} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                       <XAxis
                         dataKey="name"
@@ -371,7 +372,7 @@ export function DashboardPage() {
                         ))}
                       </Bar>
                     </BarChart>
-                  </ResponsiveContainer>
+                  </ResponsiveContainer> : null}
                 </div>
               </CardContent>
             </Card>

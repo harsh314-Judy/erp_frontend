@@ -350,8 +350,9 @@ export function ProductionPage() {
   }, [searchParams])
 
   function show(job: Detail) {
-    setSelected(job)
-    setPlans(Object.fromEntries(job.inputs.map((row) => [row.id, row.planned_quantity])))
+    const inputs = job.inputs ?? []
+    setSelected({ ...job, inputs })
+    setPlans(Object.fromEntries(inputs.map((row) => [row.id, row.planned_quantity])))
   }
 
   async function open(id: string) {

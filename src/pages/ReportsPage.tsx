@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useLocation } from "react-router-dom"
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import {
   BarChart3,
@@ -26,6 +27,7 @@ type Movement = { created_at: string; quantity: string; reason: string; note: st
 
 export function ReportsPage() {
   const { user } = useAuth()
+  const shown = useLocation().pathname === "/reports"
   const [sales, setSales] = useState<Sales | null>(() => peek<Sales>("/api/reports/sales") ?? null)
   const [production, setProduction] = useState<Production | null>(
     () => peek<Production>("/api/reports/production") ?? null,
@@ -169,7 +171,7 @@ export function ReportsPage() {
               Open on a desktop display to inspect detailed chart bars.
             </p>
             <div className="chart-wide h-60">
-              <ResponsiveContainer width="100%" height="100%">
+              {shown ? <ResponsiveContainer width="100%" height="100%" minWidth={1}>
                 <BarChart data={chart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis allowDecimals={false} stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
@@ -190,7 +192,7 @@ export function ReportsPage() {
                     ))}
                   </Bar>
                 </BarChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer> : null}
             </div>
           </CardContent>
         </Card>
