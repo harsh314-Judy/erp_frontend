@@ -11,6 +11,13 @@ import { cn } from "@/lib/utils"
 
 const STORAGE_KEY = "erp.sidebar.collapsed"
 const THEME_KEY = "erp.theme"
+const SCHEME_KEY = "erp.scheme"
+const SCHEMES = [
+  { id: "blue", label: "Blue", swatch: "#0071e3" },
+  { id: "green", label: "Green", swatch: "#248a3d" },
+  { id: "violet", label: "Violet", swatch: "#5e5ce6" },
+] as const
+type SchemeId = (typeof SCHEMES)[number]["id"]
 
 type Notice = {
   id: string
@@ -127,6 +134,17 @@ export function AppShell() {
   const [bellOpen, setBellOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"))
+  const [scheme, setScheme] = useState<SchemeId>(() => {
+    const saved = document.documentElement.dataset.scheme
+    return saved === "green" || saved === "violet" ? saved : "blue"
+  })
+
+  function chooseScheme(next: SchemeId) {
+    if (next === "blue") delete document.documentElement.dataset.scheme
+    else document.documentElement.dataset.scheme = next
+    window.localStorage.setItem(SCHEME_KEY, next)
+    setScheme(next)
+  }
 
   function toggleTheme() {
     const next = !document.documentElement.classList.contains("dark")
@@ -225,7 +243,7 @@ export function AppShell() {
 
   return (
     <PageChromeProvider scrolled={scrolled}>
-    <div className="app-root min-h-svh bg-[#e6e8ec]">
+    <div className="app-root min-h-svh bg-[#f5f5f7]">
 
       {/* ── Mobile slide-over backdrop ─────────────────────── */}
       {mobileOpen && (
@@ -240,7 +258,7 @@ export function AppShell() {
       {/* ── Sidebar (desktop + mobile slide-over) ─────────── */}
       <aside
         className={cn(
-          "app-sidebar fixed inset-y-0 left-0 z-50 flex flex-col shadow-2xl rounded-none border-r border-black bg-white",
+          "app-sidebar fixed inset-y-0 left-0 z-50 flex flex-col border-r border-black/10 bg-white/70",
           "transition-[width,transform] duration-200 ease-out",
           "w-72 max-w-[85vw] lg:max-w-none",
           collapsed ? "lg:w-16" : "lg:w-64",
@@ -249,33 +267,29 @@ export function AppShell() {
       >
         {/* Logo / Brand with original colors and sharp black border */}
         <div className={cn(
-          "flex h-16 items-center gap-3 border-b border-black shrink-0 bg-white",
+          "flex h-16 items-center gap-3 border-b border-black/10 shrink-0",
           collapsed ? "lg:justify-center px-2" : "px-4"
         )}>
           {/* Brand logo box with original green colors and sharp black border */}
           <div className="relative shrink-0">
-            <div className="grid size-9 place-items-center bg-emerald-600 text-white font-mono font-black text-base border border-black shadow-xs rounded-none">
+            <div className="grid size-9 place-items-center rounded-[12px] bg-[var(--scheme)] text-[15px] font-semibold tracking-tight text-white shadow-sm">
               S
             </div>
-            <span className="absolute -bottom-0.5 -right-0.5 size-2 bg-emerald-400 border border-black rounded-none" />
           </div>
 
           {!collapsed && (
             <div className="min-w-0 flex-1 animate-slide-in">
               <div className="flex items-center gap-1.5">
-                <p className="truncate text-sm font-bold text-gray-900 tracking-tight font-sans">{company}</p>
-                <span className="bg-emerald-50 text-emerald-800 border border-black text-[9px] font-mono font-bold px-1.5 py-0.2 tracking-wider rounded-none shrink-0">
-                  ERP
-                </span>
+                <p className="truncate text-[15px] font-semibold tracking-tight text-gray-900">{company}</p>
               </div>
-              <p className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Beta</p>
+              <p className="text-[11px] font-medium text-gray-500">Plant</p>
             </div>
           )}
 
           {/* Mobile close */}
           <button
             type="button"
-            className="ml-auto grid size-8 place-items-center rounded-none text-gray-600 hover:bg-gray-100 hover:text-black lg:hidden border border-black"
+            className="ml-auto grid size-8 place-items-center rounded-full text-gray-500 hover:bg-black/5 lg:hidden"
             onClick={() => setMobileOpen(false)}
           >
             <X className="size-4" />
@@ -291,11 +305,10 @@ export function AppShell() {
             return (
               <div key={sec} className="space-y-0.5">
                 {!collapsed && (
-                  <div className="px-2 pt-2 pb-1 flex items-center justify-between border-b border-gray-100 mb-1">
-                    <span className="text-[9px] font-mono font-bold tracking-widest text-gray-600 uppercase">
-                      {sec}
+                  <div className="px-3 pt-3 pb-1">
+                    <span className="text-[11px] font-semibold tracking-wide text-gray-400">
+                      {sec.charAt(0) + sec.slice(1).toLowerCase()}
                     </span>
-                    <span className="text-[8px] font-mono text-gray-400">■</span>
                   </div>
                 )}
                 {secLinks.map((item) => {
@@ -307,29 +320,29 @@ export function AppShell() {
                       title={item.label}
                       onClick={() => setMobileOpen(false)}
                       className={({ isActive }) => cn(
-                        "group flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-semibold rounded-none transition-all duration-150 border-l-[3px]",
+                        "group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] font-medium transition-colors",
                         collapsed ? "lg:justify-center px-1.5" : "",
                         isActive
-                          ? "bg-emerald-50/90 text-emerald-950 border-l-emerald-600 font-bold border-y border-r border-gray-200 shadow-2xs"
-                          : "border-l-transparent text-gray-700 hover:bg-gray-50 hover:text-black hover:border-l-gray-400"
+                          ? "bg-[var(--scheme-soft)] text-[var(--scheme)]"
+                          : "text-gray-600 hover:bg-black/5"
                       )}
                     >
                       {({ isActive }) => (
                         <>
                           <div className={cn(
-                            "grid size-6 shrink-0 place-items-center rounded-none border border-black/30 shadow-2xs transition-all duration-150",
+                            "grid size-7 shrink-0 place-items-center rounded-lg transition-transform duration-150",
                             item.iconBg, item.iconColor,
                             isActive ? "scale-105" : "opacity-90 group-hover:opacity-100"
                           )}>
                             <Icon className="size-3.5" />
                           </div>
                           {!collapsed && (
-                            <span className={cn("truncate flex-1 tracking-tight text-xs", isActive ? "font-bold text-emerald-950" : "text-gray-700")}>
+                            <span className={cn("truncate flex-1 tracking-tight", isActive ? "font-semibold text-[var(--scheme)]" : "text-gray-700")}>
                               {item.label}
                             </span>
                           )}
                           {isActive && !collapsed && (
-                            <span className="ml-auto size-1.5 rounded-none bg-emerald-600 border border-black/40 shrink-0" />
+                            <span className="ml-auto size-1.5 rounded-full bg-[var(--scheme)] shrink-0" />
                           )}
                         </>
                       )}
@@ -342,22 +355,21 @@ export function AppShell() {
         </nav>
 
         {/* User panel at bottom with sharp black border & micro tag */}
-        <div className="border-t border-black p-2.5 shrink-0 bg-white">
+        <div className="border-t border-black/10 p-3 shrink-0">
           <div className={cn(
-            "flex items-center gap-2.5 border border-black p-2 bg-gray-50/70 rounded-none",
-            collapsed ? "lg:justify-center lg:border-none lg:bg-transparent lg:p-0" : ""
+            "flex items-center gap-2.5 rounded-2xl bg-black/5 p-2",
+            collapsed ? "lg:justify-center lg:bg-transparent lg:p-0" : ""
           )}>
-            <div className="grid size-8 shrink-0 place-items-center bg-emerald-600 text-white text-xs font-mono font-bold rounded-none border border-black shadow-xs">
+            <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--scheme)] text-[11px] font-semibold text-white">
               {initials}
             </div>
             {!collapsed && (
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-bold text-gray-900 tracking-tight">{name}</p>
                 <div className="flex items-center gap-1 mt-0.5">
-                  <span className="bg-white text-gray-800 border border-black text-[8px] font-mono px-1 py-0.2 uppercase font-bold tracking-wider rounded-none">
+                  <span className="text-[11px] font-medium text-gray-500">
                     {roleLabel(user?.role_name)}
                   </span>
-                  <span className="size-1.5 bg-emerald-500 border border-black/30 rounded-none" />
                 </div>
               </div>
             )}
@@ -367,37 +379,38 @@ export function AppShell() {
             type="button"
             onClick={() => void logout()}
             className={cn(
-              "mt-1.5 flex w-full items-center gap-2 border border-black/20 hover:border-black rounded-none px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-all",
+              "mt-2 flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-[13px] font-medium text-gray-600 hover:bg-black/5 transition-colors",
               collapsed ? "lg:justify-center px-0" : ""
             )}
           >
             <LogOut className="size-3.5 shrink-0" />
-            {!collapsed && <span className="font-mono text-[11px] uppercase tracking-wider">Sign out</span>}
+            {!collapsed && <span>Sign out</span>}
           </button>
         </div>
       </aside>
 
       {/* ── Main content area ─────────────────────────────── */}
       <div className={cn(
-        "flex min-h-svh flex-col transition-[padding] duration-200 min-w-0 w-full max-w-full overflow-x-hidden",
+        "flex min-h-svh flex-col transition-[padding] duration-200 ease-out min-w-0 w-full max-w-full overflow-x-hidden",
         collapsed ? "lg:pl-16" : "lg:pl-64",
       )}>
 
         {/* ── Top header with sharp borders and black details ── */}
         <header
           className={cn(
-            "app-header fixed top-0 right-0 left-0 z-30 flex h-14 items-center gap-2 sm:gap-3 px-3 sm:px-4 w-full max-w-full transition-[left,background-color,border-color,box-shadow] duration-200",
+            "app-header fixed top-0 right-0 z-30 flex h-16 items-center gap-2 sm:gap-3 px-3 sm:px-4 transition-[left] duration-200 ease-out",
+            "left-0",
             collapsed ? "lg:left-16" : "lg:left-64",
             scrolled
-              ? "border-b border-transparent bg-transparent shadow-none before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-24 before:backdrop-blur-md before:bg-[linear-gradient(to_bottom,rgba(230,232,236,0.94),rgba(230,232,236,0.55)_58%,transparent)] before:[mask-image:linear-gradient(to_bottom,black_42%,transparent)]"
-              : "border-b border-gray-200/90 bg-[#f1f2f4]/95 shadow-2xs",
+              ? "border-b border-transparent bg-transparent shadow-none before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:-z-10 before:h-24 before:backdrop-blur-xl before:bg-[linear-gradient(to_bottom,rgba(245,245,247,0.94),rgba(245,245,247,0.5)_58%,transparent)] before:[mask-image:linear-gradient(to_bottom,black_42%,transparent)]"
+              : "border-b border-black/10 bg-white/70",
           )}
         >
 
           {/* Mobile hamburger */}
           <button
             type="button"
-            className="grid size-9 place-items-center rounded-none border border-gray-200 hover:border-black text-gray-700 hover:text-black lg:hidden transition-colors"
+            className="grid size-9 place-items-center rounded-full text-gray-600 hover:bg-black/5 lg:hidden transition-colors"
             onClick={() => setMobileOpen(true)}
           >
             <Menu className="size-4.5" />
@@ -406,7 +419,7 @@ export function AppShell() {
           {/* Desktop sidebar toggle */}
           <button
             type="button"
-            className="hidden lg:grid size-9 place-items-center rounded-none border border-gray-200 hover:border-black text-gray-700 hover:text-black transition-colors"
+            className="hidden lg:grid size-9 place-items-center rounded-full text-gray-600 hover:bg-black/5 transition-colors"
             onClick={() => setCollapsed((c) => !c)}
           >
             <PanelLeft className="size-4.5" />
@@ -420,41 +433,41 @@ export function AppShell() {
             {/* Notification bell */}
             <button
               type="button"
-              className="relative grid size-9 place-items-center rounded-none border border-black text-gray-700 hover:text-black hover:bg-gray-50 transition-colors"
+              className="relative grid size-9 place-items-center rounded-full text-gray-600 hover:bg-black/5 transition-colors"
               onClick={() => setBellOpen((o) => !o)}
             >
               <Bell className="size-4.5" />
               {unread > 0 && (
-                <span className="absolute top-1 right-1 size-2 rounded-none bg-emerald-600 border border-white" />
+                <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-[#ff3b30] ring-2 ring-white" />
               )}
             </button>
 
             {/* Notification dropdown */}
             {bellOpen && (
-              <div className="absolute right-0 top-full z-40 mt-1.5 w-80 rounded-none border border-black bg-white shadow-xl animate-scale-in">
-                <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 bg-gray-50/60">
-                  <p className="text-xs font-mono font-bold uppercase tracking-wider text-gray-900">Notifications</p>
+              <div className="absolute right-0 top-full z-40 mt-2 w-80 overflow-hidden rounded-2xl border border-black/10 bg-white/90 shadow-2xl backdrop-blur-xl animate-scale-in">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-black/8">
+                  <p className="text-[13px] font-semibold tracking-tight text-gray-900">Notifications</p>
                   {unread > 0 && (
-                    <span className="bg-emerald-50 text-emerald-800 border border-black text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-none">
-                      {unread} NEW
+                    <span className="rounded-full bg-[var(--scheme-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--scheme)]">
+                      {unread} new
                     </span>
                   )}
                 </div>
                 <div className="max-h-72 overflow-y-auto custom-scroll divide-y divide-gray-100">
                   {notices.length === 0 ? (
-                    <p className="px-4 py-6 text-center text-xs text-gray-400 font-mono">ALL CAUGHT UP</p>
+                    <p className="px-4 py-6 text-center text-[13px] text-gray-400">All caught up</p>
                   ) : notices.map((item) => (
                     <button
                       key={item.id}
                       type="button"
                       className={cn(
-                        "block w-full px-4 py-2.5 text-left hover:bg-gray-50 transition-colors rounded-none",
+                        "block w-full px-4 py-2.5 text-left hover:bg-black/5 transition-colors",
                         !item.read_at && "bg-emerald-50/50 border-l-2 border-l-emerald-600"
                       )}
                       onClick={() => void openNotice(item)}
                     >
                       <div className="flex items-start gap-2">
-                        {!item.read_at && <span className="mt-1 size-1.5 shrink-0 bg-emerald-600 rounded-none" />}
+                        {!item.read_at && <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-[var(--scheme)]" />}
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-gray-900 truncate">{item.title}</p>
                           <p className="mt-0.5 text-[11px] text-gray-500 line-clamp-2">{item.body}</p>
@@ -466,11 +479,29 @@ export function AppShell() {
               </div>
             )}
 
+            <div className="flex items-center gap-1 rounded-full bg-black/5 p-1" role="group" aria-label="Color scheme">
+              {SCHEMES.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-label={`${item.label} color scheme`}
+                  aria-pressed={scheme === item.id}
+                  title={item.label}
+                  className={cn(
+                    "size-5 rounded-full transition",
+                    scheme === item.id ? "outline-2 outline-offset-2 outline-current" : "opacity-75 hover:opacity-100",
+                  )}
+                  style={{ backgroundColor: item.swatch, color: item.swatch }}
+                  onClick={() => chooseScheme(item.id)}
+                />
+              ))}
+            </div>
+
             <button
               type="button"
               aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
               aria-pressed={dark}
-              className="grid size-9 place-items-center rounded-none border border-black text-gray-700 hover:text-black hover:bg-gray-50 transition-colors"
+              className="grid size-9 place-items-center rounded-full text-gray-600 hover:bg-black/5 transition-colors"
               onClick={toggleTheme}
             >
               {dark ? <Sun className="size-4.5" /> : <Moon className="size-4.5" />}
@@ -479,9 +510,9 @@ export function AppShell() {
             {/* Avatar / profile link */}
             <NavLink
               to="/profile"
-              className="flex items-center gap-2 rounded-none border border-black hover:bg-gray-50 px-2.5 py-1.5 transition-colors bg-white"
+              className="flex items-center gap-2 rounded-full px-1.5 py-1 transition-colors hover:bg-black/5"
             >
-              <div className="grid size-6 place-items-center rounded-none bg-emerald-600 text-[10px] font-mono font-bold text-white border border-black/30">
+              <div className="grid size-7 place-items-center rounded-full bg-[var(--scheme)] text-[10px] font-semibold text-white">
                 {initials}
               </div>
               <span className="hidden md:block text-xs font-semibold text-gray-800">{name}</span>

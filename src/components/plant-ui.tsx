@@ -66,7 +66,7 @@ export function PageTitle({
       <div className={cn("flex min-w-0 flex-1 items-start gap-2.5 border-l-[3px] pl-3 sm:gap-3", bar)}>
         <div ref={guideBox} className="relative flex shrink-0 flex-col items-center gap-1">
           {Mark && !scrolled && (
-            <div className={cn("grid size-9 place-items-center border border-black/30 text-white shadow-xs sm:size-10", iconBg)}>
+            <div className={cn("grid size-9 place-items-center rounded-2xl text-white shadow-sm sm:size-10", iconBg)}>
               <Mark className="size-4 sm:size-5" />
             </div>
           )}
@@ -108,7 +108,7 @@ export function PageTitle({
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="truncate text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">{title}</h1>
               {badge && (
-                <span className="inline-flex shrink-0 items-center rounded-none border border-black bg-white px-1.5 py-0.5 text-[9px] font-mono font-bold tracking-wider text-gray-900 uppercase sm:px-2 sm:text-[10px]">
+                <span className="inline-flex shrink-0 items-center rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-medium tracking-tight text-gray-600 sm:text-xs">
                   {badge}
                 </span>
               )}

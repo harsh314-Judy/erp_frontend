@@ -7,8 +7,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --font-heading: 'Inter Variable', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter Variable", "Segoe UI", sans-serif;
+    --font-heading: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter Variable", "Segoe UI", sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -40,23 +40,34 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
-    --radius-sm: 0px;
-    --radius-md: 0px;
-    --radius-lg: 0px;
-    --radius-xl: 0px;
-    --radius-2xl: 0px;
-    --radius-3xl: 0px;
+    --radius-sm: 10px;
+    --radius-md: 12px;
+    --radius-lg: 14px;
+    --radius-xl: 16px;
+    --radius-2xl: 20px;
+    --radius-3xl: 24px;
 }
 
 :root {
     --stage-fallback: #1e293b;
-    --background: #e6e8ec;
-    --foreground: #111827;
-    --card: #f1f2f4;
-    --card-foreground: #111827;
-    --popover: #f1f2f4;
-    --popover-foreground: #111827;
-    --primary: #16a34a;
+    --background: #f5f5f7;
+    --foreground: #1d1d1f;
+    --card: #ffffff;
+    --card-foreground: #1d1d1f;
+    --popover: #ffffff;
+    --popover-foreground: #1d1d1f;
+    --scheme: #0071e3;
+    --scheme-hover: #0077ed;
+    --scheme-soft: color-mix(in srgb, var(--scheme) 14%, transparent);
+    --canvas: #e8eef6;
+    --surface: #f7f9fc;
+    --surface-2: #e3ebf5;
+    --chrome: rgba(236, 242, 250, 0.84);
+    --ink: #1c2430;
+    --ink-soft: #5c6b80;
+    --line: rgba(0, 80, 160, 0.14);
+    --hover: #d7e4f5;
+    --primary: var(--scheme);
     --primary-foreground: #ffffff;
     --secondary: #f0fdf4;
     --secondary-foreground: #14532d;
@@ -73,7 +84,7 @@
     --chart-3: #f59e0b;
     --chart-4: #ec4899;
     --chart-5: #8b5cf6;
-    --radius: 0px;
+    --radius: 14px;
     --sidebar: #f1f2f4;
     --sidebar-foreground: #111827;
     --sidebar-primary: #111827;
@@ -98,7 +109,7 @@
     position: relative;
   }
   html {
-    font-family: 'Inter Variable', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter Variable", "Segoe UI", sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -106,8 +117,9 @@
     scroll-behavior: smooth;
   }
   body {
-    background-color: #f4f5f7;
-    color: #111827;
+    background-color: var(--canvas);
+    color: var(--ink);
+    letter-spacing: -0.011em;
     @apply antialiased;
     /* safe area insets for mobile notch */
     padding-top: env(safe-area-inset-top);
@@ -115,66 +127,36 @@
     padding-right: env(safe-area-inset-right);
   }
 
-  /* ── Precision Sharp Geometry ────────────────────────── */
-  /* Remove all rounded curves: every box, card, button, badge, input, and modal is squared and sharp */
-  .rounded,
-  .rounded-xs,
-  .rounded-sm,
-  .rounded-md,
-  .rounded-lg,
-  .rounded-xl,
-  .rounded-2xl,
-  .rounded-3xl,
-  .rounded-full,
-  button,
-  input,
-  select,
-  textarea,
-  [class*="rounded"] {
-    border-radius: 0px !important;
+  h1, h2, h3 {
+    letter-spacing: -0.022em;
   }
 
-  /* Sharp clean cards with black borders */
   .sharp-card {
-    border-radius: 0px !important;
-    border: 1px solid #000000;
-    background-color: #ffffff;
+    border-radius: 20px;
+    border: 1px solid rgba(60, 60, 67, 0.12);
+    background-color: var(--surface);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.05);
   }
-  .black-border {
-    border: 1px solid #000000 !important;
-  }
-  .black-border-t {
-    border-top: 1px solid #000000 !important;
-  }
+  .black-border,
+  .black-border-t,
   .black-border-b {
-    border-bottom: 1px solid #000000 !important;
+    border-color: rgba(60, 60, 67, 0.12) !important;
   }
-  .sharp-badge {
-    background-color: #ffffff;
-    color: #111827;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    padding: 2px 6px;
-    border-radius: 0px !important;
-    border: 1px solid #000000;
-    text-transform: uppercase;
-    display: inline-flex;
-    align-items: center;
-    line-height: 1.2;
-  }
+  .sharp-badge,
   .sharp-tag {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    padding: 1px 4px;
-    border-radius: 0px !important;
-    border: 1px solid #000000;
-    text-transform: uppercase;
+    background-color: var(--scheme-soft);
+    color: var(--scheme);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter Variable", sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 0;
+    text-transform: none;
     display: inline-flex;
     align-items: center;
+    line-height: 1.3;
   }
   .touch-scroll {
     overflow-x: auto;
@@ -280,56 +262,44 @@
   padding-bottom: max(env(safe-area-inset-bottom), 16px);
 }
 
-/* Site-wide dark mode. Same sharp boxes as the light tabs, darker and glassy. */
-html.dark {
-  color-scheme: dark;
-  --stage-fallback: #ffffff;
-  --foreground: #ffffff;
-  --card-foreground: #ffffff;
-  --popover-foreground: #ffffff;
-  --muted-foreground: #ffffff;
-  --secondary-foreground: #ffffff;
-  background: #101216;
+/* Apple materials. Pages still use the old square utilities; these restore continuous corners and hairline separators. */
+html .rounded-none:not(.app-sidebar):not(.app-header) {
+  border-radius: 16px !important;
 }
-html.dark body {
-  background:
-    radial-gradient(900px 420px at 0% 0%, rgba(16, 185, 129, 0.08), transparent 55%),
-    radial-gradient(720px 380px at 100% 0%, rgba(59, 130, 246, 0.06), transparent 50%),
-    #101216;
-  color: #ffffff;
+html .rounded-full,
+html [class*="rounded-full"] {
+  border-radius: 999px !important;
 }
-html.dark .app-root {
-  background: transparent !important;
+html :is(.border-black, .border-black\/20, .border-black\/30, .border-black\/40, .border-gray-100, .border-gray-200, .border-gray-200\/90, .border-gray-300) {
+  border-color: var(--line) !important;
 }
-html.dark .app-sidebar,
-html.dark .app-header {
-  background-color: rgba(16, 18, 22, 0.58) !important;
-  border-color: rgba(255, 255, 255, 0.14) !important;
-  backdrop-filter: blur(18px) saturate(1.25);
-  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+html :is(.app-root) {
+  background: var(--canvas) !important;
 }
-html.dark .app-header::before {
-  background: linear-gradient(to bottom, rgba(16, 18, 22, 0.94), rgba(16, 18, 22, 0.5) 58%, transparent) !important;
+html .app-sidebar,
+html .app-header {
+  background-color: var(--chrome) !important;
+  border-color: var(--line) !important;
+  box-shadow: none !important;
+  backdrop-filter: saturate(180%) blur(22px);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
 }
-
-html.dark :is(.bg-white, .bg-white\/60, .bg-white\/70, .bg-white\/75, .bg-white\/95),
-html.dark .sharp-card,
-html.dark .sharp-badge {
-  background-color: rgba(32, 36, 44, 0.62) !important;
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+html .app-header::before {
+  background: linear-gradient(to bottom, var(--chrome), transparent) !important;
 }
-html.dark :is(
+html :is(.bg-white, .bg-white\/60, .bg-white\/70, .bg-white\/75, .bg-white\/95),
+html .sharp-card {
+  background-color: var(--surface) !important;
+}
+html :is(
   .bg-gray-50, .bg-gray-50\/30, .bg-gray-50\/50, .bg-gray-50\/60,
   .bg-gray-50\/70, .bg-gray-50\/75, .bg-gray-50\/80, .bg-gray-100
-) {
-  background-color: rgba(255, 255, 255, 0.06) !important;
+),
+html [data-slot="table-header"],
+html thead {
+  background-color: var(--surface-2) !important;
 }
-html.dark [data-slot="table-header"],
-html.dark thead {
-  background-color: rgba(255, 255, 255, 0.14) !important;
-}
-html.dark :is(
+html :is(
   .hover\:bg-gray-50,
   .hover\:bg-gray-50\/30,
   .hover\:bg-gray-50\/50,
@@ -343,47 +313,124 @@ html.dark :is(
   .hover\:bg-green-50\/30,
   .hover\:bg-emerald-50
 ):hover,
-html.dark [data-slot="table-row"]:hover,
-html.dark tbody tr:hover {
-  background-color: rgba(255, 255, 255, 0.08) !important;
+html [data-slot="table-row"]:hover,
+html tbody tr:hover {
+  background-color: var(--hover) !important;
 }
-html.dark [data-slot="table-row"]:active,
-html.dark tbody tr:active {
-  background-color: rgba(255, 255, 255, 0.11) !important;
+html :is(.text-gray-950, .text-gray-900, .text-gray-800, .text-gray-700, .text-gray-600, .text-black) {
+  color: var(--ink) !important;
+}
+html :is(.text-gray-500, .text-gray-400) {
+  color: var(--ink-soft) !important;
+}
+html :is(.hover\:text-black, .hover\:text-gray-900, .hover\:text-gray-700):hover {
+  color: var(--ink) !important;
+}
+html :is(input, select, textarea) {
+  background-color: var(--surface) !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
+}
+html :is(input, textarea)::placeholder {
+  color: var(--ink-soft);
+}
+html[data-scheme="green"] {
+  --scheme: #248a3d;
+  --scheme-hover: #1d7a34;
+  --canvas: #e7f3eb;
+  --surface: #f6fbf7;
+  --surface-2: #dceee2;
+  --chrome: rgba(236, 246, 239, 0.86);
+  --ink: #1a2e22;
+  --ink-soft: #4f6b59;
+  --line: rgba(20, 90, 40, 0.14);
+  --hover: #d3eadb;
+}
+html[data-scheme="violet"] {
+  --scheme: #5e5ce6;
+  --scheme-hover: #4b49d6;
+  --canvas: #efeaf8;
+  --surface: #f8f6fc;
+  --surface-2: #e4dcf3;
+  --chrome: rgba(244, 240, 250, 0.86);
+  --ink: #241c33;
+  --ink-soft: #67597a;
+  --line: rgba(80, 40, 140, 0.14);
+  --hover: #ddd2f3;
+}
+html :is(button, a, [role="button"]).bg-green-600,
+html :is(button, a, [role="button"]).bg-emerald-600 {
+  background-color: var(--scheme) !important;
+}
+html :is(button, a).hover\:bg-green-700:hover,
+html :is(button, a).hover\:bg-emerald-700:hover {
+  background-color: var(--scheme-hover) !important;
+}
+
+/* Each scheme has its own dark pair. Surfaces come from the same variables as light mode. */
+html.dark {
+  color-scheme: dark;
+  --stage-fallback: #f5f5f7;
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-2);
+  --popover-foreground: var(--ink);
+  --muted-foreground: var(--ink-soft);
+  --secondary-foreground: var(--ink);
+  --canvas: #070b14;
+  --surface: #121826;
+  --surface-2: #1b2436;
+  --chrome: rgba(14, 20, 34, 0.82);
+  --ink: #f4f7fb;
+  --ink-soft: #a8b3c7;
+  --line: rgba(160, 190, 230, 0.16);
+  --hover: #24344e;
+  --scheme: #0a84ff;
+  --scheme-hover: #409cff;
+  background: var(--canvas);
+}
+html.dark[data-scheme="green"] {
+  --canvas: #07110c;
+  --surface: #122018;
+  --surface-2: #1b2d22;
+  --chrome: rgba(12, 26, 18, 0.84);
+  --ink: #f3faf5;
+  --ink-soft: #a8c4b2;
+  --line: rgba(160, 220, 180, 0.16);
+  --hover: #234232;
+  --scheme: #30d158;
+  --scheme-hover: #64e27d;
+}
+html.dark[data-scheme="violet"] {
+  --canvas: #100b16;
+  --surface: #1b1428;
+  --surface-2: #271c38;
+  --chrome: rgba(24, 16, 38, 0.84);
+  --ink: #f7f4fb;
+  --ink-soft: #c4b6d4;
+  --line: rgba(210, 180, 240, 0.16);
+  --hover: #3a2a52;
+  --scheme: #bf5af2;
+  --scheme-hover: #d7a0f6;
+}
+html.dark .sharp-badge,
+html.dark .sharp-tag {
+  background-color: var(--scheme-soft) !important;
+  color: var(--scheme) !important;
 }
 html.dark :is(input, select, textarea) {
-  background-color: rgba(8, 10, 14, 0.42) !important;
-  color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.14) !important;
+  border-radius: 12px !important;
 }
-html.dark :is(input, textarea)::placeholder {
-  color: #ffffff;
+html.dark [class*="border-l-emerald"],
+html.dark [class*="border-l-blue"] {
+  border-left-color: var(--scheme) !important;
 }
-
-html.dark :is(
-  .text-gray-950, .text-gray-900, .text-gray-800, .text-gray-700,
-  .text-gray-600, .text-gray-500, .text-gray-400, .text-gray-300, .text-black
-) {
-  color: #ffffff !important;
+html .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+html .divide-gray-50 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--line) !important;
 }
-html.dark :is(.hover\:text-black, .hover\:text-gray-900, .hover\:text-gray-700):hover {
-  color: #ffffff !important;
-}
-html.dark .sharp-badge {
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.16) !important;
-}
-
-html.dark :is(.border-black, .border-gray-100, .border-gray-200, .border-gray-200\/90, .border-gray-300, .border-black\/20, .border-black\/30, .border-black\/40) {
-  border-color: rgba(255, 255, 255, 0.14) !important;
-}
-html.dark [class*="border-l-emerald"] {
-  border-left-color: #34d399 !important;
-}
-html.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) {
-  border-color: rgba(255, 255, 255, 0.1) !important;
-}
-
 html.dark :is(.bg-emerald-50, .bg-emerald-50\/70, .bg-emerald-50\/90, .bg-green-50, .bg-emerald-100) {
   background-color: rgba(16, 185, 129, 0.16) !important;
 }
@@ -415,6 +462,6 @@ html.dark .custom-scroll {
 
 @layer utilities {
   .bg-white {
-    background-color: #f1f2f4;
+    background-color: var(--surface);
   }
 }
