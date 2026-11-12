@@ -1,8 +1,16 @@
 import { useEffect, useState } from "react"
 
 import { api } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
-export type DepartmentWorker = { id: string; operation_id: string; name: string; active: boolean }
+export type DepartmentWorker = {
+  id: string
+  operation_id: string
+  operation_name?: string
+  name: string
+  active: boolean
+  employment_type?: string
+}
 export type WorkerChoice = { worker_id: string } | { worker_name: string }
 
 const selectClass =
@@ -73,6 +81,78 @@ export function WorkerPicker({
           }}
         />
       ) : null}
+    </div>
+  )
+}
+
+export function MultiWorkerPicker({
+  operationId,
+  value,
+  onChange,
+  max = 3,
+}: {
+  operationId: string
+  value: string[]
+  onChange: (ids: string[], labels: string[]) => void
+  max?: number
+}) {
+  const [people, setPeople] = useState<DepartmentWorker[]>([])
+
+  useEffect(() => {
+    let alive = true
+    api<DepartmentWorker[]>("/api/departments/workers")
+      .then((rows) => {
+        if (alive) setPeople(rows)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [operationId])
+
+  const here = people.filter((person) => person.operation_id === operationId)
+  const elsewhere = people.filter((person) => person.operation_id !== operationId)
+
+  function toggle(id: string) {
+    const next = value.includes(id) ? value.filter((item) => item !== id) : value.length >= max ? value : [...value, id]
+    const labels = next.map((item) => people.find((person) => person.id === item)?.name ?? "")
+    onChange(next, labels)
+  }
+
+  function group(title: string, rows: DepartmentWorker[]) {
+    if (rows.length === 0) return null
+    return (
+      <div>
+        <p className="px-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{title}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {rows.map((person) => {
+            const on = value.includes(person.id)
+            return (
+              <button
+                key={person.id}
+                type="button"
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs font-semibold",
+                  on ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200 bg-white text-gray-700",
+                )}
+                onClick={() => toggle(person.id)}
+              >
+                {person.name}
+                {person.employment_type === "temporary" ? " · Temp" : ""}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid min-w-64 gap-2">
+      <p className="text-xs font-semibold text-gray-700">Who did this · up to {max}</p>
+      {group("This department", here)}
+      {group("Other departments", elsewhere)}
+      {people.length === 0 ? <p className="text-xs text-gray-400">No people on the roster yet.</p> : null}
     </div>
   )
 }

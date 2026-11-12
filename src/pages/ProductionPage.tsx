@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react"
-import { useSearchParams } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import {
   Boxes,
   CheckCircle2,
@@ -12,7 +12,13 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
-import { WorkerPicker, type WorkerChoice } from "@/components/WorkerPicker"
+import { MultiWorkerPicker } from "@/components/WorkerPicker"
+import { DateRangeBar } from "@/components/floor/DateRangeBar"
+import { FloorEntryDialog } from "@/components/floor/FloorEntryDialog"
+import { StatusDropright } from "@/components/floor/StatusDropright"
+import { TimelineJump } from "@/components/floor/TimelineJump"
+import { istToday } from "@/components/floor/dates"
+import { amount, dayLabel, scrapLabel, totals, type FloorEntry, type FloorSummary } from "@/components/floor/format"
 import { FormBusy, PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
@@ -281,7 +287,11 @@ export function ProductionPage() {
     () => peek<Page<Job>>("/api/production-jobs/?page=1&page_size=50") === undefined,
   )
   const { busy, guard } = useFormBusy()
-  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const dept = searchParams.get("dept") || "all"
+  const rangeFrom = searchParams.get("from") || istToday()
+  const rangeTo = searchParams.get("to") || rangeFrom
   const [form, setForm] = useState({
     product_id: "",
     quantity: "1",
@@ -293,10 +303,16 @@ export function ProductionPage() {
   })
   const [people, setPeople] = useState<Option[]>([])
   const [statusFilter, setStatusFilter] = useState("all")
-  const [deptFilter, setDeptFilter] = useState("all")
   const [sortBy, setSortBy] = useState("newest")
-  const [workerChoice, setWorkerChoice] = useState<WorkerChoice | null>(null)
-  const [workerLabel, setWorkerLabel] = useState("")
+  const [operations, setOperations] = useState<{ id: string; name: string }[]>([])
+  const [summary, setSummary] = useState<FloorSummary | null>(null)
+  const [entries, setEntries] = useState<FloorEntry[]>([])
+  const [entryOpen, setEntryOpen] = useState(false)
+  const [editingEntry, setEditingEntry] = useState<FloorEntry | null>(null)
+  const [stageWorkers, setStageWorkers] = useState<string[]>([])
+  const [stageLabels, setStageLabels] = useState<string[]>([])
+  const [stageQty, setStageQty] = useState("")
+  const [stageScrap, setStageScrap] = useState("")
   const [held, setHeld] = useState(false)
   const hold = useRef(false)
   const [editJob, setEditJob] = useState<Job | null>(null)
@@ -342,12 +358,56 @@ export function ProductionPage() {
   }, [user?.role_name])
   useRefreshWhenShown("/production", load, (caught) => setError(errorMessage(caught)))
 
-  useEffect(() => {
-    const product = searchParams.get("product")
-    if (!product) return
-    setForm((current) => ({ ...current, product_id: product }))
+  const productParam = searchParams.get("product")
+  const [appliedProduct, setAppliedProduct] = useState<string | null>(null)
+  if (productParam && appliedProduct !== productParam) {
+    setAppliedProduct(productParam)
+    setForm((current) => ({ ...current, product_id: productParam }))
     setShowCreate(true)
-  }, [searchParams])
+  }
+
+  function setQuery(partial: Record<string, string>) {
+    const next = new URLSearchParams(searchParams)
+    for (const [key, value] of Object.entries(partial)) next.set(key, value)
+    setSearchParams(next, { replace: true })
+  }
+
+  function reloadFloor() {
+    const params = new URLSearchParams({ date_from: rangeFrom, date_to: rangeTo, page: "1", page_size: "200" })
+    if (dept !== "all") params.set("operation_id", dept)
+    return Promise.all([
+      api<FloorSummary>(`/api/floor/summary?date_from=${rangeFrom}&date_to=${rangeTo}`),
+      api<Page<FloorEntry>>(`/api/floor/entries?${params}`),
+      api<Page<{ id: string; name: string }>>("/api/operations?page=1&page_size=100"),
+    ]).then(([floor, page, ops]) => {
+      setSummary(floor)
+      setEntries(page.items)
+      setOperations(ops.items)
+    })
+  }
+
+  useEffect(() => {
+    let alive = true
+    const params = new URLSearchParams({ date_from: rangeFrom, date_to: rangeTo, page: "1", page_size: "200" })
+    if (dept !== "all") params.set("operation_id", dept)
+    Promise.all([
+      api<FloorSummary>(`/api/floor/summary?date_from=${rangeFrom}&date_to=${rangeTo}`),
+      api<Page<FloorEntry>>(`/api/floor/entries?${params}`),
+      api<Page<{ id: string; name: string }>>("/api/operations?page=1&page_size=100"),
+    ])
+      .then(([floor, page, ops]) => {
+        if (!alive) return
+        setSummary(floor)
+        setEntries(page.items)
+        setOperations(ops.items)
+      })
+      .catch((caught) => {
+        if (alive) setError(errorMessage(caught))
+      })
+    return () => {
+      alive = false
+    }
+  }, [rangeFrom, rangeTo, dept])
 
   function show(job: Detail) {
     const inputs = job.inputs ?? []
@@ -356,7 +416,9 @@ export function ProductionPage() {
   }
 
   async function open(id: string) {
-    show(await api<Detail>(`/api/production-jobs/${id}`))
+    const job = await api<Detail>(`/api/production-jobs/${id}`)
+    show(job)
+    setStageQty(String(Number(job.quantity)))
   }
 
   async function create(event: FormEvent) {
@@ -409,7 +471,7 @@ export function ProductionPage() {
     if (path.endsWith("/complete")) {
       const payload = (body as { polish_type?: string; worker_name?: string } | undefined) ?? {}
       const polish = payload.polish_type ?? null
-      const by = workerLabel || payload.worker_name || "the chosen person"
+      const by = stageLabels.filter(Boolean).join(", ") || payload.worker_name || "the chosen person"
       const stages = job.stages.map((stage) => ({ ...stage }))
       const active = stages.find((stage) => stage.status === "active")
       if (!active) return job
@@ -515,7 +577,14 @@ export function ProductionPage() {
         body: body ? JSON.stringify(body) : undefined,
       })
       show(job)
+      if (path.includes("/complete")) {
+        setStageWorkers([])
+        setStageLabels([])
+        setStageScrap("")
+        setStageQty(String(Number(job.quantity)))
+      }
       void load().catch((caught) => setError(errorMessage(caught)))
+      void reloadFloor().catch((caught) => setError(errorMessage(caught)))
       return true
     } catch (caught) {
       show(before)
@@ -529,10 +598,6 @@ export function ProductionPage() {
   }
 
   const active = selected?.stages.find((stage) => stage.status === "active")
-  useEffect(() => {
-    setWorkerChoice(null)
-    setWorkerLabel("")
-  }, [selected?.id, active?.id])
   const priorFinish = selected ? [...selected.stages].reverse().find((stage) => stage.completed_at) : undefined
   const counts = {
     all: jobs.length,
@@ -546,15 +611,11 @@ export function ProductionPage() {
     const index = ROUTE.indexOf((name ?? "").toLowerCase())
     return index === -1 ? ROUTE.length : index
   }
-  const departments = [
-    ...ROUTE,
-    ...jobs
-      .map((job) => job.current_operation_name?.toLowerCase() ?? "")
-      .filter((name) => name && !ROUTE.includes(name)),
-  ]
+  const selectedOp = operations.find((operation) => operation.id === dept)
+  const orderedOps = [...operations].sort((left, right) => routeIndex(left.name) - routeIndex(right.name))
   const visibleJobs = [...jobs]
     .filter((job) => statusFilter === "all" || job.status === statusFilter)
-    .filter((job) => deptFilter === "all" || (job.status === "in_progress" && (job.current_operation_name ?? "").toLowerCase() === deptFilter))
+    .filter((job) => dept === "all" || (job.current_operation_name ?? "").toLowerCase() === (selectedOp?.name ?? "").toLowerCase())
     .sort((left, right) => {
       if (sortBy === "oldest") return (left.created_at ?? "").localeCompare(right.created_at ?? "")
       if (sortBy === "deadline") return (left.due_at ?? "9999").localeCompare(right.due_at ?? "9999")
@@ -566,6 +627,12 @@ export function ProductionPage() {
       }
       return (right.created_at ?? "").localeCompare(left.created_at ?? "")
     })
+  const visibleEntries = [...entries].sort((left, right) => {
+    if (sortBy === "oldest") return left.entry_date.localeCompare(right.entry_date) || left.created_at.localeCompare(right.created_at)
+    if (sortBy === "quantity") return Number(right.output_quantity) - Number(left.output_quantity)
+    return right.entry_date.localeCompare(left.entry_date) || right.created_at.localeCompare(left.created_at)
+  })
+  const currentSummary = summary?.departments.find((row) => row.operation_id === dept)
 
   function beginEdit(job: Job, event: MouseEvent) {
     event.stopPropagation()
@@ -622,6 +689,10 @@ export function ProductionPage() {
         setSelected(null)
         return
       }
+      setStageWorkers([])
+      setStageLabels([])
+      setStageScrap("")
+      setStageQty("")
       await open(id)
     } catch (caught) {
       setError(errorMessage(caught))
@@ -632,11 +703,15 @@ export function ProductionPage() {
     <div className="production-floor space-y-6">
       <PageTitle
         title="Production Floor"
-        hint="Stage-by-stage workpiece routing. Raw stock is automatically held upon job initiation."
+        hint="Daily output, material used, and scrap by department. Open a job below when the work is tied to one."
         icon={Factory}
         badge={`${jobs.length} Active Jobs`}
         action={
-          can("edit_inventory") ? (
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" className="rounded-xl" onClick={() => { setEditingEntry(null); setEntryOpen(true) }}>
+              Log entry
+            </Button>
+          {can("edit_inventory") ? (
             <Dialog open={showCreate} onOpenChange={setShowCreate}>
               <DialogTrigger asChild>
                 <Button
@@ -737,7 +812,8 @@ export function ProductionPage() {
                 </form>
               </DialogContent>
             </Dialog>
-          ) : null
+          ) : null}
+          </div>
         }
       />
 
@@ -749,42 +825,127 @@ export function ProductionPage() {
         <div className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-gray-200/90 bg-white p-1.5 text-xs font-medium shadow-xs">
-            {(
-              [
-                ["all", `All (${counts.all})`, "bg-emerald-700"],
-                ["pending", `Pending (${counts.pending})`, "bg-slate-600"],
-                ["in_progress", `In Progress (${counts.in_progress})`, "bg-blue-600"],
-                ["awaiting_approval", `Awaiting (${counts.awaiting_approval})`, "bg-amber-600"],
-                ["completed", `Completed (${counts.completed})`, "bg-emerald-600"],
-                ["cancelled", `Cancelled (${counts.cancelled})`, "bg-rose-600"],
-              ] as const
-            ).map(([id, label, activeTone]) => (
+            <button
+              type="button"
+              className={cn("rounded-xl px-3 py-1.5 font-semibold", dept === "all" ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50")}
+              onClick={() => setQuery({ dept: "all" })}
+            >
+              All
+            </button>
+            {orderedOps.map((operation) => {
+              const row = summary?.departments.find((item) => item.operation_id === operation.id)
+              const on = dept === operation.id
+              return (
+                <button
+                  key={operation.id}
+                  type="button"
+                  className={cn("inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 font-semibold", on ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50")}
+                  onClick={() => setQuery({ dept: operation.id })}
+                >
+                  <span className="size-1.5 rounded-full" style={{ background: stageColor(operation.name) }} />
+                  {operation.name} {row?.entries ?? 0}
+                </button>
+              )
+            })}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <TimelineJump />
+            <select
+              className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700"
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value)}
+            >
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="deadline">Deadline</option>
+              <option value="quantity">Quantity</option>
+              <option value="stage">Workflow stage</option>
+              <option value="complete">Most complete first</option>
+            </select>
+          </div>
+        </div>
+        <DateRangeBar from={rangeFrom} to={rangeTo} onChange={(from, to) => setQuery({ from, to })} />
+        {dept === "all" ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {(summary?.departments ?? []).map((row) => (
               <button
-                key={id}
+                key={row.operation_id}
                 type="button"
-                className={cn(
-                  "rounded-xl px-3 py-1.5 font-semibold transition-all",
-                  statusFilter === id ? `${activeTone} text-white shadow-xs` : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
-                )}
-                onClick={() => setStatusFilter(id)}
+                className="rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-xs hover:bg-gray-50"
+                onClick={() => setQuery({ dept: row.operation_id })}
               >
-                {label}
+                <p className="text-sm font-bold text-gray-900">{row.name}</p>
+                <p className="mt-2 text-xs text-gray-600">Made {totals(row.output)}</p>
+                <p className="text-xs text-gray-600">Used {totals(row.used)}</p>
+                <p className="text-xs text-gray-600">Scrap {scrapLabel(row.scrap, row.scrap_pct)}</p>
+                <p className="mt-1 text-[11px] text-gray-400">{row.entries} lines · {row.workers} people · {row.open_jobs} open jobs</p>
               </button>
             ))}
           </div>
-          <select
-            className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700"
-            value={sortBy}
-            onChange={(event) => setSortBy(event.target.value)}
-          >
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="deadline">Deadline</option>
-            <option value="quantity">Quantity</option>
-            <option value="stage">Workflow stage</option>
-            <option value="complete">Most complete first</option>
-          </select>
-        </div>
+        ) : (
+          <section className="space-y-3">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              <Metric label="Made" value={totals(currentSummary?.output)} />
+              <Metric label="Used" value={totals(currentSummary?.used)} />
+              <Metric label="Scrap" value={scrapLabel(currentSummary?.scrap, currentSummary?.scrap_pct)} />
+              <Metric label="People" value={String(currentSummary?.workers ?? 0)} />
+              <Metric label="Lines" value={String(currentSummary?.entries ?? 0)} />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(currentSummary?.people ?? []).map((person) => (
+                <button
+                  key={person.worker_id}
+                  type="button"
+                  className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-700"
+                  onClick={() => navigate(`/people/${person.worker_id}?from=${rangeFrom}&to=${rangeTo}`)}
+                >
+                  {person.name} · {totals(person.made)}
+                </button>
+              ))}
+            </div>
+            <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
+              <table className="w-full min-w-[720px] text-left text-xs">
+                <thead className="text-[10px] uppercase tracking-wider text-gray-400">
+                  <tr>
+                    <th className="px-3 py-2 font-bold">Date</th>
+                    <th className="px-3 py-2 font-bold">People</th>
+                    <th className="px-3 py-2 font-bold">Made</th>
+                    <th className="px-3 py-2 font-bold">Used</th>
+                    <th className="px-3 py-2 font-bold">Scrap</th>
+                    <th className="px-3 py-2 font-bold">Note</th>
+                    <th className="px-3 py-2 font-bold">Logged by</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleEntries.length === 0 ? (
+                    <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400">Nothing logged in this range.</td></tr>
+                  ) : visibleEntries.map((entry) => (
+                    <tr
+                      key={entry.id}
+                      className="cursor-pointer border-t border-gray-100 hover:bg-gray-50"
+                      onClick={() => {
+                        if (entry.from_job) {
+                          setError("This line came from a job. Revert the stage instead")
+                          return
+                        }
+                        setEditingEntry(entry)
+                        setEntryOpen(true)
+                      }}
+                    >
+                      <td className="px-3 py-2 font-medium text-gray-900">{dayLabel(entry.entry_date)}</td>
+                      <td className="px-3 py-2">{entry.workers.map((worker) => worker.name).join(", ") || "—"}</td>
+                      <td className="px-3 py-2">{amount(entry.output_quantity)} {entry.output_unit} {entry.output_name}</td>
+                      <td className="px-3 py-2">{entry.input_name ? `${amount(entry.input_quantity)} ${entry.input_unit ?? ""} ${entry.input_name}` : "—"}</td>
+                      <td className="px-3 py-2">{Number(entry.scrap_quantity) > 0 ? `${amount(entry.scrap_quantity)} ${entry.scrap_unit ?? entry.output_unit}` : "—"}</td>
+                      <td className="px-3 py-2 text-gray-500">{entry.notes ?? ""}{entry.from_job ? " · From job" : ""}</td>
+                      <td className="px-3 py-2 text-gray-500">{entry.created_by_name ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
         <div className="space-y-2.5">
           <div className="flex items-center justify-center gap-4 rounded-2xl border border-gray-200/90 bg-white px-4 py-3 text-center shadow-xs">
             <span className="text-xs font-bold uppercase tracking-wider text-gray-700">
@@ -792,26 +953,23 @@ export function ProductionPage() {
             </span>
             <span className="text-xs text-gray-400">Open a job to work the stage</span>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            <button type="button" className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", deptFilter === "all" ? "bg-gray-900 text-white" : "bg-white text-gray-600")} onClick={() => setDeptFilter("all")}>
-              All departments
-            </button>
-            {departments.map((name) => {
-              const count = jobs.filter((job) => job.status === "in_progress" && (job.current_operation_name ?? "").toLowerCase() === name).length
-              const label = name.charAt(0).toUpperCase() + name.slice(1)
-              return (
-                <button key={name} type="button" className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold", deptFilter === name ? "bg-gray-900 text-white" : "bg-white text-gray-600")} onClick={() => setDeptFilter(name)}>
-                  <span className="size-1.5 rounded-full" style={{ background: stageColor(name) }} />
-                  {label} {count}
-                </button>
-              )
-            })}
-          </div>
+          <StatusDropright
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { id: "all", label: `All (${counts.all})`, tone: "bg-emerald-700" },
+              { id: "pending", label: `Pending (${counts.pending})`, tone: "bg-slate-600" },
+              { id: "in_progress", label: `In Progress (${counts.in_progress})`, tone: "bg-blue-600" },
+              { id: "awaiting_approval", label: `Awaiting (${counts.awaiting_approval})`, tone: "bg-amber-600" },
+              { id: "completed", label: `Completed (${counts.completed})`, tone: "bg-emerald-600" },
+              { id: "cancelled", label: `Cancelled (${counts.cancelled})`, tone: "bg-rose-600" },
+            ]}
+          />
           <div className="h-px bg-gray-200" />
           <div className="space-y-2.5">
                 {visibleJobs.length === 0 ? (
                   <p className="px-4 py-8 text-center text-xs text-gray-400">
-                    {deptFilter === "all" ? "No production jobs active. Create one above to get started." : `No jobs in ${deptFilter.charAt(0).toUpperCase()}${deptFilter.slice(1)} right now.`}
+                    {dept === "all" ? "No production jobs active. Create one above to get started." : `No jobs in ${selectedOp?.name ?? "this department"} right now.`}
                   </p>
                 ) : (
                   visibleJobs.map((job, index) => {
@@ -1146,30 +1304,38 @@ export function ProductionPage() {
               {active && (active.assigned_user_id === user?.id || can("edit_inventory")) ? (
                 <>
                   {active.operation_id ? (
-                    <WorkerPicker
+                    <MultiWorkerPicker
                       operationId={active.operation_id}
-                      value={workerChoice}
-                      onChange={(choice, label) => {
-                        setWorkerChoice(choice)
-                        setWorkerLabel(label)
+                      value={stageWorkers}
+                      onChange={(ids, labels) => {
+                        setStageWorkers(ids)
+                        setStageLabels(labels)
                       }}
                     />
                   ) : null}
+                  <label className="grid gap-1 text-xs font-semibold text-gray-700">
+                    Good qty
+                    <Input className="h-9 w-24" type="number" min="0" step="any" value={stageQty} onChange={(event) => setStageQty(event.target.value)} />
+                  </label>
+                  <label className="grid gap-1 text-xs font-semibold text-gray-700">
+                    Scrap
+                    <Input className="h-9 w-24" type="number" min="0" step="any" value={stageScrap} onChange={(event) => setStageScrap(event.target.value)} />
+                  </label>
                   {active.operation_name?.toLowerCase() === "polishing" ? (
                     <div className="flex gap-2">
                       <Button
                         type="button"
-                        disabled={!workerChoice}
+                        disabled={stageWorkers.length === 0}
                         className="rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
-                        onClick={() => void act(`/stages/${active.id}/complete`, { polish_type: "dry", ...workerChoice })}
+                        onClick={() => void act(`/stages/${active.id}/complete`, { polish_type: "dry", worker_ids: stageWorkers, quantity: stageQty || selected.quantity, scrap_quantity: stageScrap || "0" })}
                       >
                         Finish Dry Polish
                       </Button>
                       <Button
                         type="button"
-                        disabled={!workerChoice}
+                        disabled={stageWorkers.length === 0}
                         className="rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
-                        onClick={() => void act(`/stages/${active.id}/complete`, { polish_type: "wet", ...workerChoice })}
+                        onClick={() => void act(`/stages/${active.id}/complete`, { polish_type: "wet", worker_ids: stageWorkers, quantity: stageQty || selected.quantity, scrap_quantity: stageScrap || "0" })}
                       >
                         Finish Wet Polish
                       </Button>
@@ -1177,9 +1343,9 @@ export function ProductionPage() {
                   ) : (
                     <Button
                       type="button"
-                      disabled={!workerChoice}
+                      disabled={stageWorkers.length === 0}
                       className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
-                      onClick={() => void act(`/stages/${active.id}/complete`, { ...workerChoice })}
+                      onClick={() => void act(`/stages/${active.id}/complete`, { worker_ids: stageWorkers, quantity: stageQty || selected.quantity, scrap_quantity: stageScrap || "0" })}
                     >
                       <CheckCircle2 className="mr-1.5 size-4" />
                       Mark Stage Complete
@@ -1285,6 +1451,24 @@ export function ProductionPage() {
           </DialogContent>
         </Dialog>
       ) : null}
+      <FloorEntryDialog
+        key={editingEntry?.id ?? "new"}
+        open={entryOpen}
+        onOpenChange={setEntryOpen}
+        departments={orderedOps}
+        presetOperationId={dept}
+        initial={editingEntry}
+        onSaved={() => void reloadFloor().catch((caught) => setError(errorMessage(caught)))}
+      />
+    </div>
+  )
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white px-3 py-2 shadow-xs">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-gray-900">{value}</p>
     </div>
   )
 }

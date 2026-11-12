@@ -24,6 +24,7 @@ import { SalesPage } from "@/pages/SalesPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { StaffPage } from "@/pages/StaffPage"
 import { TradingPage } from "@/pages/TradingPage"
+import { WorkerTimelinePage } from "@/pages/WorkerTimelinePage"
 import { SuppliersPage } from "@/pages/SuppliersPage"
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -69,6 +70,8 @@ export default function App() {
         <Route path="accountant" element={<AccountantPage />} />
         <Route path="staff" element={<StaffPage />} />
         <Route path="departments" element={<DepartmentsPage />} />
+        <Route path="people" element={<WorkerTimelinePage />} />
+        <Route path="people/:workerId" element={<WorkerTimelinePage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="products" element={<ProductsPage />} />
         <Route path="materials" element={<MaterialsPage />} />
