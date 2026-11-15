@@ -1476,6 +1476,7 @@ export function ProductionPage() {
                 </Button>
               </form>
             ) : null}
+            </div>
           </section>
                               ) : null}
                             </div>
