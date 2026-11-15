@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { Building2 } from "lucide-react"
 
+import { useAuth } from "@/auth/AuthContext"
 import { DateRangeBar } from "@/components/floor/DateRangeBar"
 import { istToday, shiftDate } from "@/components/floor/dates"
 import { amount, totals, type UnitTotal } from "@/components/floor/format"
@@ -29,14 +30,23 @@ type Worker = {
   emergency_contact_name: string | null
   emergency_contact_phone: string | null
   operation_id: string
+  wage_kind?: string | null
+  wage_amount?: string | null
 }
 type InputRow = { item_name: string; planned_quantity: string }
 type ActiveJob = {
   job_id: string
+  stage_id?: string
   product_name: string | null
   quantity: string
+  good_quantity?: string
+  remaining?: string
+  due_at?: string | null
+  problem_reason?: string | null
   inputs: InputRow[]
+  outside?: { supplier_name: string; quantity: string }[]
 }
+type Machine = { id: string; name: string; status: string; note: string | null }
 type Recent = {
   worker_name: string | null
   product_name: string | null
@@ -49,6 +59,7 @@ type Department = {
   operation_id: string
   name: string
   workers: Worker[]
+  machines?: Machine[]
   active: ActiveJob[]
   recent: Recent[]
   per_worker: { worker_id: string | null; name: string; stages: number; made: UnitTotal[] }[]
@@ -72,6 +83,8 @@ const emptyPerson = {
   emergency_contact_name: "",
   emergency_contact_phone: "",
   operation_id: "",
+  wage_kind: "daily",
+  wage_amount: "",
 }
 
 export function DepartmentsPage() {
@@ -84,7 +97,12 @@ export function DepartmentsPage() {
   const [rows, setRows] = useState<Department[]>([])
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
+  const { can } = useAuth()
+  const seesWages = can("manage_staff_users") || can("view_financials")
   const [dialog, setDialog] = useState<"add" | "edit" | "move" | null>(null)
+  const [machinesFor, setMachinesFor] = useState<string | null>(null)
+  const [machineName, setMachineName] = useState("")
+  const [machineNote, setMachineNote] = useState("")
   const [person, setPerson] = useState(emptyPerson)
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -137,6 +155,8 @@ export function DepartmentsPage() {
       emergency_contact_name: worker.emergency_contact_name ?? "",
       emergency_contact_phone: worker.emergency_contact_phone ?? "",
       operation_id: department.operation_id,
+      wage_kind: worker.wage_kind ?? "daily",
+      wage_amount: worker.wage_amount ?? "",
     })
     setDialog("edit")
   }
@@ -157,6 +177,7 @@ export function DepartmentsPage() {
       address: person.address.trim() || null,
       emergency_contact_name: person.emergency_contact_name.trim() || null,
       emergency_contact_phone: person.emergency_contact_phone.trim() || null,
+      ...(seesWages ? { wage_kind: person.wage_kind, wage_amount: person.wage_amount.trim() || "0" } : {}),
     }
     try {
       if (dialog === "add") {
@@ -170,6 +191,36 @@ export function DepartmentsPage() {
         await api(`/api/departments/workers/${editingId}`, { method: "PATCH", body: JSON.stringify(profile) })
       }
       setDialog(null)
+      await load()
+    } catch (caught) {
+      setError(errorMessage(caught))
+    }
+  }
+
+  async function addMachine(operationId: string, event: FormEvent) {
+    event.preventDefault()
+    if (!machineName.trim()) return
+    setError("")
+    try {
+      await api("/api/machines", {
+        method: "POST",
+        body: JSON.stringify({ name: machineName.trim(), operation_id: operationId, note: machineNote.trim() || null }),
+      })
+      setMachineName("")
+      setMachineNote("")
+      await load()
+    } catch (caught) {
+      setError(errorMessage(caught))
+    }
+  }
+
+  async function toggleMachine(machine: Machine) {
+    setError("")
+    try {
+      await api(`/api/machines/${machine.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: machine.status === "down" ? "up" : "down" }),
+      })
       await load()
     } catch (caught) {
       setError(errorMessage(caught))
@@ -227,7 +278,11 @@ export function DepartmentsPage() {
                   <span className="size-2.5 rounded-full" style={{ background: color }} />
                   <h2 className="text-sm font-bold uppercase tracking-wide text-gray-900">{department.name}</h2>
                 </div>
-                <p className="text-xs text-gray-500">Made {totals(department.output)} in this range</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs text-gray-500">Made {totals(department.output)} in this range</p>
+                  <Link to={`/departments/${department.operation_id}/now`} className="rounded-md bg-[var(--scheme)] px-3 py-1.5 text-xs font-medium text-white">Open screen</Link>
+                  <Button type="button" variant="outline" className="h-8 text-xs" onClick={() => setMachinesFor((current) => current === department.operation_id ? null : department.operation_id)}>Machines</Button>
+                </div>
               </div>
               <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.4fr)]">
                 <section>
@@ -239,6 +294,12 @@ export function DepartmentsPage() {
                         <Link to="/production" className="font-semibold text-gray-900 hover:underline">
                           {job.product_name ?? "Job"} · {amount(job.quantity)}
                         </Link>
+                        <p className="text-gray-500">
+                          {job.good_quantity != null ? `good ${job.good_quantity} of ${job.quantity}` : amount(job.quantity)}
+                          {job.remaining != null ? ` · still ${job.remaining}` : ""}
+                          {job.problem_reason ? ` · problem: ${job.problem_reason}` : ""}
+                          {(job.outside ?? []).length ? ` · outside ${job.outside?.map((row) => `${row.quantity} at ${row.supplier_name}`).join(", ")}` : ""}
+                        </p>
                         <p className="text-gray-500">{job.inputs.map((item) => `${item.item_name} ${amount(item.planned_quantity)}`).join(", ") || "No materials listed"}</p>
                       </li>
                     ))}
@@ -294,6 +355,24 @@ export function DepartmentsPage() {
                   </div>
                 </section>
               </div>
+              {(department.machines ?? []).some((machine) => machine.status === "down") ? (
+                <p className="mt-3 text-xs text-rose-700">Down: {(department.machines ?? []).filter((machine) => machine.status === "down").map((machine) => machine.name).join(", ")}</p>
+              ) : null}
+              {machinesFor === department.operation_id ? (
+                <div className="mt-4 space-y-2 border-t border-gray-100 pt-3 text-xs">
+                  {(department.machines ?? []).map((machine) => (
+                    <div key={machine.id} className="flex items-center justify-between gap-2 rounded-md border border-gray-100 px-3 py-2">
+                      <span><strong>{machine.name}</strong> · {machine.status}{machine.note ? ` · ${machine.note}` : ""}</span>
+                      <Button type="button" size="sm" variant="outline" onClick={() => void toggleMachine(machine)}>{machine.status === "down" ? "Set up" : "Set down"}</Button>
+                    </div>
+                  ))}
+                  <form className="flex flex-wrap gap-2" onSubmit={(event) => void addMachine(department.operation_id, event)}>
+                    <Input placeholder="Machine name" value={machineName} onChange={(event) => setMachineName(event.target.value)} />
+                    <Input placeholder="Note" value={machineNote} onChange={(event) => setMachineNote(event.target.value)} />
+                    <Button type="submit" className="bg-[var(--scheme)] text-white">Add machine</Button>
+                  </form>
+                </div>
+              ) : null}
             </article>
           )
         })}
@@ -334,6 +413,19 @@ export function DepartmentsPage() {
                       {rows.map((row) => <option key={row.operation_id} value={row.operation_id}>{row.name}</option>)}
                     </select>
                   </Field>
+                ) : null}
+                {seesWages ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Pay">
+                      <select className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm" value={person.wage_kind} onChange={(event) => setPerson({ ...person, wage_kind: event.target.value })}>
+                        <option value="daily">Daily wage</option>
+                        <option value="monthly">Monthly salary</option>
+                      </select>
+                    </Field>
+                    <Field label="Amount">
+                      <Input type="number" min="0" step="0.01" value={person.wage_amount} onChange={(event) => setPerson({ ...person, wage_amount: event.target.value })} />
+                    </Field>
+                  </div>
                 ) : null}
                 <Field label="Address">
                   <Input value={person.address} onChange={(event) => setPerson({ ...person, address: event.target.value })} />

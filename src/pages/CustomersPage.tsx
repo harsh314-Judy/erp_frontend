@@ -52,11 +52,20 @@ export function CustomersPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [editing, setEditing] = useState<Customer | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [focus, setFocus] = useState<string | null>(null)
+  const [orders, setOrders] = useState<{ id: string; customer_id: string; status: string }[]>([])
+  const [invoices, setInvoices] = useState<{ id: string; customer_id: string; number: string; status: string; total_amount: string; amount_paid: string }[]>([])
 
   async function load() {
     try {
       const page = await api<Page<Customer>>("/api/customers/?page=1&page_size=100")
       setRows(page.items)
+      const [orderRows, invoiceRows] = await Promise.all([
+        api<{ id: string; customer_id: string; status: string }[]>("/api/sales/orders"),
+        api<{ id: string; customer_id: string; number: string; status: string; total_amount: string; amount_paid: string }[]>("/api/invoices"),
+      ])
+      setOrders(orderRows)
+      setInvoices(invoiceRows)
     } finally {
       setLoading(false)
     }
@@ -212,6 +221,7 @@ export function CustomersPage() {
       {loading ? (
         <PageLoading label="Loading customers" variant="table" cols={5} count={5} />
       ) : (
+        <>
         <div className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-xs">
         <div className="border-b border-gray-100 bg-gray-50/75 px-5 py-3.5">
           <span className="text-xs font-bold uppercase tracking-wider text-gray-700">
@@ -242,7 +252,7 @@ export function CustomersPage() {
                   <TableRow key={row.id} className="border-gray-100 hover:bg-gray-50/80">
                     <TableCell className="font-semibold text-gray-900">
                       <div>
-                        <p>{row.name}</p>
+                        <button type="button" className="text-left hover:underline" onClick={() => setFocus(row.id)}>{row.name}</button>
                         <p className="text-xs text-gray-500 font-normal">{row.address}</p>
                       </div>
                     </TableCell>
@@ -316,6 +326,24 @@ export function CustomersPage() {
           </Table>
         </div>
       </div>
+      {focus ? (
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm">
+          <p className="font-semibold text-gray-900">{rows.find((row) => row.id === focus)?.name}</p>
+          <p className="mt-2 text-xs font-bold uppercase text-gray-500">Open orders</p>
+          <ul className="mt-1 text-xs text-gray-700">
+            {orders.filter((order) => order.customer_id === focus && !["delivered", "cancelled"].includes(order.status)).length === 0
+              ? <li>None</li>
+              : orders.filter((order) => order.customer_id === focus && !["delivered", "cancelled"].includes(order.status)).map((order) => (
+                <li key={order.id}>{order.status} · {order.id.slice(0, 8)}</li>
+              ))}
+          </ul>
+          <p className="mt-3 text-xs font-bold uppercase text-gray-500">Unpaid</p>
+          <p className="text-xs text-gray-700">
+            ₹{invoices.filter((invoice) => invoice.customer_id === focus && invoice.status !== "paid").reduce((sum, invoice) => sum + Number(invoice.total_amount) - Number(invoice.amount_paid), 0).toFixed(2)}
+          </p>
+        </div>
+      ) : null}
+      </>
       )}
     </div>
   )

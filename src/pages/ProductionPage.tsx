@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
+import { StageDesk } from "@/components/StageDesk"
 import { MultiWorkerPicker } from "@/components/WorkerPicker"
 import { DateRangeBar } from "@/components/floor/DateRangeBar"
 import { FloorEntryDialog } from "@/components/floor/FloorEntryDialog"
@@ -55,6 +56,9 @@ type Job = {
   current_operation_name: string | null
   stages_done?: number
   stages_total?: number
+  good_quantity?: string
+  scrap_quantity?: string
+  problem_reason?: string | null
 }
 type Person = { id: string; first_name: string; last_name: string | null }
 type Stage = {
@@ -67,6 +71,16 @@ type Stage = {
   worker_id?: string | null
   worker_name?: string | null
   completed_at: string | null
+  started_at?: string | null
+  good_quantity?: string
+  scrap_quantity?: string
+  problem_reason?: string | null
+  problem_note?: string | null
+  problem_machine_name?: string | null
+  allows_send_out?: boolean
+  standard_scrap_percent?: string | null
+  outside_quantity?: string
+  sends?: { id: string; supplier_name: string; still_out: string; sent_on: string; supplier_id: string; quantity: string }[]
 }
 type InputRow = {
   id: string
@@ -75,6 +89,9 @@ type InputRow = {
   actual_quantity: string | null
   wastage_quantity: string
   available: string | null
+  kind?: string | null
+  taken_quantity?: string
+  held_quantity?: string
 }
 type JobEvent = {
   at: string
@@ -101,6 +118,10 @@ type Detail = Job & {
   created_by_name: string | null
   events: JobEvent[]
   variances: Variance[]
+  sheets_held?: string
+  sheets_taken?: string
+  remnant_returned?: string
+  pieces_here?: string
 }
 
 function toLocalInput(iso: string) {
@@ -469,14 +490,23 @@ export function ProductionPage() {
       }
     }
     if (path.endsWith("/complete")) {
-      const payload = (body as { polish_type?: string; worker_name?: string } | undefined) ?? {}
+      const payload = (body as { polish_type?: string; worker_name?: string; quantity?: string } | undefined) ?? {}
       const polish = payload.polish_type ?? null
       const by = stageLabels.filter(Boolean).join(", ") || payload.worker_name || "the chosen person"
       const stages = job.stages.map((stage) => ({ ...stage }))
       const active = stages.find((stage) => stage.status === "active")
       if (!active) return job
-      active.status = "done"
+      const made = payload.quantity != null ? Number(payload.quantity) : Math.max(0, Number(job.quantity) - Number(active.good_quantity || 0) - Number(active.outside_quantity || 0))
+      const good = Number(active.good_quantity || 0) + made
+      active.good_quantity = String(good)
       active.polish_type = polish
+      if (good < Number(job.quantity)) {
+        return {
+          ...note(`Recorded ${made} good. ${good} of ${job.quantity} so far · by ${by}`, "advanced", active.operation_name, by),
+          stages,
+        }
+      }
+      active.status = "done"
       active.completed_at = stamp
       const upcoming = stages.find((stage) => stage.status === "pending")
       if (upcoming) upcoming.status = "active"
@@ -1221,6 +1251,15 @@ export function ProductionPage() {
               </div>
             </div>
 
+            <p className="text-xs text-gray-600">
+              Sheets still held {selected.sheets_held ?? "0"}. Sheets taken {selected.sheets_taken ?? "0"}. Remnant returned {selected.remnant_returned ?? "0"}. Pieces at this stage {selected.pieces_here ?? selected.good_quantity ?? "0"}.
+              {(active?.sends ?? []).some((row) => Number(row.still_out) > 0)
+                ? ` Outside ${(active?.sends ?? [])
+                    .filter((row) => Number(row.still_out) > 0)
+                    .map((row) => `${row.still_out} at ${row.supplier_name}`)
+                    .join(", ")}.`
+                : ""}
+            </p>
             <div>
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gray-700">
                 <Boxes className="size-3.5 text-green-600" />
@@ -1233,7 +1272,10 @@ export function ProductionPage() {
                   ) : (
                     selected.inputs.map((input) => (
                       <div key={input.id} className="flex items-center justify-between gap-3 border-b border-gray-100 py-1.5 last:border-0">
-                        <span className="font-medium text-gray-900">{input.item_name}</span>
+                        <span className="font-medium text-gray-900">
+                          {input.item_name}
+                          {input.kind === "sheet" && Number(input.taken_quantity || 0) > 0 ? ` · taken ${input.taken_quantity}, still held ${input.held_quantity ?? "0"}` : ""}
+                        </span>
                         {can("approve_jobs") && (selected.status === "in_progress" || selected.status === "awaiting_approval") ? (
                           <label className="flex items-center gap-2 text-gray-500">
                             Planned
@@ -1353,8 +1395,37 @@ export function ProductionPage() {
                   )}
                 </>
               ) : null}
+            {active && active.operation_id && (selected.status === "pending" || selected.status === "in_progress") && (active.assigned_user_id === user?.id || can("edit_inventory")) ? (
+              <div className="border-t border-gray-100 pt-3">
+                <StageDesk
+                  jobId={selected.id}
+                  jobStatus={selected.status}
+                  quantity={selected.quantity}
+                  remaining={String(Math.max(0, Number(selected.quantity) - Number(active.good_quantity || 0) - Number(active.outside_quantity || 0)))}
+                  busy={held || busy}
+                  inputs={selected.inputs.map((input) => ({
+                    input_id: input.id,
+                    item_name: input.item_name || "Item",
+                    planned_quantity: input.planned_quantity,
+                    kind: input.kind,
+                    taken_quantity: input.taken_quantity,
+                  }))}
+                  stage={{ ...active, operation_id: active.operation_id }}
+                  post={async (path, body) => {
+                    const suffix = path.replace(`/api/production-jobs/${selected.id}`, "")
+                    return act(suffix, body)
+                  }}
+                />
+              </div>
+            ) : null}
 
               {selected.status === "awaiting_approval" && can("approve_jobs") ? (
+                <div className="w-full text-xs text-gray-600">
+                  Good recorded {selected.good_quantity ?? "0"} · scrap {selected.scrap_quantity ?? "0"}
+                  {selected.problem_reason ? ` · problem: ${selected.problem_reason}` : ""}
+                  {selected.inputs.some((input) => input.kind === "sheet" && Number(input.taken_quantity || 0) > 0)
+                    ? " Sheets already taken are not deducted again."
+                    : ""}
                 <form
                   className="flex flex-wrap items-end gap-2"
                   onSubmit={(event) => {
@@ -1364,7 +1435,7 @@ export function ProductionPage() {
                       produced_quantity: String(made || "0"),
                       inputs: selected.inputs.map((input) => ({
                         input_id: input.id,
-                        actual_quantity: input.planned_quantity,
+                        actual_quantity: Number(input.taken_quantity || 0) > 0 ? input.taken_quantity : input.planned_quantity,
                         wastage_quantity: "0",
                       })),
                     })
@@ -1379,8 +1450,8 @@ export function ProductionPage() {
                     Approve Finished Output
                   </Button>
                 </form>
+                </div>
               ) : null}
-            </div>
 
             {/* Cancel Job Form */}
             {(can("approve_jobs") || can("edit_inventory")) &&

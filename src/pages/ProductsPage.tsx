@@ -11,7 +11,7 @@ import {
 
 import { useAuth } from "@/auth/AuthContext"
 import { FormBusy, PageLoading } from "@/components/PlantLoader"
-import { ProductRecipeEditor, type Option, type RecipeLine } from "@/components/ProductRecipeEditor"
+import { ProductRecipeEditor, type Option, type RecipeLine, type RouteStep } from "@/components/ProductRecipeEditor"
 import { CategoryManager, Field, Notice, PageTitle, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
@@ -90,7 +90,7 @@ export function ProductsPage() {
   const [recipeOn, setRecipeOn] = useState(true)
   const [recipeTouched, setRecipeTouched] = useState(false)
   const [lines, setLines] = useState<RecipeLine[]>([])
-  const [route, setRoute] = useState<string[]>([])
+  const [route, setRoute] = useState<RouteStep[]>([])
 
   async function load(search = query) {
     try {
@@ -194,7 +194,7 @@ export function ProductsPage() {
     try {
       const [recipe, steps] = await Promise.all([
         api<Component[]>(`/api/products/${row.id}/recipe`),
-        api<string[]>(`/api/products/${row.id}/route`),
+        api<RouteStep[]>(`/api/products/${row.id}/route`),
       ])
       setLines(
         recipe.map((item) => ({
@@ -203,7 +203,13 @@ export function ProductsPage() {
           quantity_per_unit: item.quantity_per_unit,
         })),
       )
-      setRoute(steps)
+      setRoute(
+        steps.map((step) => ({
+          operation_id: step.operation_id,
+          allows_send_out: Boolean(step.allows_send_out),
+          standard_scrap_percent: step.standard_scrap_percent == null ? "" : String(step.standard_scrap_percent),
+        })),
+      )
       setRecipeOn(recipe.length > 0 || steps.length > 0 || row.product_type !== "purchased")
     } catch (caught) {
       setFormError(errorMessage(caught))
@@ -254,7 +260,15 @@ export function ProductsPage() {
             }),
             api(`/api/products/${saved.id}/route`, {
               method: "PUT",
-              body: JSON.stringify({ operation_ids: recipeOn ? route : [] }),
+              body: JSON.stringify({
+                steps: recipeOn
+                  ? route.map((step) => ({
+                      operation_id: step.operation_id,
+                      allows_send_out: step.allows_send_out,
+                      standard_scrap_percent: step.standard_scrap_percent.trim() === "" ? null : step.standard_scrap_percent,
+                    }))
+                  : [],
+              }),
             }),
           ])
         }

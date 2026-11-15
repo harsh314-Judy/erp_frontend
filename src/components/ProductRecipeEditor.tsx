@@ -14,6 +14,12 @@ export type RecipeLine = {
   quantity_per_unit: string
 }
 
+export type RouteStep = {
+  operation_id: string
+  allows_send_out: boolean
+  standard_scrap_percent: string
+}
+
 const selectClass =
   "h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
 
@@ -28,13 +34,13 @@ export function ProductRecipeEditor({
   onRouteChange,
 }: {
   lines: RecipeLine[]
-  route: string[]
+  route: RouteStep[]
   materials: Option[]
   products: Option[]
   operations: Option[]
   readOnly: boolean
   onLinesChange: (lines: RecipeLine[]) => void
-  onRouteChange: (route: string[]) => void
+  onRouteChange: (route: RouteStep[]) => void
 }) {
   const [draft, setDraft] = useState({ kind: "material", itemId: "", quantity: "1" })
 
@@ -182,38 +188,78 @@ export function ProductRecipeEditor({
           </p>
         ) : (
           <ol className="space-y-2">
-            {route.map((id, index) => (
+            {route.map((step, index) => (
               <li
-                key={id}
-                className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-50/50 p-2 text-xs"
+                key={`${step.operation_id}-${index}`}
+                className="rounded-lg border border-green-500/20 bg-green-50/50 p-2 text-xs"
               >
-                <span className="grid size-6 place-items-center rounded-md bg-green-600 text-[11px] font-bold text-white">
-                  {index + 1}
-                </span>
-                <span className="flex-1 font-semibold capitalize text-gray-900">
-                  {operations.find((item) => item.id === id)?.label ?? id}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="grid size-6 place-items-center rounded-md bg-green-600 text-[11px] font-bold text-white">
+                    {index + 1}
+                  </span>
+                  <span className="flex-1 font-semibold capitalize text-gray-900">
+                    {operations.find((item) => item.id === step.operation_id)?.label ?? step.operation_id}
+                  </span>
+                  {readOnly ? null : (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Move stage up"
+                        className="text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                        disabled={index === 0}
+                        onClick={() => moveStage(index, -1)}
+                      >
+                        <ArrowUp className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Move stage down"
+                        className="text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                        disabled={index === route.length - 1}
+                        onClick={() => moveStage(index, 1)}
+                      >
+                        <ArrowDown className="size-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
                 {readOnly ? null : (
-                  <>
-                    <button
-                      type="button"
-                      aria-label="Move stage up"
-                      className="text-gray-400 hover:text-gray-700 disabled:opacity-30"
-                      disabled={index === 0}
-                      onClick={() => moveStage(index, -1)}
-                    >
-                      <ArrowUp className="size-4" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Move stage down"
-                      className="text-gray-400 hover:text-gray-700 disabled:opacity-30"
-                      disabled={index === route.length - 1}
-                      onClick={() => moveStage(index, 1)}
-                    >
-                      <ArrowDown className="size-4" />
-                    </button>
-                  </>
+                  <div className="mt-2 flex flex-wrap items-center gap-3 pl-8">
+                    <label className="flex items-center gap-2 text-gray-700">
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-green-600"
+                        checked={step.allows_send_out}
+                        onChange={(event) =>
+                          onRouteChange(
+                            route.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, allows_send_out: event.target.checked } : item,
+                            ),
+                          )
+                        }
+                      />
+                      May leave the plant
+                    </label>
+                    <label className="flex items-center gap-2 text-gray-700">
+                      Usual scrap %
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="any"
+                        placeholder="Optional"
+                        value={step.standard_scrap_percent}
+                        onChange={(event) =>
+                          onRouteChange(
+                            route.map((item, itemIndex) =>
+                              itemIndex === index ? { ...item, standard_scrap_percent: event.target.value } : item,
+                            ),
+                          )
+                        }
+                        className="h-8 w-24 rounded-lg border border-gray-200 bg-white px-2"
+                      />
+                    </label>
+                  </div>
                 )}
               </li>
             ))}
@@ -223,7 +269,7 @@ export function ProductRecipeEditor({
         {readOnly ? null : (
           <div className="grid gap-2 border-t border-gray-100 pt-3 sm:grid-cols-2">
             {operations.map((operation) => {
-              const checked = route.includes(operation.id)
+              const checked = route.some((step) => step.operation_id === operation.id)
               return (
                 <label
                   key={operation.id}
@@ -241,8 +287,15 @@ export function ProductRecipeEditor({
                     onChange={(event) =>
                       onRouteChange(
                         event.target.checked
-                          ? [...route, operation.id]
-                          : route.filter((item) => item !== operation.id),
+                          ? [
+                              ...route,
+                              {
+                                operation_id: operation.id,
+                                allows_send_out: false,
+                                standard_scrap_percent: "",
+                              },
+                            ]
+                          : route.filter((item) => item.operation_id !== operation.id),
                       )
                     }
                   />

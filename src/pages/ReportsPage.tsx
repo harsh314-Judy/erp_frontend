@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react"
-import { useLocation } from "react-router-dom"
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { Link } from "react-router-dom"
 import {
   BarChart3,
   Boxes,
@@ -24,10 +23,15 @@ type Sales = { total_orders: number; pending_orders: number; total_sales?: strin
 type Production = { total_jobs: number; completed_jobs: number; jobs_in_progress: number; pending_jobs: number }
 type Stock = { kind: string; name: string; on_hand: string; held: string; available: string; status: string }
 type Movement = { created_at: string; quantity: string; reason: string; note: string | null }
+type Shop = {
+  yields: { name: string; good: string; scrap: string }[]
+  late_jobs: { id: string; product_name: string | null; due_at: string; status: string; current_operation_name: string | null }[]
+  unpaid_count: number
+  unpaid_total?: string
+}
 
 export function ReportsPage() {
   const { user } = useAuth()
-  const shown = useLocation().pathname === "/reports"
   const [sales, setSales] = useState<Sales | null>(() => peek<Sales>("/api/reports/sales") ?? null)
   const [production, setProduction] = useState<Production | null>(
     () => peek<Production>("/api/reports/production") ?? null,
@@ -38,6 +42,7 @@ export function ReportsPage() {
   const [movements, setMovements] = useState<Movement[]>(
     () => peek<{ movements: Movement[] }>("/api/reports/inventory")?.movements ?? [],
   )
+  const [shop, setShop] = useState<Shop | null>(null)
   const [error, setError] = useState("")
   const [month, setMonth] = useState(() => {
     const now = new Date()
@@ -51,30 +56,28 @@ export function ReportsPage() {
       peek("/api/reports/inventory") === undefined,
   )
   const money = roleCan(user?.role_name, "view_financials")
+  const seesWages = roleCan(user?.role_name, "manage_staff_users") || roleCan(user?.role_name, "view_financials")
+  const [wageOwed, setWageOwed] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
       api<Sales>("/api/reports/sales"),
       api<Production>("/api/reports/production"),
       api<{ stock: Stock[]; movements: Movement[] }>("/api/reports/inventory"),
+      api<Shop>("/api/reports/shop"),
+      seesWages ? api<{ total_owed: string }>("/api/reports/wages") : Promise.resolve(null),
     ])
-      .then(([salesReport, productionReport, inventory]) => {
+      .then(([salesReport, productionReport, inventory, shopReport, wages]) => {
         setSales(salesReport)
         setProduction(productionReport)
         setStock(inventory.stock)
         setMovements(inventory.movements)
+        setShop(shopReport)
+        setWageOwed(wages?.total_owed ?? null)
       })
       .catch((caught) => setError(errorMessage(caught)))
       .finally(() => setLoading(false))
-  }, [])
-
-  const chart = production
-    ? [
-        { name: "Pending", value: production.pending_jobs, color: "#f59e0b" },
-        { name: "Running", value: production.jobs_in_progress, color: "#3b82f6" },
-        { name: "Done", value: production.completed_jobs, color: "#10b981" },
-      ]
-    : []
+  }, [seesWages])
 
   return (
     <div className="space-y-6">
@@ -119,6 +122,7 @@ export function ReportsPage() {
             label="Total Sales Billing"
             value={sales?.total_sales ? `₹${Number(sales.total_sales).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "–"}
             icon={TrendingUp}
+            money
             color="emerald"
             hint={`GST Component: ₹${sales?.gst_sales ?? "0.00"}`}
           />
@@ -139,64 +143,60 @@ export function ReportsPage() {
         />
       </div>
 
-      {/* Production Chart */}
-      {chart.length > 0 ? (
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card className="border-gray-200/90 bg-white shadow-xs">
-          <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 pb-4">
-            <div>
-              <CardTitle className="text-base font-bold text-gray-900">
-                Floor Job Distribution
-              </CardTitle>
-              <p className="mt-0.5 text-xs text-gray-500">
-                Real-time queue across active work orders
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-xs font-medium">
-              <span className="flex items-center gap-1.5 text-amber-700">
-                <span className="size-2 rounded-full bg-amber-500 shadow-xs" />
-                Pending ({production?.pending_jobs ?? 0})
-              </span>
-              <span className="flex items-center gap-1.5 text-blue-700">
-                <span className="size-2 rounded-full bg-blue-500 shadow-xs" />
-                Running ({production?.jobs_in_progress ?? 0})
-              </span>
-              <span className="flex items-center gap-1.5 text-green-700">
-                <span className="size-2 rounded-full bg-green-600 shadow-xs" />
-                Done ({production?.completed_jobs ?? 0})
-              </span>
-            </div>
+          <CardHeader className="border-b border-gray-100 pb-4">
+            <CardTitle className="text-base font-bold text-gray-900">Good and scrap this week</CardTitle>
           </CardHeader>
-          <CardContent className="pt-6">
-            <p className="chart-note mb-3 text-sm text-gray-500">
-              Open on a desktop display to inspect detailed chart bars.
-            </p>
-            <div className="chart-wide h-60">
-              {shown ? <ResponsiveContainer width="100%" height="100%" minWidth={1}>
-                <BarChart data={chart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis allowDecimals={false} stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#ffffff",
-                      color: "#111827",
-                      borderRadius: "0.75rem",
-                      border: "1px solid #e5e7eb",
-                      fontSize: "12px",
-                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
-                    }}
-                    cursor={{ fill: "rgba(0, 0, 0, 0.03)" }}
-                  />
-                  <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                    {chart.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer> : null}
-            </div>
+          <CardContent className="pt-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Department</TableHead>
+                  <TableHead className="text-right">Good</TableHead>
+                  <TableHead className="text-right">Scrap</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(shop?.yields ?? []).length === 0 ? (
+                  <TableRow><TableCell colSpan={3} className="text-gray-500">No floor lines this week.</TableCell></TableRow>
+                ) : shop?.yields.map((row) => (
+                  <TableRow key={row.name}>
+                    <TableCell className="capitalize">{row.name}</TableCell>
+                    <TableCell className="text-right">{row.good}</TableCell>
+                    <TableCell className="text-right">{row.scrap}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
-      ) : null}
+        <Card className="border-gray-200/90 bg-white shadow-xs">
+          <CardHeader className="border-b border-gray-100 pb-4">
+            <CardTitle className="text-base font-bold text-gray-900">Jobs past due</CardTitle>
+            <p className="text-xs text-gray-500">
+              Unpaid invoices: {shop?.unpaid_count ?? 0}
+              {money && shop?.unpaid_total != null ? <span className="money-figure ml-2">₹{Number(shop.unpaid_total).toLocaleString("en-IN")}</span> : ""}
+            </p>
+            {seesWages && wageOwed != null ? (
+              <p className="text-xs text-[var(--ink-soft)]">
+                Wage owed this month <span className="money-figure">₹{Number(wageOwed).toLocaleString("en-IN")}</span>
+              </p>
+            ) : null}
+          </CardHeader>
+          <CardContent className="pt-4">
+            <ul className="space-y-2 text-sm">
+              {(shop?.late_jobs ?? []).length === 0 ? <li className="text-gray-500">No late jobs.</li> : null}
+              {shop?.late_jobs.map((job) => (
+                <li key={job.id}>
+                  <Link to="/production" className="font-semibold text-gray-900">{job.product_name || "Job"}</Link>
+                  <span className="text-gray-500"> · {job.current_operation_name || job.status} · {new Date(job.due_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Current Stock Levels Table */}
       <div className="overflow-hidden rounded-2xl border border-gray-200/90 bg-white shadow-xs">

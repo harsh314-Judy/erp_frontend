@@ -37,6 +37,10 @@ type Material = {
   measurement_unit_id: string
   category_id: string | null
   supplier_id: string | null
+  thickness?: string | null
+  grade?: string | null
+  size?: string | null
+  is_remnant?: boolean
 }
 
 const selectClass =
@@ -53,6 +57,9 @@ const emptyForm = {
   category_id: "",
   supplier_id: "",
   description: "",
+  thickness: "",
+  grade: "",
+  size: "",
 }
 
 export function MaterialsPage() {
@@ -73,6 +80,8 @@ export function MaterialsPage() {
   const { busy, guard } = useFormBusy()
   const [showCreate, setShowCreate] = useState(false)
   const [editing, setEditing] = useState<Material | null>(null)
+  const [adjustQty, setAdjustQty] = useState("")
+  const [adjustReason, setAdjustReason] = useState("")
   const [form, setForm] = useState(emptyForm)
 
   async function load(search = query) {
@@ -140,6 +149,9 @@ export function MaterialsPage() {
       price: form.purchase_price,
       purchase_price: form.purchase_price,
       description: form.description || null,
+      thickness: form.kind === "sheet" ? form.thickness || null : null,
+      grade: form.kind === "sheet" ? form.grade || null : null,
+      size: form.kind === "sheet" ? form.size || null : null,
     }
   }
 
@@ -166,7 +178,20 @@ export function MaterialsPage() {
     await guard(async () => {
       setEditing(null)
       try {
-        await api(`/api/raw-materials/${editing.id}`, { method: "PATCH", body: JSON.stringify(payload()) })
+        const { quantity: _quantity, ...rest } = payload()
+        await api(`/api/raw-materials/${editing.id}`, { method: "PATCH", body: JSON.stringify(rest) })
+        if (adjustQty.trim() && Number(adjustQty) !== 0) {
+          await api("/api/inventory/adjustments", {
+            method: "POST",
+            body: JSON.stringify({
+              raw_material_id: editing.id,
+              quantity_delta: adjustQty,
+              reason: adjustReason.trim(),
+            }),
+          })
+        }
+        setAdjustQty("")
+        setAdjustReason("")
         void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
         setError(errorMessage(caught))
@@ -186,6 +211,9 @@ export function MaterialsPage() {
       category_id: row.category_id ?? "",
       supplier_id: row.supplier_id ?? "",
       description: row.description ?? "",
+      thickness: row.thickness ?? "",
+      grade: row.grade ?? "",
+      size: row.size ?? "",
     })
     setEditing(row)
   }
@@ -332,7 +360,10 @@ export function MaterialsPage() {
                   <TableRow key={row.id} className="border-b border-gray-100 hover:bg-gray-50/70 transition-colors">
                     <TableCell className="font-semibold text-gray-900">
                       <div>
-                        <p>{row.name}</p>
+                        <p>{row.name}{row.is_remnant ? " · remnant" : ""}</p>
+                        {[row.thickness, row.grade, row.size].filter(Boolean).length > 0 ? (
+                          <p className="text-xs font-normal text-gray-500">{[row.thickness, row.grade, row.size].filter(Boolean).join(" · ")}</p>
+                        ) : null}
                         {row.description ? <p className="text-xs font-normal text-gray-500">{row.description}</p> : null}
                       </div>
                     </TableCell>
@@ -394,6 +425,7 @@ export function MaterialsPage() {
             onAddCategory={addCategory}
             onRemoveCategory={removeCategory}
             busy={busy}
+            counted={{ delta: adjustQty, reason: adjustReason, onDelta: setAdjustQty, onReason: setAdjustReason }}
           />
         </DialogContent>
       </Dialog>
@@ -414,6 +446,7 @@ function MaterialForm({
   onAddCategory,
   onRemoveCategory,
   busy,
+  counted,
 }: {
   form: typeof emptyForm
   setForm: (value: typeof emptyForm) => void
@@ -427,6 +460,7 @@ function MaterialForm({
   onAddCategory: (name: string) => void
   onRemoveCategory: (id: string) => void
   busy: boolean
+  counted?: { delta: string; reason: string; onDelta: (value: string) => void; onReason: (value: string) => void }
 }) {
   return (
     <form className="mt-2 grid gap-4 sm:grid-cols-2" onSubmit={(event) => void onSubmit(event)}>
@@ -484,6 +518,19 @@ function MaterialForm({
           <option value="other">Hardware / Fastener / Other</option>
         </select>
       </Field>
+      {form.kind === "sheet" ? (
+        <>
+          <Field label="Thickness">
+            <Input value={form.thickness} onChange={(event) => setForm({ ...form, thickness: event.target.value })} placeholder="Optional" />
+          </Field>
+          <Field label="Grade">
+            <Input value={form.grade} onChange={(event) => setForm({ ...form, grade: event.target.value })} placeholder="Optional" />
+          </Field>
+          <Field label="Size" className="sm:col-span-2">
+            <Input value={form.size} onChange={(event) => setForm({ ...form, size: event.target.value })} placeholder="Optional" />
+          </Field>
+        </>
+      ) : null}
       <Field label="Unit of Measurement">
         <select
           className={selectClass}
@@ -497,6 +544,19 @@ function MaterialForm({
           ))}
         </select>
       </Field>
+      {counted ? (
+        <>
+          <Field label="On hand">
+            <p className="text-sm font-semibold text-gray-900">{form.quantity}</p>
+          </Field>
+          <Field label="Counted correction (+ or -)">
+            <Input type="number" step="any" value={counted.delta} onChange={(event) => counted.onDelta(event.target.value)} />
+          </Field>
+          <Field label="Reason for the count" className="sm:col-span-2">
+            <Input value={counted.reason} onChange={(event) => counted.onReason(event.target.value)} placeholder="At least 3 characters" />
+          </Field>
+        </>
+      ) : (
       <Field label="Quantity on hand" required>
         <Input
           type="number"
@@ -507,6 +567,7 @@ function MaterialForm({
           onChange={(event) => setForm({ ...form, quantity: event.target.value })}
         />
       </Field>
+      )}
       <Field label="Reorder Threshold (Alert Qty)">
         <Input value={form.alert_quantity} onChange={(event) => setForm({ ...form, alert_quantity: event.target.value })} />
       </Field>

@@ -64,6 +64,8 @@ type Order = {
   status: string
   notes: string | null
   stock_received: boolean
+  receipt_fail_reason?: string | null
+  receipt_fail_note?: string | null
   expected_vehicle_plate: string | null
   lines: Line[]
   attachments?: OrderFile[]
@@ -177,6 +179,9 @@ export function PurchasesPage() {
   const [receivedSlips, setReceivedSlips] = useState<SlipFile[]>([])
   const [cargoPhotos, setCargoPhotos] = useState<SlipFile[]>([])
   const [receiveOrder, setReceiveOrder] = useState<Order | null>(null)
+  const [failOrder, setFailOrder] = useState<Order | null>(null)
+  const [failReason, setFailReason] = useState("wrong thickness")
+  const [failNote, setFailNote] = useState("")
   const [challanNumber, setChallanNumber] = useState("")
   const [challanNote, setChallanNote] = useState("")
 
@@ -395,6 +400,24 @@ export function PurchasesPage() {
       body: JSON.stringify({ attachment_id: file.attachment_id, kind }),
     })
     void load().catch((caught) => setError(errorMessage(caught)))
+  }
+
+  async function confirmFail() {
+    if (!failOrder) return
+    setError("")
+    await guard(async () => {
+      try {
+        await api(`/api/purchase-orders/${failOrder.id}/inspect`, {
+          method: "POST",
+          body: JSON.stringify({ result: "fail", reason: failReason, note: failNote || null }),
+        })
+        setFailOrder(null)
+        setFailNote("")
+        void load().catch((caught) => setError(errorMessage(caught)))
+      } catch (caught) {
+        setError(errorMessage(caught))
+      }
+    })
   }
 
   async function confirmReceive() {
@@ -938,7 +961,21 @@ export function PurchasesPage() {
                             disabled={busy}
                           >
                             <CheckCircle2 className="mr-1 size-3.5" />
-                            Received and stocked
+                            Pass
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 rounded-xl text-xs font-semibold"
+                            disabled={busy}
+                            onClick={() => {
+                              setFailReason(order.receipt_fail_reason || "wrong thickness")
+                              setFailNote(order.receipt_fail_note || "")
+                              setFailOrder(order)
+                            }}
+                          >
+                            Fail
                           </Button>
                         </>
                       ) : null
@@ -947,6 +984,12 @@ export function PurchasesPage() {
                 </div>
 
                 <OrderFlow status={order.status} />
+                {order.status === "in_delivery" && order.receipt_fail_reason ? (
+                  <p className="px-5 pt-3 text-xs text-rose-700">
+                    Failed inspection: {order.receipt_fail_reason}
+                    {order.receipt_fail_note ? ` — ${order.receipt_fail_note}` : ""}. Stock was not credited.
+                  </p>
+                ) : null}
 
                 {/* Order Body */}
                 <div className="p-5 space-y-4">
@@ -1198,6 +1241,28 @@ export function PurchasesPage() {
               </DialogFooter>
             </form>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={failOrder !== null} onOpenChange={(open) => { if (!open) setFailOrder(null) }}>
+        <DialogContent className="sm:max-w-md border-gray-200 bg-white">
+          <DialogHeader>
+            <DialogTitle>Fail this delivery</DialogTitle>
+            <DialogDescription>The order stays in delivery and stock is not credited. A short count is not a partial receipt.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <select className="h-10 rounded-xl border border-gray-200 px-3 text-sm" value={failReason} onChange={(event) => setFailReason(event.target.value)}>
+              <option value="wrong thickness">wrong thickness</option>
+              <option value="rust">rust</option>
+              <option value="short count">short count</option>
+              <option value="other">other</option>
+            </select>
+            <Input placeholder="Optional note" value={failNote} onChange={(event) => setFailNote(event.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setFailOrder(null)}>Cancel</Button>
+            <Button type="button" className="bg-rose-700 text-white" disabled={busy} onClick={() => void confirmFail()}>Save the fail</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

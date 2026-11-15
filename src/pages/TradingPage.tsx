@@ -9,7 +9,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { api, errorMessage } from "@/lib/api"
 import { roleCan } from "@/lib/access"
 import { useRefreshWhenShown } from "@/lib/visible"
-import { cn } from "@/lib/utils"
 
 type Item = {
   kind: "product" | "raw_material"
@@ -34,6 +33,16 @@ type Summary = {
   incoming_qty: string
 }
 
+type Remnant = {
+  id: string
+  name: string
+  size?: string | null
+  thickness?: string | null
+  grade?: string | null
+  quantity: string
+  purchase_price?: string | null
+}
+
 function money(value: string | null) {
   if (value == null) return "—"
   const amount = Number(value)
@@ -50,15 +59,18 @@ export function TradingPage() {
   const [query, setQuery] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
+  const [remnants, setRemnants] = useState<Remnant[]>([])
 
   async function load() {
     try {
-      const [rows, totals] = await Promise.all([
+      const [rows, totals, remnantPage] = await Promise.all([
         api<Item[]>("/api/trading/items"),
         api<Summary>("/api/trading/summary?period=month"),
+        api<{ items: Remnant[] }>("/api/raw-materials/?page=1&page_size=500&remnants=true"),
       ])
       setItems(rows)
       setSummary(totals)
+      setRemnants(remnantPage.items)
     } finally {
       setLoading(false)
     }
@@ -82,23 +94,25 @@ export function TradingPage() {
       {error ? <p className="text-sm text-rose-700">{error}</p> : null}
       {summary ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Revenue this month" value={moneyVisible ? money(summary.revenue) : "—"} />
-          <StatCard label="Cost this month" value={moneyVisible ? money(summary.cost) : "—"} />
-          <StatCard label="Profit / loss" value={moneyVisible ? money(summary.profit) : "—"} hint={summary.margin_pct != null ? `${Number(summary.margin_pct).toFixed(1)}% margin` : undefined} trend={moneyVisible ? { text: profit >= 0 ? "Profit" : "Loss", positive: profit >= 0 } : undefined} />
+          <StatCard money label="Revenue this month" value={moneyVisible ? money(summary.revenue) : "—"} />
+          <StatCard money label="Cost this month" value={moneyVisible ? money(summary.cost) : "—"} />
+          <StatCard money label="Profit / loss" value={moneyVisible ? money(summary.profit) : "—"} hint={summary.margin_pct != null ? `${Number(summary.margin_pct).toFixed(1)}% margin` : undefined} trend={moneyVisible ? { text: profit >= 0 ? "Profit" : "Loss", positive: profit >= 0 } : undefined} />
           <StatCard label="Incoming" value={summary.incoming_orders} hint={`${Number(summary.incoming_qty)} units on open orders`} />
         </div>
       ) : null}
-      <div className="flex flex-wrap items-center gap-2">
-        {([
-          ["all", "All"],
-          ["product", "Purchased products"],
-          ["raw_material", "Raw materials"],
-        ] as const).map(([id, label]) => (
-          <button key={id} type="button" className={cn("rounded-xl px-3 py-1.5 text-xs font-semibold", tab === id ? "bg-violet-600 text-white" : "bg-white text-gray-600")} onClick={() => setTab(id)}>
-            {label}
-          </button>
-        ))}
-        <input className="h-9 min-w-48 flex-1 rounded-xl border border-gray-200 bg-white px-3 text-sm" placeholder="Search name, SKU, supplier" value={query} onChange={(event) => setQuery(event.target.value)} />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+        <label className="flex min-w-52 flex-col gap-1.5 text-[12px] text-[var(--ink-soft)]">
+          Show
+          <select className="h-10 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)]" value={tab} onChange={(event) => setTab(event.target.value as typeof tab)}>
+            <option value="all">All</option>
+            <option value="product">Purchased products</option>
+            <option value="raw_material">Raw materials</option>
+          </select>
+        </label>
+        <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-[12px] text-[var(--ink-soft)]">
+          Search
+          <input className="h-10 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 text-sm" placeholder="Name, SKU, supplier" value={query} onChange={(event) => setQuery(event.target.value)} />
+        </label>
       </div>
       {loading ? <PageLoading label="Loading traded goods" /> : (
         <Table>
@@ -135,6 +149,37 @@ export function TradingPage() {
           </TableBody>
         </Table>
       )}
+      <div className="space-y-2">
+        <h2 className="text-sm font-bold text-gray-900">Remnants</h2>
+        {remnants.length === 0 ? <p className="text-xs text-gray-500">No remnant stock.</p> : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Sheet</TableHead>
+                <TableHead>Size</TableHead>
+                <TableHead>Quantity</TableHead>
+                <TableHead>Value</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {remnants.map((row) => {
+                const value = row.purchase_price == null ? null : String(Number(row.quantity) * Number(row.purchase_price))
+                return (
+                  <TableRow key={row.id}>
+                    <TableCell>
+                      <p className="font-semibold text-gray-900">{row.name}</p>
+                      <p className="text-[11px] text-gray-500">{[row.thickness, row.grade].filter(Boolean).join(" · ") || "Sheet offcut"}</p>
+                    </TableCell>
+                    <TableCell>{row.size || "—"}</TableCell>
+                    <TableCell>{Number(row.quantity)}</TableCell>
+                    <TableCell>{moneyVisible ? money(value) : "—"}</TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </div>
     </div>
   )
 }

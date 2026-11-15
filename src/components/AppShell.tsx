@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { NavLink, useLocation, useNavigate, useOutlet } from "react-router-dom"
-import { Bell, LogOut, Menu, Moon, PanelLeft, Sun, X } from "lucide-react"
+import { Bell, ChevronDown, LogOut, Menu, Moon, PanelLeft, Sun, X } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
 import { api, prefetch, type UserProfile } from "@/lib/api"
@@ -11,13 +11,6 @@ import { cn } from "@/lib/utils"
 
 const STORAGE_KEY = "erp.sidebar.collapsed"
 const THEME_KEY = "erp.theme"
-const SCHEME_KEY = "erp.scheme"
-const SCHEMES = [
-  { id: "blue", label: "Blue", swatch: "#0071e3" },
-  { id: "green", label: "Green", swatch: "#248a3d" },
-  { id: "violet", label: "Violet", swatch: "#5e5ce6" },
-] as const
-type SchemeId = (typeof SCHEMES)[number]["id"]
 
 type Notice = {
   id: string
@@ -29,62 +22,6 @@ type Notice = {
   created_at?: string
 }
 
-const ALERT_DOT: Record<string, string> = {
-  job_completed: "bg-emerald-500",
-  job_cancelled: "bg-rose-500",
-  purchase_incoming: "bg-sky-500",
-  purchase_received: "bg-emerald-600",
-  sales_dispatched: "bg-indigo-500",
-  low_stock: "bg-amber-500",
-  job_approval: "bg-amber-600",
-  job_stage: "bg-cyan-500",
-}
-
-function alertAge(value?: string) {
-  if (!value) return ""
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000))
-  if (minutes < 1) return "now"
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.round(hours / 24)}d ago`
-}
-
-function HeaderAlert({
-  notices,
-  dim,
-  onOpen,
-  onDismiss,
-}: {
-  notices: Notice[]
-  dim: boolean
-  onOpen: (item: Notice) => void
-  onDismiss: (item: Notice) => void
-}) {
-  const unread = notices.filter((item) => !item.read_at)
-  const [index, setIndex] = useState(0)
-  useEffect(() => {
-    if (unread.length < 2) return
-    const timer = window.setInterval(() => setIndex((current) => current + 1), 6000)
-    return () => window.clearInterval(timer)
-  }, [unread.length])
-  if (unread.length === 0) return null
-  const item = unread[index % unread.length]
-  return (
-    <div className={cn("flex min-w-0 flex-1 items-center", dim && "text-gray-100")}>
-      <button type="button" className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-full border px-3 py-1 text-left", dim ? "border-white/15 bg-white/5" : "border-gray-300 bg-white")} onClick={() => onOpen(item)}>
-        <span className={cn("size-2 shrink-0 rounded-full", ALERT_DOT[item.kind ?? ""] ?? "bg-gray-400")} />
-        <span className="truncate text-xs font-semibold">{item.title}</span>
-        <span className="hidden min-w-0 truncate text-xs text-gray-500 sm:inline">{item.body}</span>
-        <span className="hidden shrink-0 text-[10px] text-gray-400 sm:inline">{alertAge(item.created_at)}</span>
-      </button>
-      <button type="button" aria-label="Dismiss alert" className="ml-1 grid size-7 shrink-0 place-items-center text-gray-400" onClick={() => onDismiss(item)}>
-        <X className="size-3.5" />
-      </button>
-    </div>
-  )
-}
-
 function HeaderIdentity({ company }: { company: string }) {
   const chromeApi = usePageChrome()
   const chrome = chromeApi?.scrolled ? chromeApi.chrome : null
@@ -93,9 +30,9 @@ function HeaderIdentity({ company }: { company: string }) {
     <>
       <div className={cn("flex min-w-0 items-center gap-2.5", chrome && "hidden sm:flex")}>
         <span className="truncate text-sm font-bold tracking-tight text-gray-900">{company}</span>
-        <span className="hidden sm:inline-flex items-center gap-1.5 rounded-none border border-black bg-emerald-50 px-2 py-0.5 text-[9px] font-mono font-bold tracking-wider text-emerald-800">
-          <span className="size-1.5 animate-pulse rounded-none bg-emerald-500" />
-          PLANT LIVE
+        <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-medium tracking-wide text-[var(--ink-muted)]">
+          <span className="size-1.5 animate-pulse rounded-full" style={{ background: "#27a644" }} />
+          Plant live
         </span>
       </div>
       {chrome && Icon ? (
@@ -134,17 +71,13 @@ export function AppShell() {
   const [bellOpen, setBellOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"))
-  const [scheme, setScheme] = useState<SchemeId>(() => {
-    const saved = document.documentElement.dataset.scheme
-    return saved === "green" || saved === "violet" ? saved : "blue"
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    CORE: true,
+    OPERATIONS: true,
+    INVENTORY: true,
+    COMMERCE: true,
+    ADMINISTRATION: true,
   })
-
-  function chooseScheme(next: SchemeId) {
-    if (next === "blue") delete document.documentElement.dataset.scheme
-    else document.documentElement.dataset.scheme = next
-    window.localStorage.setItem(SCHEME_KEY, next)
-    setScheme(next)
-  }
 
   function toggleTheme() {
     const next = !document.documentElement.classList.contains("dark")
@@ -219,12 +152,6 @@ export function AppShell() {
     navigate("/")
   }
 
-  async function dismissNotice(item: Notice) {
-    await api(`/api/notifications/${item.id}/read`, { method: "POST" }).catch(() => {})
-    setNotices((current) => current.map((row) => (row.id === item.id ? { ...row, read_at: new Date().toISOString() } : row)))
-    setUnread((count) => Math.max(0, count - 1))
-  }
-
   async function openNotice(item: Notice) {
     if (!item.read_at) {
       await api(`/api/notifications/${item.id}/read`, { method: "POST" }).catch(() => {})
@@ -297,21 +224,28 @@ export function AppShell() {
         </div>
 
         {/* Nav links with colorful icon boxes and section groups */}
-        <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-3 custom-scroll touch-scroll">
+        <nav className="custom-scroll touch-scroll flex-1 space-y-4 overflow-y-auto px-3 py-4">
           {sections.map((sec) => {
             const secLinks = links.filter((item) => item.section === sec)
             if (secLinks.length === 0) return null
+            const open = openSections[sec] !== false
 
             return (
-              <div key={sec} className="space-y-0.5">
+              <div key={sec} className="space-y-1">
                 {!collapsed && (
-                  <div className="px-3 pt-3 pb-1">
-                    <span className="text-[11px] font-semibold tracking-wide text-gray-400">
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left hover:bg-[var(--hover)]"
+                    onClick={() => setOpenSections((current) => ({ ...current, [sec]: !open }))}
+                  >
+                    <span className="text-[11px] font-medium tracking-[0.4px] text-[var(--ink-soft)]">
                       {sec.charAt(0) + sec.slice(1).toLowerCase()}
                     </span>
-                  </div>
+                    <ChevronDown className={cn("size-3.5 text-[var(--ink-soft)] transition", open && "rotate-180")} />
+                  </button>
                 )}
-                {secLinks.map((item) => {
+                {(collapsed || open) && secLinks.map((item) => {
                   const Icon = item.icon
                   return (
                     <NavLink
@@ -320,29 +254,25 @@ export function AppShell() {
                       title={item.label}
                       onClick={() => setMobileOpen(false)}
                       className={({ isActive }) => cn(
-                        "group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] font-medium transition-colors",
-                        collapsed ? "lg:justify-center px-1.5" : "",
+                        "group flex items-center gap-3 rounded-md px-2.5 py-2.5 text-[13px] font-medium transition-colors",
+                        collapsed ? "lg:justify-center lg:px-1.5" : "",
                         isActive
                           ? "bg-[var(--scheme-soft)] text-[var(--scheme)]"
-                          : "text-gray-600 hover:bg-black/5"
+                          : "text-[var(--ink-muted)] hover:bg-[var(--hover)]"
                       )}
                     >
                       {({ isActive }) => (
                         <>
                           <div className={cn(
-                            "grid size-7 shrink-0 place-items-center rounded-lg transition-transform duration-150",
-                            item.iconBg, item.iconColor,
-                            isActive ? "scale-105" : "opacity-90 group-hover:opacity-100"
+                            "grid size-8 shrink-0 place-items-center rounded-md",
+                            isActive ? "text-[var(--scheme)]" : "text-[var(--ink-soft)]"
                           )}>
-                            <Icon className="size-3.5" />
+                            <Icon className="size-4" />
                           </div>
                           {!collapsed && (
-                            <span className={cn("truncate flex-1 tracking-tight", isActive ? "font-semibold text-[var(--scheme)]" : "text-gray-700")}>
+                            <span className={cn("truncate flex-1 tracking-tight", isActive ? "font-medium text-[var(--scheme)]" : "text-[var(--ink)]")}>
                               {item.label}
                             </span>
-                          )}
-                          {isActive && !collapsed && (
-                            <span className="ml-auto size-1.5 rounded-full bg-[var(--scheme)] shrink-0" />
                           )}
                         </>
                       )}
@@ -426,10 +356,9 @@ export function AppShell() {
           </button>
 
           <HeaderIdentity company={company} />
-          <HeaderAlert notices={notices} dim={location.pathname === "/production"} onOpen={(item) => void openNotice(item)} onDismiss={(item) => void dismissNotice(item)} />
 
           {/* Right actions */}
-          <div className="relative ml-auto flex items-center gap-2">
+          <div className="relative ml-auto flex items-center gap-3">
             {/* Notification bell */}
             <button
               type="button"
@@ -478,24 +407,6 @@ export function AppShell() {
                 </div>
               </div>
             )}
-
-            <div className="flex items-center gap-1 rounded-full bg-black/5 p-1" role="group" aria-label="Color scheme">
-              {SCHEMES.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  aria-label={`${item.label} color scheme`}
-                  aria-pressed={scheme === item.id}
-                  title={item.label}
-                  className={cn(
-                    "size-5 rounded-full transition",
-                    scheme === item.id ? "outline-2 outline-offset-2 outline-current" : "opacity-75 hover:opacity-100",
-                  )}
-                  style={{ backgroundColor: item.swatch, color: item.swatch }}
-                  onClick={() => chooseScheme(item.id)}
-                />
-              ))}
-            </div>
 
             <button
               type="button"

@@ -1,159 +1,43 @@
 import { useEffect, useState } from "react"
-import {
-  CheckCircle2,
-  Factory,
-  Wrench,
-} from "lucide-react"
+import { Link } from "react-router-dom"
 
 import { PageLoading } from "@/components/PlantLoader"
-import { WorkerPicker, type WorkerChoice } from "@/components/WorkerPicker"
-import { EmptyState, Notice, PageTitle, StatusBadge } from "@/components/plant-ui"
-import { Button } from "@/components/ui/button"
-import { api, errorMessage, peek, type Page } from "@/lib/api"
-import { useFormBusy } from "@/lib/busy"
-import { useRefreshWhenShown } from "@/lib/visible"
+import { Notice, PageTitle } from "@/components/plant-ui"
+import { DepartmentNowPage } from "@/pages/DepartmentNowPage"
+import { api, errorMessage } from "@/lib/api"
 
-type Job = { id: string; product_name: string | null; quantity: string; status: string }
-type Stage = { id: string; operation_id: string; operation_name: string | null; status: string; assigned_user_id: string | null }
-type Detail = Job & { stages: Stage[] }
+type Assigned = { operation_id: string; name: string }
 
 export function StaffPage() {
-  const [jobs, setJobs] = useState<Job[]>(
-    () => peek<Page<Job>>("/api/production-jobs/?page=1&page_size=50")?.items ?? [],
-  )
+  const [ops, setOps] = useState<Assigned[] | null>(null)
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(
-    () => peek<Page<Job>>("/api/production-jobs/?page=1&page_size=50") === undefined,
-  )
-  const { busy, guard } = useFormBusy()
-  const [signing, setSigning] = useState<Detail | null>(null)
-  const [workerChoice, setWorkerChoice] = useState<WorkerChoice | null>(null)
-
-  async function load() {
-    try {
-      setJobs((await api<Page<Job>>("/api/production-jobs/?page=1&page_size=50")).items)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   useEffect(() => {
-    void load().catch((caught) => setError(errorMessage(caught)))
-  }, [])
-  useRefreshWhenShown("/staff", load, (caught) => setError(errorMessage(caught)))
-
-  async function openSign(job: Job) {
-    setError("")
-    setWorkerChoice(null)
-    try {
-      const detail = await api<Detail>(`/api/production-jobs/${job.id}`)
-      if (job.status === "pending") {
-        await api(`/api/production-jobs/${job.id}/start`, { method: "POST" })
-        setSigning(await api<Detail>(`/api/production-jobs/${job.id}`))
-        return
-      }
-      setSigning(detail)
-    } catch (caught) {
-      setError(errorMessage(caught))
-    }
-  }
-
-  async function finish() {
-    if (!signing || !workerChoice) return
-    const active = signing.stages.find((stage) => stage.status === "active")
-    if (!active) return
-    setError("")
-    await guard(async () => {
-      try {
-        const polish = active.operation_name?.toLowerCase() === "polishing" ? { polish_type: "dry" } : {}
-        await api(`/api/production-jobs/${signing.id}/stages/${active.id}/complete`, {
-          method: "POST",
-          body: JSON.stringify({ ...polish, ...workerChoice }),
-        })
-        setSigning(null)
-        void load().catch((caught) => setError(errorMessage(caught)))
-      } catch (caught) {
+    api<Assigned[]>("/api/departments/assigned")
+      .then(setOps)
+      .catch((caught) => {
+        setOps([])
         setError(errorMessage(caught))
-      }
-    })
-  }
+      })
+  }, [])
+
+  if (ops === null) return <PageLoading label="Loading your station" variant="cards" count={1} />
+  if (ops.length === 1) return <DepartmentNowPage operationId={ops[0].operation_id} />
 
   return (
-    <div className="space-y-6">
-      <PageTitle
-        title="My Assigned Floor Tasks"
-        hint="Work assigned to your operator station. Sign off each stage as soon as physical processing is complete."
-        icon={Wrench}
-        badge={`${jobs.length} Active`}
-      />
-
+    <div className="space-y-4">
+      <PageTitle title="Operator station" hint="The departments assigned to this login." />
       {error ? <Notice variant="error">{error}</Notice> : null}
-
-      {loading ? (
-        <PageLoading label="Loading your jobs" variant="cards" count={2} />
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-        {jobs.map((job) => (
-          <article
-            key={job.id}
-            className="flex flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-5 shadow-xs transition-all hover:border-gray-300 hover:shadow-sm"
-          >
-            <div>
-              <div className="flex items-start justify-between gap-2 border-b border-gray-100 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
-                    <Factory className="size-4.5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-gray-900">{job.product_name ?? "Custom Workpiece"}</h3>
-                    <p className="text-xs font-semibold text-gray-500">Batch Quantity: <span className="text-gray-900">{job.quantity}</span></p>
-                  </div>
-                </div>
-                <StatusBadge status={job.status} />
-              </div>
-              <p className="mt-3 text-xs text-gray-500">
-                Proceed with physical cutting, stamping, or polishing. Click below once output is ready for inspection.
-              </p>
-            </div>
-
-            <div className="mt-4 space-y-2 border-t border-gray-100 pt-3">
-              {signing?.id === job.id ? (
-                <>
-                  {signing.stages.find((stage) => stage.status === "active") ? (
-                    <WorkerPicker
-                      operationId={signing.stages.find((stage) => stage.status === "active")!.operation_id}
-                      value={workerChoice}
-                      onChange={(choice) => setWorkerChoice(choice)}
-                    />
-                  ) : (
-                    <p className="text-xs text-gray-500">This job has no open stage.</p>
-                  )}
-                  <Button type="button" disabled={busy || !workerChoice} className="w-full rounded-xl bg-green-600 font-semibold text-white" onClick={() => void finish()}>
-                    <CheckCircle2 className="mr-1.5 size-4" />
-                    Sign Off & Advance Stage
-                  </Button>
-                </>
-              ) : (
-                <Button type="button" disabled={busy} className="w-full rounded-xl bg-green-600 font-semibold text-white" onClick={() => void openSign(job)}>
-                  <CheckCircle2 className="mr-1.5 size-4" />
-                  Sign Off & Advance Stage
-                </Button>
-              )}
-            </div>
-          </article>
+      {ops.length === 0 ? <p className="text-sm text-gray-500">No department is assigned to this login.</p> : null}
+      <ul className="grid gap-3">
+        {ops.map((row) => (
+          <li key={row.operation_id}>
+            <Link to={`/departments/${row.operation_id}/now`} className="block rounded-2xl border border-gray-200 bg-white px-4 py-5 text-lg font-bold capitalize text-gray-900">
+              {row.name}
+            </Link>
+          </li>
         ))}
-
-        {jobs.length === 0 ? (
-          <div className="sm:col-span-2">
-            <EmptyState
-              title="No Pending Work Assigned"
-              description="Your station is clear right now. Check back when new production jobs are dispatched to your line."
-              icon={Wrench}
-            />
-          </div>
-        ) : null}
-      </div>
-      )}
+      </ul>
     </div>
   )
 }

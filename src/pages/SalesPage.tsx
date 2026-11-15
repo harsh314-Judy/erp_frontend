@@ -15,6 +15,7 @@ import {
 
 import { useAuth } from "@/auth/AuthContext"
 import { CustomerFields, customerPayload, emptyCustomer } from "@/components/CustomerFields"
+import { RecordPayment } from "@/components/RecordPayment"
 import { PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
@@ -60,6 +61,10 @@ type Order = {
   invoice_id: string | null
   invoice_has_pdf: boolean
   updated_at?: string | null
+  job_due_at?: string | null
+  blocked_material?: boolean
+  blocked_problem?: boolean
+  problem_reason?: string | null
   lines: Line[]
 }
 type FormLine = { key: string; product_id: string; quantity: string; shortfall_choice: string }
@@ -809,6 +814,9 @@ export function SalesPage() {
                         <p className="text-[11px] text-gray-500">
                           {order.gst_billing === false ? "NON-GST" : "GST"}
                           {order.dispatch_by ? ` · Dispatch by ${new Date(order.dispatch_by).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}` : ""}
+                          {order.job_due_at ? ` · Job due ${new Date(order.job_due_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}` : ""}
+                          {order.blocked_material ? " · blocked: material short" : ""}
+                          {order.blocked_problem ? ` · blocked: problem on the job${order.problem_reason ? ` (${order.problem_reason})` : ""}` : ""}
                         </p>
                         <span className="font-mono text-[11px] font-medium text-gray-500">#{order.id.slice(0, 8).toUpperCase()}</span>
                       </div>
@@ -836,6 +844,7 @@ export function SalesPage() {
                       <FileText className="mr-1 size-3.5 text-emerald-700" />
                       Invoice
                     </Button>
+                    {order.invoice_id ? <RecordPayment invoiceId={order.invoice_id} due="" onDone={() => void load()} /> : null}
                     {order.invoice_has_pdf && order.invoice_id ? (
                       <Button
                         type="button"

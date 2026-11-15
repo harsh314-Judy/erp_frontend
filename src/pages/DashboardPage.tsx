@@ -47,6 +47,10 @@ type Dashboard = {
   low_stock_items?: LowStockItem[]
   approvals: number
   unpaid_invoices: number
+  unpaid_amount?: string | null
+  late_jobs?: number
+  open_problems?: number
+  machines_down?: { name: string; operation_name: string }[]
   my_jobs: number
   incoming_shipments: number
 }
@@ -93,8 +97,7 @@ export function DashboardPage() {
       ]
     : []
 
-  const totalProduction = (data?.production?.pending_jobs ?? 0) + (data?.production?.jobs_in_progress ?? 0) + (data?.production?.completed_jobs ?? 0)
-  const completionRate = totalProduction > 0 ? Math.round(((data?.production?.completed_jobs ?? 0) / totalProduction) * 100) : 95
+  const money = roleCan(user?.role_name, "view_financials")
 
   return (
     <div className="space-y-6 animate-rise">
@@ -158,38 +161,33 @@ export function DashboardPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 border-b border-gray-100 pb-3.5 sm:pb-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
             <div className="min-w-0">
-              <p className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-gray-500 truncate">UTILIZATION</p>
-              <p className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-gray-950 font-sans truncate">{completionRate}%</p>
+              <p className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-gray-500 truncate">Late jobs</p>
+              <p className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-gray-950 font-sans truncate">{data?.late_jobs ?? 0}</p>
             </div>
             <div className="min-w-0">
-              <p className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-gray-500 truncate">COMPLETED</p>
-              <p className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-gray-950 font-sans truncate">{data?.production?.completed_jobs ?? 0}</p>
+              <p className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-gray-500 truncate">Open problems</p>
+              <p className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-gray-950 font-sans truncate">{data?.open_problems ?? 0}</p>
             </div>
             <div className="min-w-0">
-              <p className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-gray-500 truncate">INCOMING</p>
-              <div className="mt-1 flex items-baseline gap-1 truncate">
-                <span className="text-lg sm:text-2xl font-black tracking-tight text-gray-950 font-sans">{data?.incoming_shipments ?? 0}</span>
-                <span className="inline-flex items-center rounded-none border border-black bg-emerald-50 px-1 py-0.2 text-[8px] sm:text-[9px] font-mono font-bold text-emerald-800 shrink-0">
-                  +3.5%
-                </span>
-              </div>
+              <p className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-gray-500 truncate">Low stock</p>
+              <p className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-gray-950 font-sans truncate">{data?.low_stock ?? 0}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-gray-500 truncate">Unpaid</p>
+              <p className="mt-1 text-lg sm:text-2xl font-black tracking-tight text-gray-950 font-sans truncate">
+                {money && data?.unpaid_amount != null
+                  ? `₹${Number(data.unpaid_amount).toLocaleString("en-IN")}`
+                  : data?.unpaid_invoices ?? 0}
+              </p>
             </div>
           </div>
-
-          {/* Segmented meter bar from reference image */}
-          <div className="pt-3 sm:pt-4">
-            <div className="flex items-center justify-between text-[9px] sm:text-[10px] font-mono uppercase tracking-wider text-gray-500 mb-1.5">
-              <span>Operational Capacity</span>
-              <span className="text-emerald-700 font-bold">Optimal</span>
-            </div>
-            <div className="flex h-2.5 w-full gap-1 overflow-hidden rounded-none bg-gray-100 p-0.5 border border-black">
-              <div className="h-full rounded-none bg-emerald-600 transition-all" style={{ width: `${Math.min(100, completionRate)}%` }} />
-              <div className="h-full rounded-none bg-lime-500 transition-all" style={{ width: "15%" }} />
-              <div className="h-full rounded-none bg-slate-300 transition-all" style={{ width: "10%" }} />
-            </div>
-          </div>
+          {(data?.machines_down ?? []).length > 0 ? (
+            <p className="mt-3 text-xs text-rose-800">
+              Down: {(data?.machines_down ?? []).map((machine) => `${machine.name} (${machine.operation_name})`).join(", ")}
+            </p>
+          ) : null}
         </div>
 
         {/* Invoices & Financials Card */}
@@ -227,18 +225,6 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {/* Segmented multi-color progress bar from reference image */}
-          <div className="pt-3 sm:pt-4">
-            <div className="flex items-center justify-between text-[9px] sm:text-[10px] font-mono uppercase tracking-wider text-gray-500 mb-1.5">
-              <span>Reconciliation Status</span>
-              <span className="text-gray-900 font-bold">Active Ledger</span>
-            </div>
-            <div className="flex h-2.5 w-full gap-1 overflow-hidden rounded-none bg-gray-100 p-0.5 border border-black">
-              <div className="h-full rounded-none bg-emerald-600" style={{ width: "55%" }} />
-              <div className="h-full rounded-none bg-lime-500" style={{ width: "25%" }} />
-              <div className="h-full rounded-none bg-slate-300" style={{ width: "20%" }} />
-            </div>
-          </div>
         </div>
       </div>
 
@@ -262,7 +248,6 @@ export function DashboardPage() {
           value={data?.incoming_shipments ?? "–"}
           icon={Truck}
           hint="Scheduled material"
-          trend={{ text: "+3.5%", positive: true }}
         />
 
         {roleCan(user?.role_name, "manage_sales") ? (
@@ -280,6 +265,7 @@ export function DashboardPage() {
             value={`₹${Number(data.sales.total_sales).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
             icon={TrendingUp}
             hint="Gross billing"
+            money
             trend={{ text: "Active", positive: true }}
           />
         ) : null}
@@ -557,9 +543,9 @@ function TradingCard({ money }: { money: boolean }) {
     <Link to="/trading" className="block rounded-none border border-black bg-white p-4 shadow-2xs">
       <p className="text-[10px] font-mono font-bold uppercase tracking-wider text-gray-600">Trading</p>
       <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div><p className="text-[10px] text-gray-500">Revenue</p><p className="text-lg font-black">{money ? figure(summary.revenue) : "—"}</p></div>
-        <div><p className="text-[10px] text-gray-500">Cost</p><p className="text-lg font-black">{money ? figure(summary.cost) : "—"}</p></div>
-        <div><p className="text-[10px] text-gray-500">Profit / loss</p><p className={cn("text-lg font-black", profit != null && profit < 0 ? "text-rose-700" : "text-emerald-700")}>{money ? figure(summary.profit) : "—"}</p></div>
+        <div><p className="text-[10px] text-gray-500">Revenue</p><p className="money-figure mt-1 text-lg">{money ? figure(summary.revenue) : "—"}</p></div>
+        <div><p className="text-[10px] text-gray-500">Cost</p><p className="money-figure mt-1 text-lg">{money ? figure(summary.cost) : "—"}</p></div>
+        <div><p className="text-[10px] text-gray-500">Profit / loss</p><p className={cn("mt-1 text-lg", profit != null && profit < 0 ? "money-down" : "money-figure")}>{money ? figure(summary.profit) : "—"}</p></div>
         <div><p className="text-[10px] text-gray-500">Incoming traded deliveries</p><p className="text-lg font-black">{summary.incoming_orders}</p></div>
       </div>
     </Link>

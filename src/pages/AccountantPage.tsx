@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react"
+import { Link } from "react-router-dom"
 import {
   AlertTriangle,
   Boxes,
@@ -10,6 +11,7 @@ import {
   Scale,
 } from "lucide-react"
 
+import { RecordPayment } from "@/components/RecordPayment"
 import { FormBusy, PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
@@ -25,7 +27,15 @@ import { Input } from "@/components/ui/input"
 import { api, errorMessage, type Page } from "@/lib/api"
 import { useFormBusy } from "@/lib/busy"
 
-type Job = { id: string; product_name: string | null; quantity: string; status: string }
+type Job = {
+  id: string
+  product_name: string | null
+  quantity: string
+  status: string
+  good_quantity?: string
+  scrap_quantity?: string
+  problem_reason?: string | null
+}
 type Invoice = { id: string; number: string; status: string; total_amount: string; amount_paid: string }
 
 export function AccountantPage() {
@@ -38,15 +48,17 @@ export function AccountantPage() {
   const [showAdjustModal, setShowAdjustModal] = useState(false)
   const [adjust, setAdjust] = useState({ product_id: "", quantity_delta: "", reason: "" })
 
-  useEffect(() => {
-    Promise.all([
+  async function load() {
+    const [jobPage, invoiceRows] = await Promise.all([
       api<Page<Job>>("/api/production-jobs/?page=1&page_size=50"),
       api<Invoice[]>("/api/invoices"),
     ])
-      .then(([jobPage, invoiceRows]) => {
-        setJobs(jobPage.items.filter((job) => job.status === "awaiting_approval"))
-        setInvoices(invoiceRows.filter((invoice) => invoice.status !== "paid"))
-      })
+    setJobs(jobPage.items.filter((job) => job.status === "awaiting_approval"))
+    setInvoices(invoiceRows.filter((invoice) => invoice.status !== "paid"))
+  }
+
+  useEffect(() => {
+    load()
       .catch((caught) => setError(errorMessage(caught)))
       .finally(() => setLoading(false))
   }, [])
@@ -198,8 +210,8 @@ export function AccountantPage() {
                   <div className="flex items-center gap-3">
                     <Boxes className="size-4 text-amber-600" />
                     <div>
-                      <p className="font-semibold text-gray-900">{job.product_name ?? "Finished Item"}</p>
-                      <p className="text-gray-500">Output Quantity: <span className="font-medium text-gray-900">{job.quantity} units</span></p>
+                      <Link to="/production" className="font-semibold text-gray-900 hover:underline">{job.product_name ?? "Finished Item"}</Link>
+                      <p className="text-gray-500">Good {job.good_quantity ?? "0"} · scrap {job.scrap_quantity ?? "0"}{job.problem_reason ? ` · ${job.problem_reason}` : ""}</p>
                     </div>
                   </div>
                   <StatusBadge status="awaiting_approval" />
@@ -250,6 +262,7 @@ export function AccountantPage() {
                       <span className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 font-bold text-rose-700">
                         Due: ₹{pendingAmount.toFixed(2)}
                       </span>
+                      <RecordPayment invoiceId={inv.id} due={pendingAmount.toFixed(2)} onDone={() => void load()} />
                     </div>
                   </div>
                 )

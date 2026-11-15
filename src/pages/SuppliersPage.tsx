@@ -73,6 +73,8 @@ export function SuppliersPage() {
   const [draftMaterial, setDraftMaterial] = useState({ name: "", category_id: "", measurement_unit_id: "" })
   const [draftProduct, setDraftProduct] = useState({ product_name: "", sku_number: "", category_id: "", measurement_unit_id: "" })
   const { busy, guard } = useFormBusy()
+  const [focus, setFocus] = useState<string | null>(null)
+  const [orders, setOrders] = useState<{ id: string; supplier_id: string | null; status: string; updated_at?: string | null }[]>([])
 
   async function load() {
     try {
@@ -85,6 +87,7 @@ export function SuppliersPage() {
         api<Page<Named>>("/api/product-categories?page=1&page_size=100"),
       ])
       setRows(supplierPage.items)
+      setOrders(await api<{ id: string; supplier_id: string | null; status: string; updated_at?: string | null }[]>("/api/purchase-orders"))
       setMaterials(materialPage.items)
       setProducts(productPage.items)
       setUnits(unitPage.items)
@@ -452,7 +455,7 @@ export function SuppliersPage() {
                   <TableRow key={row.id} className="border-gray-100 hover:bg-gray-50/80">
                     <TableCell className="font-semibold text-gray-900">
                       <div>
-                        <p>{row.supplier_company_name}</p>
+                        <button type="button" className="text-left hover:underline" onClick={() => setFocus(row.id)}>{row.supplier_company_name}</button>
                         <p className="text-xs font-normal text-gray-500">{row.address}</p>
                       </div>
                     </TableCell>
@@ -490,6 +493,21 @@ export function SuppliersPage() {
           </Table>
         </div>
       </div>
+      ) : null}
+      {focus ? (
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm">
+          <p className="font-semibold">{rows.find((row) => row.id === focus)?.supplier_company_name}</p>
+          <p className="mt-2 text-xs font-bold uppercase text-gray-500">Open purchase orders</p>
+          <ul className="mt-1 text-xs text-gray-700">
+            {orders.filter((order) => order.supplier_id === focus && !["delivered", "cancelled"].includes(order.status)).map((order) => (
+              <li key={order.id}>{order.status} · {order.id.slice(0, 8)}</li>
+            ))}
+            {orders.filter((order) => order.supplier_id === focus && !["delivered", "cancelled"].includes(order.status)).length === 0 ? <li>None</li> : null}
+          </ul>
+          <p className="mt-3 text-xs text-gray-600">
+            Last receipt: {orders.filter((order) => order.supplier_id === focus && order.status === "delivered")[0]?.id.slice(0, 8) ?? "none"}
+          </p>
+        </div>
       ) : null}
     </div>
   )

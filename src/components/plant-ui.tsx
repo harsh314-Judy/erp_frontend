@@ -33,8 +33,8 @@ export function PageTitle({
   const chrome = usePageChrome()
   const nav = navForPath(pathname)
   const Mark = nav?.icon ?? Icon
-  const iconBg = nav?.iconBg ?? "bg-green-600"
-  const bar = nav?.bar ?? "border-l-green-600"
+  const iconBg = "bg-[var(--surface-2)] text-[var(--ink)]"
+  const bar = "border-[var(--scheme)]"
   const setChrome = chrome?.setChrome
   const scrolled = Boolean(chrome?.scrolled)
 
@@ -66,7 +66,7 @@ export function PageTitle({
       <div className={cn("flex min-w-0 flex-1 items-start gap-2.5 border-l-[3px] pl-3 sm:gap-3", bar)}>
         <div ref={guideBox} className="relative flex shrink-0 flex-col items-center gap-1">
           {Mark && !scrolled && (
-            <div className={cn("grid size-9 place-items-center rounded-2xl text-white shadow-sm sm:size-10", iconBg)}>
+            <div className={cn("grid size-9 place-items-center rounded-md sm:size-10", iconBg)}>
               <Mark className="size-4 sm:size-5" />
             </div>
           )}
@@ -229,43 +229,39 @@ export function StatusBadge({
 }
 
 export function StatCard({
-  label, value, hint, icon: Icon, trend,
+  label, value, hint, icon: Icon, trend, money = false,
 }: {
   label: string
   value: string | number
   hint?: string
   icon?: ComponentType<{ className?: string }>
   color?: string
+  money?: boolean
   trend?: { text: string; positive?: boolean }
 }) {
   return (
-    <div className="rounded-none border border-black bg-white p-3 sm:p-5 shadow-2xs hover:border-gray-800 transition-colors duration-150 animate-rise min-w-0 flex flex-col justify-between overflow-hidden">
+    <div className="animate-rise flex min-w-0 flex-col justify-between overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--surface)] p-4 sm:p-6">
       <div className="min-w-0">
-        <div className="flex items-start justify-between gap-1 sm:gap-3">
-          <p className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-gray-600 truncate">{label}</p>
+        <div className="flex items-start justify-between gap-3">
+          <p className="truncate text-[11px] font-medium tracking-[0.4px] text-[var(--ink-soft)] uppercase">{label}</p>
           {Icon && (
-            <div className="grid size-6 sm:size-7 shrink-0 place-items-center rounded-none bg-gray-50 text-gray-800 border border-black shadow-2xs">
-              <Icon className="size-3 sm:size-3.5" />
+            <div className="grid size-7 shrink-0 place-items-center rounded-md bg-[var(--surface-2)] text-[var(--ink-muted)]">
+              <Icon className="size-3.5" />
             </div>
           )}
         </div>
-        <div className="mt-1.5 sm:mt-2.5 min-w-0">
-          <span className="text-xl sm:text-3xl font-black text-gray-950 tabular-nums tracking-tight font-sans truncate block">{value}</span>
+        <div className="mt-3 min-w-0">
+          <span className={cn("block truncate text-2xl sm:text-3xl", money ? "money-figure" : "font-medium tracking-tight text-[var(--ink)]")}>{value}</span>
         </div>
       </div>
       {(hint || trend) && (
-        <div className="mt-2 flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+        <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2">
           {trend && (
-            <span className={cn(
-              "inline-flex items-center rounded-none border border-black px-1 sm:px-1.5 py-0.2 sm:py-0.5 text-[8.5px] sm:text-[10px] font-mono font-bold tracking-wider shrink-0",
-              trend.positive
-                ? "bg-emerald-50 text-emerald-800"
-                : "bg-rose-50 text-rose-800"
-            )}>
+            <span className={cn("shrink-0 text-[12px] font-medium", trend.positive ? "money-up" : "money-down")}>
               {trend.positive ? "▲" : "▼"} {trend.text}
             </span>
           )}
-          {hint && <span className="text-[10px] sm:text-[11px] font-medium text-gray-500 truncate block min-w-0 flex-1">{hint}</span>}
+          {hint && <span className="block min-w-0 flex-1 truncate text-[12px] text-[var(--ink-soft)]">{hint}</span>}
         </div>
       )}
     </div>

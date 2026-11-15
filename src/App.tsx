@@ -9,6 +9,7 @@ import { AccountantPage } from "@/pages/AccountantPage"
 import { AdminPage } from "@/pages/AdminPage"
 import { CustomersPage } from "@/pages/CustomersPage"
 import { DashboardPage } from "@/pages/DashboardPage"
+import { DepartmentNowPage } from "@/pages/DepartmentNowPage"
 import { DepartmentsPage } from "@/pages/DepartmentsPage"
 import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage"
 import { LandingPage } from "@/pages/LandingPage"
@@ -70,6 +71,7 @@ export default function App() {
         <Route path="accountant" element={<AccountantPage />} />
         <Route path="staff" element={<StaffPage />} />
         <Route path="departments" element={<DepartmentsPage />} />
+        <Route path="departments/:operationId/now" element={<DepartmentNowPage />} />
         <Route path="people" element={<WorkerTimelinePage />} />
         <Route path="people/:workerId" element={<WorkerTimelinePage />} />
         <Route path="reports" element={<ReportsPage />} />

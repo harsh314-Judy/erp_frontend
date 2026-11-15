@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
+import { FloorPay } from "@/components/FloorPay"
 import { IdentityForm, type IdentityValues } from "@/components/IdentityForm"
 import { FormBusy, PageLoading } from "@/components/PlantLoader"
 import { Notice, PageTitle } from "@/components/plant-ui"
@@ -421,6 +422,7 @@ export function AdminPage() {
         }}
         onSelectDay={setSelectedDay}
       />
+      <FloorPay />
 
       {/* Edit Profile Modal */}
       <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
