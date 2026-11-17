@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { api, errorMessage, type Page } from "@/lib/api"
+import { departmentLabel } from "@/lib/labels"
 import { cn } from "@/lib/utils"
 
 type Department = { id: string; name: string }
@@ -167,7 +168,7 @@ export function FloorEntryDialog({
                 required
               >
                 {departments.map((department) => (
-                  <option key={department.id} value={department.id}>{department.name}</option>
+                  <option key={department.id} value={department.id}>{departmentLabel(department.name)}</option>
                 ))}
               </select>
             </Field>

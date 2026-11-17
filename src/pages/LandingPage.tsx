@@ -5,10 +5,10 @@ import {
 } from "lucide-react"
 
 const features = [
-  { icon: LayoutDashboard, title: "Smart Dashboard",   desc: "Live KPIs, production metrics, and sales at a glance.", color: "text-green-600 bg-green-50" },
-  { icon: Factory,         title: "Production",        desc: "Track job cards, material usage, and work orders.",      color: "text-blue-600 bg-blue-50"  },
-  { icon: Package,         title: "Inventory",         desc: "Manage finished goods and raw materials in real time.",  color: "text-purple-600 bg-purple-50" },
-  { icon: ShoppingCart,    title: "Purchases",         desc: "Streamlined PO creation, approval, and tracking.",      color: "text-amber-600 bg-amber-50" },
+  { icon: LayoutDashboard, title: "Smart Dashboard",   desc: "Live KPIs, production metrics, and sales at a glance.", color: "tone tone-emerald" },
+  { icon: Factory,         title: "Production",        desc: "Track job cards, material usage, and work orders.",      color: "tone tone-blue" },
+  { icon: Package,         title: "Inventory",         desc: "Manage finished goods and raw materials in real time.",  color: "tone tone-violet" },
+  { icon: ShoppingCart,    title: "Purchases",         desc: "Streamlined PO creation, approval, and tracking.",      color: "tone tone-amber" },
   { icon: FileText,        title: "Sales & Invoicing", desc: "Raise invoices, track payments, and manage customers.", color: "text-pink-600 bg-pink-50"   },
   { icon: Boxes,           title: "Materials",         desc: "Raw material planning with supplier integration.",       color: "text-teal-600 bg-teal-50"  },
 ]
@@ -56,8 +56,8 @@ export function LandingPage() {
       {/* ── Hero ─────────────────────────────────────────────── */}
       <section className="flex flex-col items-center justify-center gap-6 px-5 pb-16 pt-20 text-center">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-1.5 text-xs font-semibold text-green-700 animate-rise">
-          <span className="size-1.5 rounded-full bg-green-500" />
+        <div className="tone tone-emerald inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold animate-rise">
+          <span className="size-1.5 rounded-full bg-white" />
           Built for steel manufacturing
         </div>
 

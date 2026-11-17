@@ -20,6 +20,7 @@ import { PageLoading } from "@/components/PlantLoader"
 import { Notice, PageTitle, StatCard } from "@/components/plant-ui"
 import { api, errorMessage, peek } from "@/lib/api"
 import { roleCan } from "@/lib/access"
+import { departmentLabel } from "@/lib/labels"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/auth/AuthContext"
 
@@ -107,8 +108,8 @@ export function DashboardPage() {
           <SyncBadge state={sync} />
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-none bg-emerald-50 text-emerald-800 px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider border border-black">
-            <span className="size-1.5 rounded-none bg-emerald-500 animate-pulse" />
+          <span className="tone tone-emerald inline-flex items-center gap-1.5 rounded-none px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider">
+            <span className="size-1.5 rounded-none bg-white animate-pulse" />
             LIVE PLANT SYNC
           </span>
         </div>
@@ -185,7 +186,7 @@ export function DashboardPage() {
           </div>
           {(data?.machines_down ?? []).length > 0 ? (
             <p className="mt-3 text-xs text-rose-800">
-              Down: {(data?.machines_down ?? []).map((machine) => `${machine.name} (${machine.operation_name})`).join(", ")}
+              Down: {(data?.machines_down ?? []).map((machine) => `${machine.name} (${departmentLabel(machine.operation_name)})`).join(", ")}
             </p>
           ) : null}
         </div>
@@ -309,16 +310,16 @@ export function DashboardPage() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5 text-[9px] sm:text-xs font-mono font-bold">
-                  <span className="flex items-center gap-1 text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded-none border border-black text-[9px]">
-                    <span className="size-1.5 rounded-none bg-amber-500" />
+                  <span className="tone tone-amber flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px]">
+                    <span className="size-1.5 rounded-none bg-white" />
                     PENDING ({data?.production?.pending_jobs ?? 0})
                   </span>
-                  <span className="flex items-center gap-1 text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded-none border border-black text-[9px]">
-                    <span className="size-1.5 rounded-none bg-blue-500" />
+                  <span className="tone tone-blue flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px]">
+                    <span className="size-1.5 rounded-none bg-white" />
                     RUNNING ({data?.production?.jobs_in_progress ?? 0})
                   </span>
-                  <span className="flex items-center gap-1 text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded-none border border-black text-[9px]">
-                    <span className="size-1.5 rounded-none bg-emerald-500" />
+                  <span className="tone tone-emerald flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px]">
+                    <span className="size-1.5 rounded-none bg-white" />
                     DONE ({data?.production?.completed_jobs ?? 0})
                   </span>
                 </div>
@@ -382,7 +383,7 @@ export function DashboardPage() {
                 className="group flex items-center justify-between rounded-none border border-black hover:border-black bg-white p-2.5 sm:p-3 transition-all hover:bg-gray-50 shadow-2xs"
               >
                 <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                  <div className="grid size-8 sm:size-9 place-items-center rounded-none bg-blue-600 text-white border border-black shadow-2xs shrink-0">
+                  <div className="tone tone-blue grid size-8 sm:size-9 place-items-center rounded-none shadow-2xs shrink-0">
                     <Factory className="size-3.5 sm:size-4" />
                   </div>
                   <div className="min-w-0">
@@ -398,7 +399,7 @@ export function DashboardPage() {
                 className="group flex items-center justify-between rounded-none border border-black hover:border-black bg-white p-2.5 sm:p-3 transition-all hover:bg-gray-50 shadow-2xs"
               >
                 <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                  <div className="grid size-8 sm:size-9 place-items-center rounded-none bg-amber-600 text-white border border-black shadow-2xs shrink-0">
+                  <div className="tone tone-amber grid size-8 sm:size-9 place-items-center rounded-none shadow-2xs shrink-0">
                     <Truck className="size-3.5 sm:size-4" />
                   </div>
                   <div className="min-w-0">
@@ -414,7 +415,7 @@ export function DashboardPage() {
                 className="group flex items-center justify-between rounded-none border border-black hover:border-black bg-white p-2.5 sm:p-3 transition-all hover:bg-gray-50 shadow-2xs"
               >
                 <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-                  <div className="grid size-8 sm:size-9 place-items-center rounded-none bg-emerald-600 text-white border border-black shadow-2xs shrink-0">
+                  <div className="tone tone-emerald grid size-8 sm:size-9 place-items-center rounded-none shadow-2xs shrink-0">
                     <Receipt className="size-3.5 sm:size-4" />
                   </div>
                   <div className="min-w-0">

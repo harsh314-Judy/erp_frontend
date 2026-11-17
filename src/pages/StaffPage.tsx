@@ -5,6 +5,7 @@ import { PageLoading } from "@/components/PlantLoader"
 import { Notice, PageTitle } from "@/components/plant-ui"
 import { DepartmentNowPage } from "@/pages/DepartmentNowPage"
 import { api, errorMessage } from "@/lib/api"
+import { departmentLabel } from "@/lib/labels"
 
 type Assigned = { operation_id: string; name: string }
 
@@ -32,8 +33,8 @@ export function StaffPage() {
       <ul className="grid gap-3">
         {ops.map((row) => (
           <li key={row.operation_id}>
-            <Link to={`/departments/${row.operation_id}/now`} className="block rounded-2xl border border-gray-200 bg-white px-4 py-5 text-lg font-bold capitalize text-gray-900">
-              {row.name}
+            <Link to={`/departments/${row.operation_id}/now`} className="block rounded-2xl border border-gray-200 bg-white px-4 py-5 text-lg font-bold text-gray-900">
+              {departmentLabel(row.name)}
             </Link>
           </li>
         ))}

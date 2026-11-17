@@ -183,7 +183,7 @@ export function CustomersPage() {
             <DialogContent className="sm:max-w-2xl bg-white border-gray-200/90 shadow-xl">
               <DialogHeader>
                 <div className="flex items-center gap-2.5">
-                  <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
+                  <div className="tone tone-emerald grid size-9 place-items-center rounded-xl">
                     <UserRound className="size-5" />
                   </div>
                   <DialogTitle className="text-lg font-bold text-gray-900">
@@ -257,7 +257,7 @@ export function CustomersPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="inline-block rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 border border-blue-200">
+                      <span className="tone tone-blue inline-block rounded-md px-2 py-0.5 text-xs font-semibold">
                         {row.state || "Home State (CGST+SGST)"}
                       </span>
                     </TableCell>
@@ -281,8 +281,8 @@ export function CustomersPage() {
                     </TableCell>
                     <TableCell>
                       {row.gst_number ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-mono font-bold text-green-700">
-                          <span className="size-1.5 rounded-full bg-green-600 shadow-xs" />
+                        <span className="tone tone-emerald inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-mono font-bold">
+                          <span className="size-1.5 rounded-full bg-white shadow-xs" />
                           {row.gst_number}
                         </span>
                       ) : (
@@ -290,7 +290,7 @@ export function CustomersPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-xs font-medium text-emerald-700 capitalize">
+                      <span className="tone tone-emerald inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium capitalize">
                         <MessageSquare className="size-3" />
                         {row.whatsapp_mode}
                       </span>

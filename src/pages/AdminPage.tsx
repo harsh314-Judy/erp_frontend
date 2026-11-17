@@ -191,7 +191,7 @@ export function AdminPage() {
               <FormBusy show={busy} label="Sending invite" />
               <DialogHeader>
                 <div className="flex items-center gap-3">
-                  <div className="grid size-10 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
+                  <div className="tone tone-emerald grid size-10 place-items-center rounded-xl">
                     <UserPlus className="size-5" />
                   </div>
                   <div>
@@ -380,7 +380,7 @@ export function AdminPage() {
                         </TableCell>
                         <TableCell>
                           {member.identity_overridden ? (
-                            <span className="inline-flex items-center gap-1.5 border border-violet-700 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-900">
+                            <span className="tone tone-violet inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-medium">
                               <KeyRound className="size-3" />
                               Locked
                             </span>

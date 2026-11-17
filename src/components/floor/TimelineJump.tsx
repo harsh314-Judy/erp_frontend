@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { UserRound } from "lucide-react"
 
 import { api } from "@/lib/api"
+import { departmentLabel } from "@/lib/labels"
 
 type Person = { id: string; name: string; operation_name?: string; employment_type?: string }
 
@@ -61,7 +62,7 @@ export function TimelineJump() {
                   onClick={() => navigate(`/people/${person.id}`)}
                 >
                   <span className="font-semibold text-gray-900">{person.name}</span>
-                  <span className="text-gray-400">{person.operation_name ?? ""}</span>
+                  <span className="text-gray-400">{departmentLabel(person.operation_name)}</span>
                 </button>
               </li>
             ))}

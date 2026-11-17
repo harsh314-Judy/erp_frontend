@@ -5,7 +5,9 @@ import { useAuth } from "@/auth/AuthContext"
 import { AppShell } from "@/components/AppShell"
 import { PlantLoader } from "@/components/PlantLoader"
 import { AcceptInvitePage } from "@/pages/AcceptInvitePage"
-import { AccountantPage } from "@/pages/AccountantPage"
+import { ActivityPage } from "@/pages/ActivityPage"
+import { JobApprovalPage } from "@/pages/AccountantPage"
+import { PaymentApprovalPage } from "@/pages/PaymentApprovalPage"
 import { AdminPage } from "@/pages/AdminPage"
 import { CustomersPage } from "@/pages/CustomersPage"
 import { DashboardPage } from "@/pages/DashboardPage"
@@ -68,7 +70,10 @@ export default function App() {
         <Route path="users" element={<AdminPage />} />
         <Route path="admin" element={<Navigate to="/users" replace />} />
         <Route path="members" element={<Navigate to="/users" replace />} />
-        <Route path="accountant" element={<AccountantPage />} />
+        <Route path="accountant" element={<Navigate to="/accountant/jobs" replace />} />
+        <Route path="accountant/jobs" element={<JobApprovalPage />} />
+        <Route path="accountant/payments" element={<PaymentApprovalPage />} />
+        <Route path="activity" element={<ActivityPage />} />
         <Route path="staff" element={<StaffPage />} />
         <Route path="departments" element={<DepartmentsPage />} />
         <Route path="departments/:operationId/now" element={<DepartmentNowPage />} />

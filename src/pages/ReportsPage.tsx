@@ -16,6 +16,7 @@ import { Notice, PageTitle, StatCard, StatusBadge } from "@/components/plant-ui"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { roleCan } from "@/lib/access"
+import { departmentLabel } from "@/lib/labels"
 import { api, downloadFile, errorMessage, peek } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
@@ -162,7 +163,7 @@ export function ReportsPage() {
                   <TableRow><TableCell colSpan={3} className="text-gray-500">No floor lines this week.</TableCell></TableRow>
                 ) : shop?.yields.map((row) => (
                   <TableRow key={row.name}>
-                    <TableCell className="capitalize">{row.name}</TableCell>
+                    <TableCell>{departmentLabel(row.name)}</TableCell>
                     <TableCell className="text-right">{row.good}</TableCell>
                     <TableCell className="text-right">{row.scrap}</TableCell>
                   </TableRow>
@@ -190,7 +191,7 @@ export function ReportsPage() {
               {shop?.late_jobs.map((job) => (
                 <li key={job.id}>
                   <Link to="/production" className="font-semibold text-gray-900">{job.product_name || "Job"}</Link>
-                  <span className="text-gray-500"> · {job.current_operation_name || job.status} · {new Date(job.due_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
+                  <span className="text-gray-500"> · {departmentLabel(job.current_operation_name) || job.status} · {new Date(job.due_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
                 </li>
               ))}
             </ul>
@@ -291,8 +292,8 @@ export function ReportsPage() {
                           className={cn(
                             "inline-block rounded-md px-2 py-0.5 text-xs font-bold",
                             isNegative
-                              ? "bg-rose-50 text-rose-700 border border-rose-200"
-                              : "bg-emerald-50 text-emerald-700 border border-emerald-200",
+                              ? "tone tone-rose"
+                              : "tone tone-emerald",
                           )}
                         >
                           {isNegative ? "" : "+"}

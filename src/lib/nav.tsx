@@ -7,6 +7,7 @@ import {
   FileText,
   LayoutDashboard,
   Package,
+  History,
   Receipt,
   Settings,
   ShoppingCart,
@@ -18,6 +19,8 @@ import {
 } from "lucide-react"
 
 import { roleCan } from "@/lib/access"
+
+export type NavChild = { to: string; label: string }
 
 export type NavItem = {
   to: string
@@ -31,6 +34,7 @@ export type NavItem = {
   dot: string
   section: string
   show: (role: string | null | undefined) => boolean
+  children?: NavChild[]
 }
 
 export const NAV: NavItem[] = [
@@ -202,6 +206,23 @@ export const NAV: NavItem[] = [
     dot: "bg-orange-600",
     section: "ADMINISTRATION",
     show: (role) => roleCan(role, "approve_jobs"),
+    children: [
+      { to: "/accountant/jobs", label: "Job approval" },
+      { to: "/accountant/payments", label: "Payment approval" },
+    ],
+  },
+  {
+    to: "/activity",
+    label: "Activity log",
+    shortLabel: "Activity",
+    icon: History,
+    iconColor: "text-white",
+    iconBg: "bg-neutral-700",
+    bar: "border-l-black",
+    activeBorder: "border-l-black",
+    dot: "bg-neutral-700",
+    section: "ADMINISTRATION",
+    show: (role) => roleCan(role, "view_reports"),
   },
   {
     to: "/users",
@@ -232,5 +253,10 @@ export const NAV: NavItem[] = [
 ]
 
 export function navForPath(pathname: string) {
-  return NAV.find((item) => pathname === item.to || pathname.startsWith(`${item.to}/`))
+  for (const item of NAV) {
+    const child = item.children?.find((entry) => pathname === entry.to || pathname.startsWith(`${entry.to}/`))
+    if (child) return { ...item, to: child.to, label: child.label, shortLabel: child.label }
+    if (!item.children && (pathname === item.to || pathname.startsWith(`${item.to}/`))) return item
+    if (pathname === item.to) return item
+  }
 }

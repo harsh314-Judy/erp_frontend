@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react"
 import { createPortal } from "react-dom"
-import { useLocation } from "react-router-dom"
-import { AlertCircle, CheckCircle2, ChevronDown, Info, Search, AlertTriangle } from "lucide-react"
+import { Link, useLocation } from "react-router-dom"
+import { AlertCircle, ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, Info, Search, AlertTriangle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils"
 
 export type PageGuideSection = { heading: string; items: { label: string; detail: string }[] }
 
+export type Crumb = { label: string; to?: string }
+
 export function PageTitle({
   title,
   hint,
@@ -18,6 +20,7 @@ export function PageTitle({
   badge,
   action,
   guide,
+  crumbs,
 }: {
   title: string
   hint?: string
@@ -25,6 +28,7 @@ export function PageTitle({
   badge?: ReactNode
   action?: ReactNode
   guide?: PageGuideSection[]
+  crumbs?: Crumb[]
 }) {
   const root = useRef<HTMLDivElement>(null)
   const guideBox = useRef<HTMLDivElement>(null)
@@ -32,6 +36,14 @@ export function PageTitle({
   const { pathname } = useLocation()
   const chrome = usePageChrome()
   const nav = navForPath(pathname)
+  const onLanding = Boolean(nav && pathname === nav.to)
+  const trail: Crumb[] = crumbs ?? (
+    !onLanding && nav && title && nav.label !== title
+      ? [{ label: nav.label, to: nav.to }, { label: title }]
+      : [{ label: title }]
+  )
+  const current = trail[trail.length - 1]?.label || title
+  const parent = trail.length > 1 ? trail[trail.length - 2] : undefined
   const Mark = nav?.icon ?? Icon
   const iconBg = "bg-[var(--surface-2)] text-[var(--ink)]"
   const bar = "border-[var(--scheme)]"
@@ -58,8 +70,8 @@ export function PageTitle({
     if (!setChrome) return
     const page = root.current?.closest("[data-page]")?.getAttribute("data-page")
     if (page && page !== pathname) return
-    setChrome(Mark ? { title, icon: Mark, iconBg } : null)
-  }, [setChrome, pathname, title, Mark, iconBg])
+    setChrome(Mark ? { title: current, icon: Mark, iconBg } : null)
+  }, [setChrome, pathname, current, Mark, iconBg])
 
   return (
     <div ref={root} className="mb-4 flex w-full min-w-0 flex-col justify-between gap-3 sm:mb-5 sm:flex-row sm:items-center">
@@ -106,7 +118,32 @@ export function PageTitle({
         <div className="min-w-0 flex-1">
           {!scrolled && (
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">{title}</h1>
+              {parent?.to ? (
+                <Link
+                  to={parent.to}
+                  className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--surface)] px-2.5 text-xs font-semibold text-[var(--ink)] hover:bg-[var(--hover)]"
+                >
+                  <ArrowLeft className="size-3.5" />
+                  Back
+                </Link>
+              ) : null}
+              <nav aria-label="Page path" className="flex min-w-0 flex-wrap items-center gap-1">
+                {trail.map((crumb, index) => {
+                  const last = index === trail.length - 1
+                  return (
+                    <span key={`${crumb.label}-${index}`} className="flex min-w-0 items-center gap-1">
+                      {index > 0 ? <ChevronRight className="size-3.5 shrink-0 text-[var(--ink-soft)]" /> : null}
+                      {last ? (
+                        <h1 className="truncate text-xl font-bold tracking-tight text-[var(--ink)] sm:text-2xl">{crumb.label}</h1>
+                      ) : crumb.to ? (
+                        <Link to={crumb.to} className="truncate text-sm font-medium text-[var(--ink-soft)] hover:text-[var(--ink)] hover:underline">{crumb.label}</Link>
+                      ) : (
+                        <span className="truncate text-sm font-medium text-[var(--ink-soft)]">{crumb.label}</span>
+                      )}
+                    </span>
+                  )
+                })}
+              </nav>
               {badge && (
                 <span className="inline-flex shrink-0 items-center rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-medium tracking-tight text-gray-600 sm:text-xs">
                   {badge}
@@ -188,34 +225,34 @@ export function StatusBadge({
   const display = label ?? norm.replaceAll("_", " ")
 
   const map: Record<string, { bg: string; dot: string }> = {
-    completed:        { bg: "bg-emerald-50 text-emerald-800 border-black", dot: "bg-emerald-600" },
-    done:             { bg: "bg-emerald-50 text-emerald-800 border-black", dot: "bg-emerald-600" },
-    paid:             { bg: "bg-emerald-50 text-emerald-800 border-black", dot: "bg-emerald-600" },
-    verified:         { bg: "bg-emerald-50 text-emerald-800 border-black", dot: "bg-emerald-600" },
-    delivered:        { bg: "bg-emerald-50 text-emerald-800 border-black", dot: "bg-emerald-600" },
-    normal:           { bg: "bg-emerald-50 text-emerald-800 border-black", dot: "bg-emerald-600" },
-    active:           { bg: "bg-emerald-50 text-emerald-800 border-black", dot: "bg-emerald-600" },
-    running:          { bg: "bg-blue-50 text-blue-800 border-black",       dot: "bg-blue-600" },
-    in_progress:      { bg: "bg-blue-50 text-blue-800 border-black",       dot: "bg-blue-600" },
-    dispatched:       { bg: "bg-blue-50 text-blue-800 border-black",       dot: "bg-blue-600" },
-    manufactured:     { bg: "bg-blue-50 text-blue-800 border-black",       dot: "bg-blue-600" },
-    initiated:       { bg: "bg-amber-50 text-amber-800 border-black",     dot: "bg-amber-600" },
-    process:          { bg: "bg-blue-50 text-blue-800 border-black",       dot: "bg-blue-600" },
-    in_delivery:      { bg: "bg-sky-50 text-sky-800 border-black",         dot: "bg-sky-600" },
-    ordered:          { bg: "bg-amber-50 text-amber-800 border-black",     dot: "bg-amber-600" },
-    awaiting_approval:{ bg: "bg-amber-50 text-amber-800 border-black",     dot: "bg-amber-600" },
-    arrived:          { bg: "bg-amber-50 text-amber-800 border-black",     dot: "bg-amber-600" },
-    partial:          { bg: "bg-amber-50 text-amber-800 border-black",     dot: "bg-amber-600" },
-    both:             { bg: "bg-amber-50 text-amber-800 border-black",     dot: "bg-amber-600" },
-    cancelled:        { bg: "bg-rose-50 text-rose-800 border-black",       dot: "bg-rose-600" },
-    rejected:         { bg: "bg-rose-50 text-rose-800 border-black",       dot: "bg-rose-600" },
-    low_stock:        { bg: "bg-rose-50 text-rose-800 border-black",       dot: "bg-rose-600" },
-    critical:         { bg: "bg-rose-50 text-rose-800 border-black",       dot: "bg-rose-600" },
-    unpaid:           { bg: "bg-rose-50 text-rose-800 border-black",       dot: "bg-rose-600" },
-    purchased:        { bg: "bg-purple-50 text-purple-800 border-black",   dot: "bg-purple-600" },
+    completed:        { bg: "tone tone-emerald", dot: "bg-white" },
+    done:             { bg: "tone tone-emerald", dot: "bg-white" },
+    paid:             { bg: "tone tone-emerald", dot: "bg-white" },
+    verified:         { bg: "tone tone-emerald", dot: "bg-white" },
+    delivered:        { bg: "tone tone-emerald", dot: "bg-white" },
+    normal:           { bg: "tone tone-emerald", dot: "bg-white" },
+    active:           { bg: "tone tone-emerald", dot: "bg-white" },
+    running:          { bg: "tone tone-blue",    dot: "bg-white" },
+    in_progress:      { bg: "tone tone-blue",    dot: "bg-white" },
+    dispatched:       { bg: "tone tone-blue",    dot: "bg-white" },
+    manufactured:     { bg: "tone tone-blue",    dot: "bg-white" },
+    initiated:        { bg: "tone tone-amber",   dot: "bg-white" },
+    process:          { bg: "tone tone-blue",    dot: "bg-white" },
+    in_delivery:      { bg: "tone tone-sky",     dot: "bg-white" },
+    ordered:          { bg: "tone tone-amber",   dot: "bg-white" },
+    awaiting_approval:{ bg: "tone tone-amber",   dot: "bg-white" },
+    arrived:          { bg: "tone tone-amber",   dot: "bg-white" },
+    partial:          { bg: "tone tone-amber",   dot: "bg-white" },
+    both:             { bg: "tone tone-amber",   dot: "bg-white" },
+    cancelled:        { bg: "tone tone-rose",    dot: "bg-white" },
+    rejected:         { bg: "tone tone-rose",    dot: "bg-white" },
+    low_stock:        { bg: "tone tone-rose",    dot: "bg-white" },
+    critical:         { bg: "tone tone-rose",    dot: "bg-white" },
+    unpaid:           { bg: "tone tone-rose",    dot: "bg-white" },
+    purchased:        { bg: "tone tone-violet",  dot: "bg-white" },
   }
 
-  const style = map[norm] ?? { bg: "bg-gray-50 text-gray-700 border-black", dot: "bg-gray-500" }
+  const style = map[norm] ?? { bg: "tone tone-slate", dot: "bg-white" }
 
   return (
     <span className={cn(

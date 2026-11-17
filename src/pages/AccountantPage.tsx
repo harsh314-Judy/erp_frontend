@@ -1,17 +1,15 @@
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 import {
-  AlertTriangle,
   Boxes,
   Clock,
   CreditCard,
-  FileText,
   Plus,
   Receipt,
   Scale,
 } from "lucide-react"
 
-import { RecordPayment } from "@/components/RecordPayment"
+import { useAuth } from "@/auth/AuthContext"
 import { FormBusy, PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
@@ -36,25 +34,63 @@ type Job = {
   scrap_quantity?: string
   problem_reason?: string | null
 }
-type Invoice = { id: string; number: string; status: string; total_amount: string; amount_paid: string }
+type ApprovalLog = { at: string; user_name: string; action: string; detail: string }
 
-export function AccountantPage() {
+function estimateOf(job: Job) {
+  return Number(job.good_quantity || 0) > 0 ? String(job.good_quantity) : job.quantity
+}
+
+function startOfDay(value: Date) {
+  const copy = new Date(value)
+  copy.setHours(0, 0, 0, 0)
+  return copy
+}
+
+function jobGroup(when: Date, now: Date) {
+  const today = startOfDay(now)
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  const week = startOfDay(now)
+  const weekday = week.getDay()
+  week.setDate(week.getDate() - (weekday === 0 ? 6 : weekday - 1))
+  const day = startOfDay(when)
+  if (day.getTime() === today.getTime()) return "Today"
+  if (day.getTime() === yesterday.getTime()) return "Yesterday"
+  if (day >= week && day < today) return "This week"
+  if (when.getFullYear() === now.getFullYear() && when.getMonth() === now.getMonth()) return "This month"
+  if (when.getFullYear() === now.getFullYear()) return when.toLocaleDateString("en-IN", { month: "long" })
+  return String(when.getFullYear())
+}
+
+function jobHeading(label: string, now: Date) {
+  const date = now.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+  const month = now.toLocaleDateString("en-IN", { month: "long" })
+  if (label === "Today") return `Today · ${date}`
+  if (label === "This month") return `This month · ${month}`
+  return label
+}
+
+export function JobApprovalPage() {
   const [jobs, setJobs] = useState<Job[]>([])
-  const [invoices, setInvoices] = useState<Invoice[]>([])
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
   const { busy, guard } = useFormBusy()
   const [adjustSuccess, setAdjustSuccess] = useState(false)
   const [showAdjustModal, setShowAdjustModal] = useState(false)
   const [adjust, setAdjust] = useState({ product_id: "", quantity_delta: "", reason: "" })
+  const [signedOff, setSignedOff] = useState<Job[]>([])
+  const [openJob, setOpenJob] = useState<string | null>(null)
+  const [signoff, setSignoff] = useState({ note: "", staffName: "", area: "", produced: "" })
+  const [logs, setLogs] = useState<Record<string, ApprovalLog[]>>({})
+  const [logsReady, setLogsReady] = useState(false)
+  const { user, can } = useAuth()
+  const approver = [user?.first_name, user?.last_name].filter(Boolean).join(" ")
+  const mayApprove = can("approve_jobs")
 
   async function load() {
-    const [jobPage, invoiceRows] = await Promise.all([
-      api<Page<Job>>("/api/production-jobs/?page=1&page_size=50"),
-      api<Invoice[]>("/api/invoices"),
-    ])
+    const jobPage = await api<Page<Job>>("/api/production-jobs/?page=1&page_size=500")
     setJobs(jobPage.items.filter((job) => job.status === "awaiting_approval"))
-    setInvoices(invoiceRows.filter((invoice) => invoice.status !== "paid"))
+    setSignedOff(jobPage.items.filter((job) => job.status === "completed"))
   }
 
   useEffect(() => {
@@ -62,6 +98,73 @@ export function AccountantPage() {
       .catch((caught) => setError(errorMessage(caught)))
       .finally(() => setLoading(false))
   }, [])
+
+  async function approve(job: Job, event: FormEvent) {
+    event.preventDefault()
+    setError("")
+    await guard(async () => {
+      try {
+        await api(`/api/production-jobs/${job.id}/approve`, {
+          method: "POST",
+          body: JSON.stringify({
+            produced_quantity: signoff.produced,
+            inputs: [],
+            note: signoff.note.trim(),
+            staff_name: signoff.staffName.trim(),
+            area: signoff.area.trim() || null,
+          }),
+        })
+        setOpenJob(null)
+        setSignoff({ note: "", staffName: "", area: "", produced: "" })
+        await load()
+      } catch (caught) {
+        setError(errorMessage(caught))
+      }
+    })
+  }
+
+  useEffect(() => {
+    if (!signedOff.length) {
+      setLogsReady(true)
+      return
+    }
+    let alive = true
+    setLogsReady(false)
+    Promise.all(
+      signedOff.map(async (job) => {
+        const detail = await api<{ events?: ApprovalLog[] }>(`/api/production-jobs/${job.id}`)
+        return [job.id, (detail.events ?? []).filter((event) => event.action === "approved")] as const
+      }),
+    )
+      .then((pairs) => {
+        if (!alive) return
+        setLogs(Object.fromEntries(pairs))
+        setLogsReady(true)
+      })
+      .catch((caught) => {
+        if (alive) setError(errorMessage(caught))
+      })
+    return () => {
+      alive = false
+    }
+  }, [signedOff])
+
+  const now = useMemo(() => new Date(), [])
+  const signoffGroups = useMemo(() => {
+    const lines = signedOff.flatMap((job) => (logs[job.id] ?? []).map((entry) => ({ job, entry })))
+    lines.sort((left, right) => new Date(right.entry.at).getTime() - new Date(left.entry.at).getTime())
+    const order: string[] = []
+    const buckets = new Map<string, typeof lines>()
+    for (const line of lines) {
+      const label = jobGroup(new Date(line.entry.at), now)
+      if (!buckets.has(label)) {
+        buckets.set(label, [])
+        order.push(label)
+      }
+      buckets.get(label)?.push(line)
+    }
+    return order.map((label) => ({ label, lines: buckets.get(label) ?? [] }))
+  }, [logs, now, signedOff])
 
   async function saveAdjustment(event: FormEvent) {
     event.preventDefault()
@@ -90,10 +193,10 @@ export function AccountantPage() {
   return (
     <div className="space-y-6">
       <PageTitle
-        title="Financial & Quality Approvals"
-        hint="Accountant workstation. Approve finished job runs, track unpaid GST invoices, and log audited inventory adjustments."
+        title="Job approval"
+        hint="Sign the real quantity into stock. The job quantity is the estimate."
         icon={Receipt}
-        badge={`${jobs.length + invoices.length} Pending Tasks`}
+        badge={`${jobs.length} Queued`}
         action={
           <Dialog open={showAdjustModal} onOpenChange={setShowAdjustModal}>
             <DialogTrigger asChild>
@@ -106,7 +209,7 @@ export function AccountantPage() {
               <FormBusy show={busy} />
               <DialogHeader>
                 <div className="flex items-center gap-3">
-                  <div className="grid size-10 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
+                  <div className="tone tone-emerald grid size-10 place-items-center rounded-xl">
                     <Scale className="size-5" />
                   </div>
                   <div>
@@ -178,12 +281,13 @@ export function AccountantPage() {
       {loading ? (
         <PageLoading label="Loading approvals" variant="cards" count={2} />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
+      <>
+        <div className="grid gap-6">
         {/* Waiting For Approval */}
         <section className="space-y-3 rounded-2xl border border-gray-200/90 bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between border-b border-gray-100 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="grid size-9 place-items-center rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
+              <div className="tone tone-amber grid size-9 place-items-center rounded-xl">
                 <Clock className="size-4" />
               </div>
               <div>
@@ -191,7 +295,7 @@ export function AccountantPage() {
                 <p className="text-[11px] text-gray-500">Sign-off required before goods enter warehouse</p>
               </div>
             </div>
-            <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+            <span className="tone tone-amber rounded-full px-2.5 py-0.5 text-xs font-bold">
               {jobs.length} Queued
             </span>
           </div>
@@ -203,74 +307,83 @@ export function AccountantPage() {
               </p>
             ) : (
               jobs.map((job) => (
-                <div
-                  key={job.id}
-                  className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50/70 p-3.5 text-xs transition-colors hover:border-gray-300"
-                >
-                  <div className="flex items-center gap-3">
-                    <Boxes className="size-4 text-amber-600" />
-                    <div>
-                      <Link to="/production" className="font-semibold text-gray-900 hover:underline">{job.product_name ?? "Finished Item"}</Link>
-                      <p className="text-gray-500">Good {job.good_quantity ?? "0"} · scrap {job.scrap_quantity ?? "0"}{job.problem_reason ? ` · ${job.problem_reason}` : ""}</p>
+                <div key={job.id} className="rounded-xl border border-gray-200 bg-white p-3.5 text-xs">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Boxes className="size-4 text-amber-600" />
+                      <div>
+                        <Link to="/production" className="font-semibold text-gray-900 hover:underline">{job.product_name ?? "Finished Item"}</Link>
+                        <p className="text-gray-500">Estimate {job.quantity} · recorded good {job.good_quantity ?? "0"} · scrap {job.scrap_quantity ?? "0"}{job.problem_reason ? ` · ${job.problem_reason}` : ""}</p>
+                      </div>
                     </div>
+                    <StatusBadge status="awaiting_approval" />
                   </div>
-                  <StatusBadge status="awaiting_approval" />
+                  {mayApprove ? (
+                    openJob === job.id ? (
+                      <form className="mt-3 grid gap-2" onSubmit={(event) => void approve(job, event)}>
+                        <Field label="Actual good quantity" required>
+                          <Input required type="number" min="0" step="0.001" value={signoff.produced} onChange={(event) => setSignoff({ ...signoff, produced: event.target.value })} />
+                        </Field>
+                        <Field label="Note" required>
+                          <Input required value={signoff.note} onChange={(event) => setSignoff({ ...signoff, note: event.target.value })} />
+                        </Field>
+                        <Field label="Staff name" required>
+                          <Input required value={signoff.staffName} onChange={(event) => setSignoff({ ...signoff, staffName: event.target.value })} />
+                        </Field>
+                        <Field label="Area">
+                          <Input value={signoff.area} onChange={(event) => setSignoff({ ...signoff, area: event.target.value })} />
+                        </Field>
+                        <Field label="Approval staff">
+                          <Input value={approver} readOnly />
+                        </Field>
+                        <div className="flex gap-2">
+                          <Button type="submit" disabled={busy} className="h-8 bg-[var(--scheme)] text-xs text-white">Approve</Button>
+                          <Button type="button" variant="outline" className="h-8 text-xs" onClick={() => setOpenJob(null)}>Cancel</Button>
+                        </div>
+                      </form>
+                    ) : (
+                      <Button type="button" className="mt-3 h-8 bg-[var(--scheme)] text-xs text-white" onClick={() => { setOpenJob(job.id); setSignoff({ note: "", staffName: "", area: "", produced: estimateOf(job) }) }}>
+                        Approve here
+                      </Button>
+                    )
+                  ) : null}
                 </div>
               ))
             )}
           </div>
         </section>
-
-        {/* Unpaid Invoices */}
-        <section className="space-y-3 rounded-2xl border border-gray-200/90 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="grid size-9 place-items-center rounded-xl bg-rose-50 text-rose-700 border border-rose-200">
-                <AlertTriangle className="size-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-gray-900">Unpaid Customer Invoices</h2>
-                <p className="text-[11px] text-gray-500">Accounts receivable tracking</p>
-              </div>
-            </div>
-            <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-bold text-rose-700">
-              {invoices.length} Unsettled
-            </span>
-          </div>
-
-          <div className="space-y-2">
-            {invoices.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center text-xs text-gray-500">
-                All customer invoices are fully settled.
-              </p>
-            ) : (
-              invoices.map((inv) => {
-                const pendingAmount = Number(inv.total_amount) - Number(inv.amount_paid)
-                return (
-                  <div
-                    key={inv.id}
-                    className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50/70 p-3.5 text-xs transition-colors hover:border-gray-300"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText className="size-4 text-rose-600" />
-                      <div>
-                        <p className="font-semibold text-gray-900">{inv.number}</p>
-                        <p className="text-gray-500">Paid: ₹{inv.amount_paid} of ₹{inv.total_amount}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 font-bold text-rose-700">
-                        Due: ₹{pendingAmount.toFixed(2)}
-                      </span>
-                      <RecordPayment invoiceId={inv.id} due={pendingAmount.toFixed(2)} onDone={() => void load()} />
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </section>
       </div>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-medium text-[var(--ink)]">Sign-off log</h2>
+          <p className="text-[11px] text-[var(--ink-soft)]">Approved jobs stay open here, grouped by when they were signed off.</p>
+        </div>
+        {signedOff.length === 0 ? (
+          <p className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-6 text-center text-sm text-[var(--ink-soft)]">No signed-off jobs yet.</p>
+        ) : !logsReady ? (
+          <p className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-6 text-center text-sm text-[var(--ink-soft)]">Loading the sign-off log</p>
+        ) : signoffGroups.length === 0 ? (
+          <p className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-6 text-center text-sm text-[var(--ink-soft)]">No sign-off notes yet.</p>
+        ) : (
+          <div className="space-y-4">
+            {signoffGroups.map((group) => (
+              <section key={group.label} className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)]">
+                <h2 className="border-b border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-xs font-medium tracking-[0.4px] text-[var(--ink-soft)]">{jobHeading(group.label, now)}</h2>
+                {group.lines.map(({ job, entry }) => (
+                  <div key={`${job.id}-${entry.at}`} className="border-b border-[var(--line)] px-4 py-3 last:border-b-0">
+                    <p className="text-sm font-medium text-[var(--ink)]">{job.product_name ?? "Finished item"}</p>
+                    <p className="text-[11px] text-[var(--ink-soft)]">
+                      {new Date(entry.at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} · {entry.user_name} · {entry.detail}
+                    </p>
+                  </div>
+                ))}
+              </section>
+            ))}
+          </div>
+        )}
+      </section>
+      </>
       )}
     </div>
   )

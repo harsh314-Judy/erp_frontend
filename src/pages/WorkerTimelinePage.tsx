@@ -7,8 +7,9 @@ import { DateRangeBar } from "@/components/floor/DateRangeBar"
 import { istToday, shiftDate } from "@/components/floor/dates"
 import { amount, dayLabel, totals, type UnitTotal } from "@/components/floor/format"
 import { PageLoading } from "@/components/PlantLoader"
-import { PageTitle } from "@/components/plant-ui"
+import { PageTitle, type Crumb } from "@/components/plant-ui"
 import { api, errorMessage } from "@/lib/api"
+import { departmentLabel } from "@/lib/labels"
 import { cn } from "@/lib/utils"
 
 type Person = { id: string; name: string; operation_name?: string; employment_type?: string }
@@ -133,7 +134,12 @@ export function WorkerTimelinePage() {
 
   return (
     <div className="space-y-5">
-      <PageTitle title={data?.name ?? "People"} hint="What a person made, scrapped, and which department they were in." icon={UserRound} />
+      <PageTitle
+        title={data?.name ?? "People"}
+        hint="What a person made, scrapped, and which department they were in."
+        icon={UserRound}
+        crumbs={workerCrumbs(workerId, data?.name)}
+      />
       <div className="flex flex-wrap items-center gap-2">
         <select
           className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-800"
@@ -144,7 +150,7 @@ export function WorkerTimelinePage() {
         >
           <option value="">Choose a person</option>
           {people.map((person) => (
-            <option key={person.id} value={person.id}>{person.name}{person.operation_name ? ` · ${person.operation_name}` : ""}</option>
+            <option key={person.id} value={person.id}>{person.name}{person.operation_name ? ` · ${departmentLabel(person.operation_name)}` : ""}</option>
           ))}
         </select>
         <DateRangeBar from={from} to={to} onChange={setRange} />
@@ -158,7 +164,7 @@ export function WorkerTimelinePage() {
             <li key={person.id}>
               <Link to={`/people/${person.id}?from=${from}&to=${to}`} className="block rounded-2xl border border-gray-200 bg-white px-4 py-3 hover:bg-gray-50">
                 <p className="text-sm font-semibold text-gray-900">{person.name}</p>
-                <p className="text-xs text-gray-500">{person.operation_name ?? "Department"}{person.employment_type === "temporary" ? " · Temporary" : ""}</p>
+                <p className="text-xs text-gray-500">{departmentLabel(person.operation_name) || "Department"}{person.employment_type === "temporary" ? " · Temporary" : ""}</p>
               </Link>
             </li>
           ))}
@@ -175,7 +181,7 @@ export function WorkerTimelinePage() {
                 <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", data.employment_type === "temporary" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800")}>
                   {data.employment_type === "temporary" ? "Temporary" : "Permanent"}
                 </span>
-                <span className="text-xs text-gray-500">{data.operation_name}</span>
+                <span className="text-xs text-gray-500">{departmentLabel(data.operation_name)}</span>
               </div>
               <dl className="mt-3 grid gap-1 text-xs text-gray-700 sm:grid-cols-2">
                 <div>Phone <strong>{data.phone || "—"}</strong></div>
@@ -274,6 +280,14 @@ export function WorkerTimelinePage() {
   )
 }
 
+function workerCrumbs(workerId: string | undefined, name: string | undefined): Crumb[] | undefined {
+  if (!workerId) return undefined
+  return [
+    { label: "Departments", to: "/departments" },
+    { label: name || "Person" },
+  ]
+}
+
 function HistoryStrip({ history, from, to }: { history: Timeline["history"]; from: string; to: string }) {
   const start = Date.parse(`${from}T00:00:00Z`)
   const end = Date.parse(`${to}T00:00:00Z`)
@@ -298,9 +312,9 @@ function HistoryStrip({ history, from, to }: { history: Timeline["history"]; fro
             key={`${row.operation_id}-${row.started_on}`}
             className="absolute top-1 flex h-6 items-center overflow-hidden rounded-full px-2 text-[10px] font-semibold text-white"
             style={{ left: `${row.left}%`, width: `${row.width}%`, background: COLORS[row.operation_name.toLowerCase()] ?? "#64748b" }}
-            title={row.operation_name}
+            title={departmentLabel(row.operation_name)}
           >
-            {row.operation_name}
+            {departmentLabel(row.operation_name)}
           </span>
         ))}
       </div>

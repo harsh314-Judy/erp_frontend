@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { api, errorMessage } from "@/lib/api"
+import { departmentLabel } from "@/lib/labels"
 
 type WageDay = { work_date: string; status: string }
 type WagePerson = {
@@ -176,7 +177,7 @@ export function FloorPay() {
             <label key={person.worker_id} className="flex items-center justify-between gap-3 text-sm">
               <span>
                 {person.name}
-                <span className="text-xs text-gray-500"> · {person.operation_name}</span>
+                <span className="text-xs text-gray-500"> · {departmentLabel(person.operation_name)}</span>
               </span>
               <select
                 className="h-9 rounded-lg border border-gray-200 px-2 text-xs"
@@ -210,7 +211,7 @@ export function FloorPay() {
                 <td className="py-2 pr-3">
                   {person.name}
                   {!person.active ? " (inactive)" : ""}
-                  <span className="block text-gray-500">{person.operation_name}</span>
+                  <span className="block text-gray-500">{departmentLabel(person.operation_name)}</span>
                 </td>
                 <td className="py-2 pr-3 capitalize">
                   {person.wage_kind} {rupee(person.wage_amount)}

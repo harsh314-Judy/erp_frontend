@@ -76,7 +76,7 @@ export function SettingsPage() {
           <FormBusy show={busy} />
           <CardHeader className="border-b border-gray-100 pb-3">
             <div className="flex items-center gap-3">
-              <div className="grid size-10 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
+              <div className="tone tone-emerald grid size-10 place-items-center rounded-xl">
                 <Building2 className="size-5" />
               </div>
               <div>

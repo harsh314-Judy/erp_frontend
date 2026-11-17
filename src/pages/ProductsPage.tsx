@@ -311,7 +311,7 @@ export function ProductsPage() {
           <FormBusy show={busy} />
           <DialogHeader>
             <div className="flex items-center gap-2.5">
-              <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-600">
+              <div className="tone tone-emerald grid size-9 place-items-center rounded-xl">
                 <Package className="size-5" />
               </div>
               <DialogTitle className="text-lg font-bold text-gray-900">{title}</DialogTitle>
