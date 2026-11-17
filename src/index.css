@@ -105,6 +105,7 @@
   * {
     @apply border-border;
     box-sizing: border-box;
+    corner-shape: squircle;
   }
   html,
   body,
@@ -447,6 +448,19 @@ html.dark .custom-scroll {
   color: var(--money-down) !important;
   background: transparent !important;
 }
+
+.tone {
+  color: #fff !important;
+  border-width: 1px;
+  border-style: solid;
+}
+.tone-amber { background-color: color-mix(in srgb, #d97706 18%, transparent) !important; border-color: #d97706 !important; }
+.tone-rose { background-color: color-mix(in srgb, #e11d48 18%, transparent) !important; border-color: #e11d48 !important; }
+.tone-emerald { background-color: color-mix(in srgb, #059669 18%, transparent) !important; border-color: #059669 !important; }
+.tone-sky { background-color: color-mix(in srgb, #0284c7 18%, transparent) !important; border-color: #0284c7 !important; }
+.tone-blue { background-color: color-mix(in srgb, #2563eb 18%, transparent) !important; border-color: #2563eb !important; }
+.tone-violet { background-color: color-mix(in srgb, #7c3aed 18%, transparent) !important; border-color: #7c3aed !important; }
+.tone-slate { background-color: color-mix(in srgb, #a1a1aa 18%, transparent) !important; border-color: #a1a1aa !important; }
 
 @layer utilities {
   .bg-white {

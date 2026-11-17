@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { api, errorMessage, peek, type Page } from "@/lib/api"
+import { departmentLabel } from "@/lib/labels"
 import { useFormBusy } from "@/lib/busy"
 import { useRefreshWhenShown } from "@/lib/visible"
 import { cn } from "@/lib/utils"
@@ -217,7 +218,7 @@ function WorkflowCurve({ stages }: { stages: Stage[] }) {
     const name = stage.operation_name ?? "Stage"
     const node: Dot = {
       key: stage.id,
-      label: name.charAt(0).toUpperCase() + name.slice(1),
+      label: departmentLabel(name),
       x: 10,
       y,
       fill: stageColor(name, index),
@@ -733,6 +734,10 @@ export function ProductionPage() {
     <div className="production-floor space-y-6">
       <PageTitle
         title="Production Floor"
+        crumbs={selectedOp ? [
+          { label: "Production Floor", to: `/production?from=${rangeFrom}&to=${rangeTo}` },
+          { label: departmentLabel(selectedOp.name) },
+        ] : undefined}
         hint="Daily output, material used, and scrap by department. Open a job below when the work is tied to one."
         icon={Factory}
         badge={`${jobs.length} Active Jobs`}
@@ -756,7 +761,7 @@ export function ProductionPage() {
                 <FormBusy show={busy} />
                 <DialogHeader>
                   <div className="flex items-center gap-2.5">
-                    <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-600">
+                    <div className="tone tone-emerald grid size-9 place-items-center rounded-xl">
                       <Factory className="size-5" />
                     </div>
                     <DialogTitle className="text-lg font-bold text-gray-900">Initiate New Production Job</DialogTitle>
@@ -873,7 +878,7 @@ export function ProductionPage() {
                   onClick={() => setQuery({ dept: operation.id })}
                 >
                   <span className="size-1.5 rounded-full" style={{ background: stageColor(operation.name) }} />
-                  {operation.name} {row?.entries ?? 0}
+                  {departmentLabel(operation.name)} {row?.entries ?? 0}
                 </button>
               )
             })}
@@ -904,7 +909,7 @@ export function ProductionPage() {
                 className="rounded-2xl border border-gray-200 bg-white p-4 text-left shadow-xs hover:bg-gray-50"
                 onClick={() => setQuery({ dept: row.operation_id })}
               >
-                <p className="text-sm font-bold text-gray-900">{row.name}</p>
+                <p className="text-sm font-bold text-gray-900">{departmentLabel(row.name)}</p>
                 <p className="mt-2 text-xs text-gray-600">Made {totals(row.output)}</p>
                 <p className="text-xs text-gray-600">Used {totals(row.used)}</p>
                 <p className="text-xs text-gray-600">Scrap {scrapLabel(row.scrap, row.scrap_pct)}</p>
@@ -999,7 +1004,7 @@ export function ProductionPage() {
           <div className="space-y-2.5">
                 {visibleJobs.length === 0 ? (
                   <p className="px-4 py-8 text-center text-xs text-gray-400">
-                    {dept === "all" ? "No production jobs active. Create one above to get started." : `No jobs in ${selectedOp?.name ?? "this department"} right now.`}
+                    {dept === "all" ? "No production jobs active. Create one above to get started." : `No jobs in ${departmentLabel(selectedOp?.name) || "this department"} right now.`}
                   </p>
                 ) : (
                   visibleJobs.map((job, index) => {
@@ -1080,7 +1085,7 @@ export function ProductionPage() {
                     </span>
                   ) : priorFinish ? (
                     <span className="font-medium text-gray-900">
-                      Latest · {localStamp(priorFinish.completed_at)} · {priorFinish.operation_name ?? "Stage"} finished
+                      Latest · {localStamp(priorFinish.completed_at)} · {departmentLabel(priorFinish.operation_name) || "Stage"} finished
                     </span>
                   ) : null}
                 </div>
@@ -1155,7 +1160,7 @@ export function ProductionPage() {
                             <li key={stage.id} className="border-b border-gray-300 pb-2 last:border-0">
                               <p className="text-[11px] font-medium text-gray-900">{localStamp(stage.completed_at)}</p>
                               <p className="text-xs leading-snug text-gray-800">
-                                {(stage.operation_name ?? "Stage")} finished
+                                {departmentLabel(stage.operation_name) || "Stage"} finished
                                 {stage.polish_type ? ` (${stage.polish_type})` : ""}
                               </p>
                             </li>

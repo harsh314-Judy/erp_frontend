@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
-import { useSearchParams } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import {
   Building2,
   CheckCircle2,
@@ -64,6 +64,7 @@ type Order = {
   status: string
   notes: string | null
   stock_received: boolean
+  amount_paid?: string | null
   receipt_fail_reason?: string | null
   receipt_fail_note?: string | null
   expected_vehicle_plate: string | null
@@ -176,7 +177,8 @@ export function PurchasesPage() {
   })
   const [lines, setLines] = useState<DraftLine[]>([blankLine()])
   const [dispatchSlips, setDispatchSlips] = useState<SlipFile[]>([])
-  const [receivedSlips, setReceivedSlips] = useState<SlipFile[]>([])
+  const [platePhotos, setPlatePhotos] = useState<SlipFile[]>([])
+  const [invoicePhotos, setInvoicePhotos] = useState<SlipFile[]>([])
   const [cargoPhotos, setCargoPhotos] = useState<SlipFile[]>([])
   const [receiveOrder, setReceiveOrder] = useState<Order | null>(null)
   const [failOrder, setFailOrder] = useState<Order | null>(null)
@@ -374,7 +376,8 @@ export function PurchasesPage() {
 
   async function quickAdvanceStatus(order: Order, nextStatus: string) {
     if (nextStatus === "delivered") {
-      setReceivedSlips((order.attachments ?? []).filter((file) => file.kind === "received_slip"))
+      setPlatePhotos((order.attachments ?? []).filter((file) => file.kind === "vehicle_plate"))
+      setInvoicePhotos((order.attachments ?? []).filter((file) => file.kind === "supplier_invoice" || file.kind === "received_slip"))
       setCargoPhotos((order.attachments ?? []).filter((file) => file.kind === "cargo_photo"))
       setReceiveOrder(order)
       return
@@ -422,15 +425,23 @@ export function PurchasesPage() {
 
   async function confirmReceive() {
     if (!receiveOrder) return
-    if (!receivedSlips.length || !cargoPhotos.length) return
+    if (!platePhotos.length || !invoicePhotos.length || !cargoPhotos.length) return
     setError("")
     await guard(async () => {
       try {
-        for (const file of receivedSlips) {
+        for (const file of platePhotos) {
           if (!(receiveOrder.attachments ?? []).some((row) => row.attachment_id === file.attachment_id)) {
             await api(`/api/purchase-orders/${receiveOrder.id}/attachments`, {
               method: "POST",
-              body: JSON.stringify({ attachment_id: file.attachment_id, kind: "received_slip" }),
+              body: JSON.stringify({ attachment_id: file.attachment_id, kind: "vehicle_plate" }),
+            })
+          }
+        }
+        for (const file of invoicePhotos) {
+          if (!(receiveOrder.attachments ?? []).some((row) => row.attachment_id === file.attachment_id)) {
+            await api(`/api/purchase-orders/${receiveOrder.id}/attachments`, {
+              method: "POST",
+              body: JSON.stringify({ attachment_id: file.attachment_id, kind: "supplier_invoice" }),
             })
           }
         }
@@ -600,11 +611,12 @@ export function PurchasesPage() {
       try {
         const attachments = [
           ...dispatchSlips.map((file) => ({ attachment_id: file.attachment_id, kind: "dispatch_slip" })),
-          ...receivedSlips.map((file) => ({ attachment_id: file.attachment_id, kind: "received_slip" })),
+          ...platePhotos.map((file) => ({ attachment_id: file.attachment_id, kind: "vehicle_plate" })),
+          ...invoicePhotos.map((file) => ({ attachment_id: file.attachment_id, kind: "supplier_invoice" })),
           ...cargoPhotos.map((file) => ({ attachment_id: file.attachment_id, kind: "cargo_photo" })),
         ]
-        if (header.status === "delivered" && (!receivedSlips.length || !cargoPhotos.length)) {
-          setError("Upload the received slip and a cargo photo before stocking.")
+        if (header.status === "delivered" && (!platePhotos.length || !invoicePhotos.length || !cargoPhotos.length)) {
+          setError("Upload the licence plate, the unloaded shipment, and the supplier invoice before stocking.")
           return
         }
         const body = {
@@ -900,7 +912,7 @@ export function PurchasesPage() {
                 {/* Order Card Header */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/60 px-5 py-3.5">
                   <div className="flex items-center gap-3">
-                    <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-600">
+                    <div className="tone tone-emerald grid size-9 place-items-center rounded-xl">
                       <Building2 className="size-4.5" />
                     </div>
                     <div>
@@ -1022,8 +1034,8 @@ export function PurchasesPage() {
                                   className={cn(
                                     "inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase",
                                     isProduct
-                                      ? "bg-purple-50 text-purple-700 border border-purple-200"
-                                      : "bg-blue-50 text-blue-700 border border-blue-200",
+                                      ? "tone tone-violet"
+                                      : "tone tone-blue",
                                   )}
                                 >
                                   {isProduct ? "Product" : "Raw Material"}
@@ -1082,15 +1094,18 @@ export function PurchasesPage() {
                       )}
 
                       <div className="grid w-full gap-2 rounded-xl border border-gray-100 p-3 sm:grid-cols-3">
-                        <SlipUpload label="Dispatch slip" files={(order.attachments ?? []).filter((file) => file.kind === "dispatch_slip")} onUploaded={(file) => linkFile(order, file, "dispatch_slip")} />
-                        <SlipUpload label="Received slip" files={(order.attachments ?? []).filter((file) => file.kind === "received_slip")} onUploaded={(file) => linkFile(order, file, "received_slip")} />
-                        <SlipUpload label="Cargo photo" files={(order.attachments ?? []).filter((file) => file.kind === "cargo_photo")} onUploaded={(file) => linkFile(order, file, "cargo_photo")} />
+                        <SlipUpload label="Licence plate" files={(order.attachments ?? []).filter((file) => file.kind === "vehicle_plate")} onUploaded={(file) => linkFile(order, file, "vehicle_plate")} />
+                        <SlipUpload label="Unloaded shipment" files={(order.attachments ?? []).filter((file) => file.kind === "cargo_photo")} onUploaded={(file) => linkFile(order, file, "cargo_photo")} />
+                        <SlipUpload label="Supplier invoice" files={(order.attachments ?? []).filter((file) => file.kind === "supplier_invoice" || file.kind === "received_slip")} onUploaded={(file) => linkFile(order, file, "supplier_invoice")} />
                       </div>
                       {order.stock_received ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1 font-semibold text-emerald-700">
+                        <span className="tone tone-emerald inline-flex items-center gap-1.5 rounded-xl px-3 py-1 font-semibold">
                           <CheckCircle2 className="size-3.5" />
                           <span>Inventory Stock Credited</span>
-                          <span className="text-emerald-800">Verified · slip + {(order.attachments ?? []).filter((file) => file.kind === "cargo_photo").length} photos</span>
+                          <span>Verified · {(order.attachments ?? []).filter((file) => file.kind === "cargo_photo").length} cargo photos</span>
+                          <Link className="font-semibold text-[var(--scheme)]" to={`/accountant/payments?purchase=${order.id}`}>
+                            Paid ₹{Number(order.amount_paid || 0).toFixed(2)} · Due ₹{Math.max(0, order.lines.reduce((sum, line) => sum + Number(line.quantity) * Number(line.unit_price || 0), 0) - Number(order.amount_paid || 0)).toFixed(2)}
+                          </Link>
                         </span>
                       ) : null}
                     </div>
@@ -1166,7 +1181,7 @@ export function PurchasesPage() {
         <DialogContent className="sm:max-w-md border-gray-200 bg-white">
           <DialogHeader>
             <div className="flex items-center gap-2.5">
-              <div className="grid size-9 place-items-center rounded-xl bg-amber-50 text-amber-600 border border-amber-200">
+              <div className="tone tone-amber grid size-9 place-items-center rounded-xl">
                 <Zap className="size-4.5" />
               </div>
               <div>
@@ -1271,17 +1286,18 @@ export function PurchasesPage() {
           {error ? <Notice variant="error">{error}</Notice> : null}
           <DialogHeader>
             <DialogTitle>Receive Goods</DialogTitle>
-            <DialogDescription>Upload the received slip and a photo of the unloaded cargo before stock is credited.</DialogDescription>
+            <DialogDescription>Upload the licence plate, the unloaded shipment, and the supplier invoice. Stock is credited now. The bill stays open for payment.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
-            <SlipUpload label="Received Slip" required files={receivedSlips} onUploaded={(file) => setReceivedSlips((current) => [...current, file])} />
-            <SlipUpload label="Cargo Photos" required files={cargoPhotos} onUploaded={(file) => setCargoPhotos((current) => [...current, file])} />
+            <SlipUpload label="Licence plate" required files={platePhotos} onUploaded={(file) => setPlatePhotos((current) => [...current, file])} />
+            <SlipUpload label="Unloaded shipment" required files={cargoPhotos} onUploaded={(file) => setCargoPhotos((current) => [...current, file])} />
+            <SlipUpload label="Supplier invoice" required files={invoicePhotos} onUploaded={(file) => setInvoicePhotos((current) => [...current, file])} />
             <Field label="Challan / slip number"><Input value={challanNumber} onChange={(event) => setChallanNumber(event.target.value)} /></Field>
             <Field label="Note from the slip"><Input value={challanNote} onChange={(event) => setChallanNote(event.target.value)} /></Field>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setReceiveOrder(null)}>Cancel</Button>
-            <Button type="button" className="bg-green-600 text-white" disabled={!receivedSlips.length || !cargoPhotos.length || busy} onClick={() => void confirmReceive()}>
+            <Button type="button" disabled={!platePhotos.length || !invoicePhotos.length || !cargoPhotos.length || busy} onClick={() => void confirmReceive()}>
               Confirm & stock
             </Button>
           </DialogFooter>
@@ -1295,7 +1311,7 @@ export function PurchasesPage() {
           {error ? <Notice variant="error">{error}</Notice> : null}
           <DialogHeader>
             <div className="flex items-center gap-2.5">
-              <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-600">
+              <div className="tone tone-emerald grid size-9 place-items-center rounded-xl">
                 <ShoppingCart className="size-4.5" />
               </div>
               <div>
@@ -1707,8 +1723,9 @@ export function PurchasesPage() {
               <SlipUpload label="Supplier Dispatch Slip" files={dispatchSlips} onUploaded={(file) => setDispatchSlips((current) => [...current, file])} />
               {header.status === "delivered" ? (
                 <>
-                  <SlipUpload label="Received Slip" required files={receivedSlips} onUploaded={(file) => setReceivedSlips((current) => [...current, file])} />
-                  <SlipUpload label="Cargo Photos" required files={cargoPhotos} onUploaded={(file) => setCargoPhotos((current) => [...current, file])} />
+                  <SlipUpload label="Licence plate" required files={platePhotos} onUploaded={(file) => setPlatePhotos((current) => [...current, file])} />
+                  <SlipUpload label="Unloaded shipment" required files={cargoPhotos} onUploaded={(file) => setCargoPhotos((current) => [...current, file])} />
+                  <SlipUpload label="Supplier invoice" required files={invoicePhotos} onUploaded={(file) => setInvoicePhotos((current) => [...current, file])} />
                 </>
               ) : null}
             </div>

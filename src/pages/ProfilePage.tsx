@@ -96,7 +96,7 @@ export function ProfilePage() {
 
       {/* User Header Profile Card */}
       <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-gray-200/90 bg-white p-5 shadow-xs">
-        <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-green-50 text-green-700 border border-green-200 text-xl font-bold">
+        <div className="tone tone-emerald grid size-14 shrink-0 place-items-center rounded-2xl text-xl font-bold">
           {initials}
         </div>
         <div>
@@ -106,7 +106,7 @@ export function ProfilePage() {
           <div className="mt-1 flex items-center gap-2">
             <span className="text-xs text-gray-500">{user.email}</span>
             <span className="text-gray-300">·</span>
-            <span className="inline-flex items-center gap-1 rounded-md border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700">
+            <span className="tone tone-emerald inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold">
               <Shield className="size-3" />
               {roleLabel(user.role_name)}
             </span>
@@ -122,7 +122,7 @@ export function ProfilePage() {
           <FormBusy show={identityPending} label="Saving" />
           <CardHeader className="border-b border-gray-100 pb-3">
             <div className="flex items-center gap-3">
-              <div className="grid size-10 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
+              <div className="tone tone-emerald grid size-10 place-items-center rounded-xl">
                 <User className="size-5" />
               </div>
               <div>
@@ -159,7 +159,7 @@ export function ProfilePage() {
         <Card className="border-gray-200/90 bg-white shadow-xs rounded-2xl">
           <CardHeader className="border-b border-gray-100 pb-3">
             <div className="flex items-center gap-3">
-              <div className="grid size-10 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
+              <div className="tone tone-emerald grid size-10 place-items-center rounded-xl">
                 <KeyRound className="size-5" />
               </div>
               <div>

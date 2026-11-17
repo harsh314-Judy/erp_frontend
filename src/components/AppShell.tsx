@@ -4,7 +4,7 @@ import { Bell, ChevronDown, LogOut, Menu, Moon, PanelLeft, Sun, X } from "lucide
 
 import { useAuth } from "@/auth/AuthContext"
 import { api, prefetch, type UserProfile } from "@/lib/api"
-import { NAV } from "@/lib/nav"
+import { NAV, type NavItem } from "@/lib/nav"
 import { PageChromeProvider, usePageChrome } from "@/lib/page-chrome"
 import { roleLabel } from "@/lib/roles"
 import { cn } from "@/lib/utils"
@@ -44,6 +44,112 @@ function HeaderIdentity({ company }: { company: string }) {
         </div>
       ) : null}
     </>
+  )
+}
+
+function NavBranch({
+  item,
+  collapsed,
+  pathname,
+  onNavigate,
+}: {
+  item: NavItem
+  collapsed: boolean
+  pathname: string
+  onNavigate: () => void
+}) {
+  const Icon = item.icon
+  const childActive = item.children?.some((child) => pathname === child.to || pathname.startsWith(`${child.to}/`)) ?? false
+  const [open, setOpen] = useState(childActive)
+  useEffect(() => {
+    if (childActive) setOpen(true)
+  }, [childActive])
+
+  if (!item.children?.length) {
+    return (
+      <NavLink
+        to={item.to}
+        title={item.label}
+        onClick={onNavigate}
+        className={({ isActive }) => cn(
+          "group flex items-center gap-3 rounded-md px-2.5 py-2.5 text-[13px] font-medium transition-colors",
+          collapsed ? "lg:justify-center lg:px-1.5" : "",
+          isActive
+            ? "bg-[var(--scheme-soft)] text-[var(--scheme)]"
+            : "text-[var(--ink-muted)] hover:bg-[var(--hover)]"
+        )}
+      >
+        {({ isActive }) => (
+          <>
+            <div className={cn(
+              "grid size-8 shrink-0 place-items-center rounded-md",
+              isActive ? "text-[var(--scheme)]" : "text-[var(--ink-soft)]"
+            )}>
+              <Icon className="size-4" />
+            </div>
+            {!collapsed && (
+              <span className={cn("truncate flex-1 tracking-tight", isActive ? "font-medium text-[var(--scheme)]" : "text-[var(--ink)]")}>
+                {item.label}
+              </span>
+            )}
+          </>
+        )}
+      </NavLink>
+    )
+  }
+
+  return (
+    <div>
+      {collapsed ? (
+        <NavLink
+          to={item.children[0].to}
+          title={item.label}
+          onClick={onNavigate}
+          className={() => cn(
+            "group flex items-center justify-center rounded-md px-1.5 py-2.5 text-[13px] font-medium transition-colors",
+            childActive ? "bg-[var(--scheme-soft)] text-[var(--scheme)]" : "text-[var(--ink-muted)] hover:bg-[var(--hover)]"
+          )}
+        >
+          <Icon className="size-4" />
+        </NavLink>
+      ) : (
+        <button
+          type="button"
+          aria-expanded={open}
+          title={item.label}
+          onClick={() => setOpen((current) => !current)}
+          className={cn(
+            "group flex w-full items-center gap-3 rounded-md px-2.5 py-2.5 text-left text-[13px] font-medium transition-colors",
+            childActive ? "bg-[var(--scheme-soft)] text-[var(--scheme)]" : "text-[var(--ink-muted)] hover:bg-[var(--hover)]"
+          )}
+        >
+          <div className={cn("grid size-8 shrink-0 place-items-center rounded-md", childActive ? "text-[var(--scheme)]" : "text-[var(--ink-soft)]")}>
+            <Icon className="size-4" />
+          </div>
+          <span className={cn("truncate flex-1 tracking-tight", childActive ? "font-medium text-[var(--scheme)]" : "text-[var(--ink)]")}>
+            {item.label}
+          </span>
+          <ChevronDown className={cn("size-3.5 shrink-0 transition", open && "rotate-180")} />
+        </button>
+      )}
+      {!collapsed && open ? (
+        <div className="mt-1 space-y-1 pl-8">
+          {item.children.map((child) => (
+            <NavLink
+              key={child.to}
+              to={child.to}
+              onClick={onNavigate}
+              className={({ isActive }) => cn(
+                "block rounded-md px-2.5 py-2 text-[13px] font-medium transition-colors",
+                isActive ? "bg-[var(--scheme-soft)] text-[var(--scheme)]" : "text-[var(--ink-muted)] hover:bg-[var(--hover)]"
+              )}
+            >
+              {child.label}
+            </NavLink>
+          ))}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -245,40 +351,15 @@ export function AppShell() {
                     <ChevronDown className={cn("size-3.5 text-[var(--ink-soft)] transition", open && "rotate-180")} />
                   </button>
                 )}
-                {(collapsed || open) && secLinks.map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      title={item.label}
-                      onClick={() => setMobileOpen(false)}
-                      className={({ isActive }) => cn(
-                        "group flex items-center gap-3 rounded-md px-2.5 py-2.5 text-[13px] font-medium transition-colors",
-                        collapsed ? "lg:justify-center lg:px-1.5" : "",
-                        isActive
-                          ? "bg-[var(--scheme-soft)] text-[var(--scheme)]"
-                          : "text-[var(--ink-muted)] hover:bg-[var(--hover)]"
-                      )}
-                    >
-                      {({ isActive }) => (
-                        <>
-                          <div className={cn(
-                            "grid size-8 shrink-0 place-items-center rounded-md",
-                            isActive ? "text-[var(--scheme)]" : "text-[var(--ink-soft)]"
-                          )}>
-                            <Icon className="size-4" />
-                          </div>
-                          {!collapsed && (
-                            <span className={cn("truncate flex-1 tracking-tight", isActive ? "font-medium text-[var(--scheme)]" : "text-[var(--ink)]")}>
-                              {item.label}
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </NavLink>
-                  )
-                })}
+                {(collapsed || open) && secLinks.map((item) => (
+                  <NavBranch
+                    key={item.to}
+                    item={item}
+                    collapsed={collapsed}
+                    pathname={location.pathname}
+                    onNavigate={() => setMobileOpen(false)}
+                  />
+                ))}
               </div>
             )
           })}

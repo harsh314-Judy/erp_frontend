@@ -15,7 +15,7 @@ import {
 
 import { useAuth } from "@/auth/AuthContext"
 import { CustomerFields, customerPayload, emptyCustomer } from "@/components/CustomerFields"
-import { RecordPayment } from "@/components/RecordPayment"
+import { Link } from "react-router-dom"
 import { PageLoading } from "@/components/PlantLoader"
 import { Field, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
@@ -60,6 +60,8 @@ type Order = {
   gst_billing?: boolean
   invoice_id: string | null
   invoice_has_pdf: boolean
+  invoice_total?: string | null
+  invoice_amount_paid?: string | null
   updated_at?: string | null
   job_due_at?: string | null
   blocked_material?: boolean
@@ -537,7 +539,7 @@ export function SalesPage() {
             <DialogContent className="sm:max-w-2xl bg-white border-gray-200/90 shadow-xl">
               <DialogHeader>
                 <div className="flex items-center gap-2.5">
-                  <div className="grid size-9 place-items-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700">
+                  <div className="tone tone-emerald grid size-9 place-items-center rounded-xl">
                     <FileText className="size-5" />
                   </div>
                   <DialogTitle className="text-lg font-bold text-gray-900">Create Customer Sales Order</DialogTitle>
@@ -803,9 +805,9 @@ export function SalesPage() {
                   current === "cancelled" ? "border-rose-200 bg-rose-50/30" : "border-gray-200/90 hover:border-emerald-200",
                 )}
               >
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-emerald-50/40 px-5 py-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-white px-5 py-3.5">
                   <div className="flex items-center gap-3">
-                    <div className="grid size-9 place-items-center rounded-xl border border-emerald-200 bg-white text-emerald-700">
+                    <div className="tone tone-emerald grid size-9 place-items-center rounded-xl">
                       <PackageCheck className="size-4.5" />
                     </div>
                     <div>
@@ -844,7 +846,14 @@ export function SalesPage() {
                       <FileText className="mr-1 size-3.5 text-emerald-700" />
                       Invoice
                     </Button>
-                    {order.invoice_id ? <RecordPayment invoiceId={order.invoice_id} due="" onDone={() => void load()} /> : null}
+                    {order.invoice_id ? (
+                      <Link
+                        to={`/accountant/payments?invoice=${order.invoice_id}`}
+                        className="inline-flex h-8 items-center rounded-xl border border-[var(--line)] bg-white px-2.5 text-xs font-semibold text-[var(--ink)]"
+                      >
+                        Paid ₹{Number(order.invoice_amount_paid || 0).toFixed(2)} · Due ₹{Math.max(0, Number(order.invoice_total || 0) - Number(order.invoice_amount_paid || 0)).toFixed(2)}
+                      </Link>
+                    ) : null}
                     {order.invoice_has_pdf && order.invoice_id ? (
                       <Button
                         type="button"
@@ -918,7 +927,7 @@ export function SalesPage() {
                             <td className="px-4 py-2.5 font-semibold text-gray-900">
                               {line.product_name ?? "Steel Product"}
                               {line.product_type === "purchased" ? (
-                                <span className="ml-2 rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] font-bold text-violet-800">TRADED</span>
+                                <span className="tone tone-violet ml-2 rounded-md px-1.5 py-0.5 text-[10px] font-bold">TRADED</span>
                               ) : null}
                               {line.product_type === "purchased" && order.status !== "delivered" && order.status !== "cancelled" ? (
                                 <select className="mt-1 block h-8 max-w-56 rounded-lg border border-gray-200 bg-white px-2 text-[11px]" value={sources[line.id ?? ""] || line.source_purchase_order_id || ""} onChange={(event) => setSources((current) => ({ ...current, [line.id ?? ""]: event.target.value }))}>
@@ -929,7 +938,7 @@ export function SalesPage() {
                                 </select>
                               ) : null}
                               {line.shortfall_choice ? (
-                                <span className="ml-2 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 uppercase">
+                                <span className="tone tone-amber ml-2 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase">
                                   {line.shortfall_choice}
                                 </span>
                               ) : null}
@@ -953,7 +962,7 @@ export function SalesPage() {
         <DialogContent className="sm:max-w-3xl bg-white border-gray-200/90 shadow-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-2.5">
-              <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-700 border border-green-200">
+              <div className="tone tone-emerald grid size-9 place-items-center rounded-xl">
                 <FileText className="size-5" />
               </div>
               <DialogTitle className="text-lg font-bold text-gray-900">Create invoice</DialogTitle>

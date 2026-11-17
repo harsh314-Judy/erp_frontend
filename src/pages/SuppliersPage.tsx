@@ -271,7 +271,7 @@ export function SuppliersPage() {
               <FormBusy show={busy} />
               <DialogHeader>
                 <div className="flex items-center gap-2.5">
-                  <div className="grid size-9 place-items-center rounded-xl border border-green-200 bg-green-50 text-green-700">
+                  <div className="tone tone-emerald grid size-9 place-items-center rounded-xl">
                     <Truck className="size-5" />
                   </div>
                   <DialogTitle className="text-lg font-bold text-gray-900">

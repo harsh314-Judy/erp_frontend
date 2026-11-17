@@ -1,6 +1,6 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react"
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react"
 import { Link, useSearchParams } from "react-router-dom"
-import { Building2 } from "lucide-react"
+import { Building2, ChevronRight } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
 import { DateRangeBar } from "@/components/floor/DateRangeBar"
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { api, errorMessage } from "@/lib/api"
+import { departmentLabel } from "@/lib/labels"
 import { cn } from "@/lib/utils"
 import { useRefreshWhenShown } from "@/lib/visible"
 
@@ -105,6 +106,8 @@ export function DepartmentsPage() {
   const [machineNote, setMachineNote] = useState("")
   const [person, setPerson] = useState(emptyPerson)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [stagesOpen, setStagesOpen] = useState(false)
+  const [staffOpen, setStaffOpen] = useState(false)
 
   function setQuery(partial: Record<string, string>) {
     const next = new URLSearchParams(params)
@@ -137,7 +140,8 @@ export function DepartmentsPage() {
   }, [from, to])
   useRefreshWhenShown("/departments", load, (caught) => setError(errorMessage(caught)))
 
-  const visible = rows.filter((row) => dept === "all" || row.operation_id === dept)
+  const stageIds = stageSelection(dept, rows)
+  const visible = rows.filter((row) => stageIds.includes(row.operation_id))
 
   function openAdd(operationId = "") {
     setEditingId(null)
@@ -243,25 +247,62 @@ export function DepartmentsPage() {
         title="Departments"
         hint="Who works each stage, and what they logged in the selected dates."
         icon={Building2}
-        action={<Button type="button" className="rounded-xl bg-green-600 text-white" onClick={() => openAdd(dept === "all" ? "" : dept)}>Add person</Button>}
+        crumbs={rows.length > 0 && stageIds.length < rows.length ? [
+          {
+            label: "Departments",
+            to: `/departments?${new URLSearchParams({ from, to, type: employment, dept: "all" })}`,
+          },
+          { label: rows.filter((row) => stageIds.includes(row.operation_id)).map((row) => departmentLabel(row.name)).join("; ") },
+        ] : undefined}
+        action={<Button type="button" className="rounded-xl bg-green-600 text-white" onClick={() => openAdd(stageIds.length === 1 ? stageIds[0] : "")}>Add person</Button>}
       />
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap gap-1.5">
-          <Chip on={dept === "all"} onClick={() => setQuery({ dept: "all" })}>All</Chip>
+      <div className="flex flex-wrap items-center gap-3">
+        <FilterMenu
+          label={<DepartmentFace selected={stageIds} rows={rows} />}
+          open={stagesOpen}
+          onOpenChange={(next) => {
+            setStagesOpen(next)
+            if (next) setStaffOpen(false)
+          }}
+        >
+          <FilterOption
+            on={stageIds.length === rows.length && rows.length > 0}
+            onClick={() => setQuery({ dept: "all" })}
+          >
+            All
+          </FilterOption>
           {rows.map((row) => (
-            <Chip key={row.operation_id} on={dept === row.operation_id} onClick={() => setQuery({ dept: row.operation_id })}>
+            <FilterOption
+              key={row.operation_id}
+              on={stageIds.includes(row.operation_id) && stageIds.length !== rows.length}
+              onClick={() => setQuery({ dept: toggleStage(row.operation_id, stageIds, rows) })}
+            >
               <span className="size-1.5 rounded-full" style={{ background: COLORS[row.name.toLowerCase()] ?? "#64748b" }} />
-              {row.name}
-            </Chip>
+              {departmentLabel(row.name)}
+            </FilterOption>
           ))}
-        </div>
-        <div className="flex gap-1.5">
+        </FilterMenu>
+        <FilterMenu
+          label={staffFace(employment)}
+          open={staffOpen}
+          onOpenChange={(next) => {
+            setStaffOpen(next)
+            if (next) setStagesOpen(false)
+          }}
+        >
           {(["all", "permanent", "temporary"] as const).map((value) => (
-            <Chip key={value} on={employment === value} onClick={() => setQuery({ type: value })}>
-              {value === "all" ? "All types" : value === "permanent" ? "Permanent" : "Temporary"}
-            </Chip>
+            <FilterOption
+              key={value}
+              on={employment === value}
+              onClick={() => {
+                setQuery({ type: value })
+                setStaffOpen(false)
+              }}
+            >
+              {value === "all" ? "All" : value === "permanent" ? "Permanent" : "Temporary"}
+            </FilterOption>
           ))}
-        </div>
+        </FilterMenu>
       </div>
       <DateRangeBar from={from} to={to} onChange={(nextFrom, nextTo) => setQuery({ from: nextFrom, to: nextTo })} />
       {error ? <p className="text-sm text-rose-700">{error}</p> : null}
@@ -276,7 +317,7 @@ export function DepartmentsPage() {
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="size-2.5 rounded-full" style={{ background: color }} />
-                  <h2 className="text-sm font-bold uppercase tracking-wide text-gray-900">{department.name}</h2>
+                  <h2 className="text-sm font-bold tracking-wide text-gray-900">{departmentLabel(department.name)}</h2>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-xs text-gray-500">Made {totals(department.output)} in this range</p>
@@ -388,7 +429,7 @@ export function DepartmentsPage() {
             {dialog === "move" ? (
               <Field label="Department" required>
                 <select className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm" value={person.operation_id} onChange={(event) => setPerson({ ...person, operation_id: event.target.value })}>
-                  {rows.map((row) => <option key={row.operation_id} value={row.operation_id}>{row.name}</option>)}
+                  {rows.map((row) => <option key={row.operation_id} value={row.operation_id}>{departmentLabel(row.name)}</option>)}
                 </select>
               </Field>
             ) : (
@@ -410,7 +451,7 @@ export function DepartmentsPage() {
                 {dialog === "add" ? (
                   <Field label="Department" required>
                     <select className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm" value={person.operation_id} onChange={(event) => setPerson({ ...person, operation_id: event.target.value })}>
-                      {rows.map((row) => <option key={row.operation_id} value={row.operation_id}>{row.name}</option>)}
+                      {rows.map((row) => <option key={row.operation_id} value={row.operation_id}>{departmentLabel(row.name)}</option>)}
                     </select>
                   </Field>
                 ) : null}
@@ -451,9 +492,127 @@ export function DepartmentsPage() {
   )
 }
 
-function Chip({ children, on, onClick }: { children: ReactNode; on: boolean; onClick: () => void }) {
+function stageSelection(dept: string, rows: Department[]) {
+  if (dept === "all" || rows.length === 0) return rows.map((row) => row.operation_id)
+  const known = new Set(rows.map((row) => row.operation_id))
+  const picked = dept.split(",").filter((id) => known.has(id))
+  return picked.length ? picked : rows.map((row) => row.operation_id)
+}
+
+function toggleStage(id: string, selected: string[], rows: Department[]) {
+  const showingAll = selected.length === rows.length
+  const next = new Set(showingAll ? [] : selected)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  if (next.size === 0 || next.size === rows.length) return "all"
+  return [...next].join(",")
+}
+
+function DepartmentFace({ selected, rows }: { selected: string[]; rows: Department[] }) {
+  const chosen = rows.filter((row) => selected.includes(row.operation_id))
+  if (chosen.length === 0 || chosen.length === rows.length) return <>department: all</>
   return (
-    <button type="button" className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold", on ? "bg-gray-900 text-white" : "bg-white text-gray-600")} onClick={onClick}>
+    <span className="inline-flex min-w-0 items-center gap-1">
+      <span className="shrink-0">department:</span>
+      {chosen.map((row, index) => (
+        <span key={row.operation_id} className="inline-flex min-w-0 items-center gap-1">
+          {index > 0 ? <span className="text-[var(--ink-soft)]">;</span> : null}
+          <DepartmentDot name={row.name} />
+          <span className="truncate">{departmentLabel(row.name)}</span>
+        </span>
+      ))}
+    </span>
+  )
+}
+
+function DepartmentDot({ name }: { name: string }) {
+  return <span className="size-1.5 shrink-0 rounded-full" style={{ background: COLORS[name.toLowerCase()] ?? "#64748b" }} />
+}
+
+function staffFace(employment: string) {
+  if (employment === "permanent") return "staff: permanent"
+  if (employment === "temporary") return "staff: temporary"
+  return "staff: all"
+}
+
+function FilterMenu({
+  label,
+  open,
+  onOpenChange,
+  children,
+}: {
+  label: ReactNode
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  children: ReactNode
+}) {
+  const box = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointer = (event: PointerEvent) => {
+      if (!box.current?.contains(event.target as Node)) onOpenChange(false)
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onOpenChange(false)
+    }
+    document.addEventListener("pointerdown", onPointer)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("pointerdown", onPointer)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [open, onOpenChange])
+
+  return (
+    <div ref={box} className="inline-flex h-10 max-w-full items-center overflow-hidden rounded-full border border-[var(--line)] bg-[var(--surface)]">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="inline-flex h-full min-w-0 items-center gap-2 px-3.5 text-sm font-medium text-[var(--ink)] hover:bg-[var(--hover)]"
+        onClick={() => onOpenChange(!open)}
+      >
+        <span className="flex min-w-0 items-center">{label}</span>
+        <ChevronRight className={cn("size-3.5 shrink-0 text-[var(--ink-soft)] transition-transform duration-300", open && "rotate-90")} />
+      </button>
+      <div
+        aria-hidden={!open}
+        className={cn(
+          "grid h-full transition-[grid-template-columns,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+          open ? "grid-cols-[1fr] opacity-100" : "pointer-events-none grid-cols-[0fr] opacity-0",
+        )}
+      >
+        <div className="overflow-hidden">
+          <div role="listbox" className="flex h-full items-center gap-0.5 pr-1.5">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FilterOption({
+  on,
+  onClick,
+  children,
+}: {
+  on: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={on}
+      className={cn(
+        "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-sm whitespace-nowrap text-[var(--ink-muted)] hover:bg-[var(--hover)]",
+        on && "bg-[var(--scheme-soft)] text-[var(--scheme)]",
+      )}
+      onClick={onClick}
+    >
       {children}
     </button>
   )

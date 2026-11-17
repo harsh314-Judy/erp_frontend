@@ -19,7 +19,7 @@ export function HomePage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-slate-100">
             Your role
-            <Badge className="border-blue-500/30 bg-blue-500/15 text-blue-300">{roleLabel(user?.role_name)}</Badge>
+            <Badge className="tone tone-blue">{roleLabel(user?.role_name)}</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-slate-400">

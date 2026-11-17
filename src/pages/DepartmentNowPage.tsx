@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { useParams } from "react-router-dom"
 
 import { StageDesk } from "@/components/StageDesk"
 import { PageLoading } from "@/components/PlantLoader"
 import { Notice, PageTitle } from "@/components/plant-ui"
 import { api, errorMessage } from "@/lib/api"
+import { departmentLabel } from "@/lib/labels"
 import { useRefreshWhenShown } from "@/lib/visible"
 
 type InputRow = { input_id?: string; item_name: string; planned_quantity: string; kind?: string | null; taken_quantity?: string }
@@ -82,8 +83,11 @@ export function DepartmentNowPage({ operationId }: { operationId?: string }) {
 
   return (
     <div className="space-y-4">
-      <PageTitle title={row?.name || "Department"} hint="Start, done, scrap, or a problem. Nothing else." />
-      <Link to="/departments" className="text-xs font-semibold text-sky-700">All departments</Link>
+      <PageTitle
+        title={departmentLabel(row?.name) || "Department"}
+        hint="Start, done, scrap, or a problem. Nothing else."
+        crumbs={operationId ? [{ label: departmentLabel(row?.name) || "Department" }] : undefined}
+      />
       {error ? <Notice variant="error">{error}</Notice> : null}
       {loading ? <PageLoading label="Loading the department" variant="cards" count={2} /> : null}
       {!loading && row && row.active.length === 0 ? <p className="text-sm text-gray-500">Nothing is at this department.</p> : null}

@@ -76,7 +76,7 @@ export function ProductRecipeEditor({
     <div className="grid gap-4 lg:grid-cols-2">
       <section className="space-y-3 rounded-xl border border-gray-200/80 bg-white p-4 shadow-2xs">
         <div className="flex items-center gap-2">
-          <div className="grid size-7 place-items-center rounded-lg bg-green-50 text-green-600">
+          <div className="tone tone-emerald grid size-7 place-items-center rounded-lg">
             <Boxes className="size-4" />
           </div>
           <div>
@@ -173,7 +173,7 @@ export function ProductRecipeEditor({
 
       <section className="space-y-3 rounded-xl border border-gray-200/80 bg-white p-4 shadow-2xs">
         <div className="flex items-center gap-2">
-          <div className="grid size-7 place-items-center rounded-lg bg-green-50 text-green-600">
+          <div className="tone tone-emerald grid size-7 place-items-center rounded-lg">
             <GitCommit className="size-4" />
           </div>
           <div>

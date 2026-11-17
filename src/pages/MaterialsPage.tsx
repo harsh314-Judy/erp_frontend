@@ -219,10 +219,10 @@ export function MaterialsPage() {
   }
 
   const kindColors: Record<string, string> = {
-    sheet: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    polish: "bg-blue-50 text-blue-700 border-blue-200",
-    color: "bg-purple-50 text-purple-700 border-purple-200",
-    other: "bg-gray-100 text-gray-700 border-gray-200",
+    sheet: "tone tone-emerald",
+    polish: "tone tone-blue",
+    color: "tone tone-violet",
+    other: "tone tone-slate",
   }
 
   const categoryName = (id: string | null) => categories.find((item) => item.id === id)?.name ?? "—"
@@ -252,7 +252,7 @@ export function MaterialsPage() {
                 <FormBusy show={busy} />
                 <DialogHeader>
                   <div className="flex items-center gap-2.5">
-                    <div className="grid size-9 place-items-center rounded-xl bg-green-50 text-green-600">
+                    <div className="tone tone-emerald grid size-9 place-items-center rounded-xl">
                       <Boxes className="size-5" />
                     </div>
                     <DialogTitle className="text-lg font-bold text-gray-900">Register Raw Material Item</DialogTitle>
