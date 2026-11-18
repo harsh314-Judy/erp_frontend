@@ -1,4 +1,5 @@
 import { matchingPreset, presetRange, type DatePreset } from "@/components/floor/dates"
+import { FilterPanel } from "@/components/plant-ui"
 import { cn } from "@/lib/utils"
 
 const PRESETS: { id: DatePreset; label: string }[] = [
@@ -21,14 +22,13 @@ export function DateRangeBar({
   const active = matchingPreset(from, to)
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-gray-200/90 bg-white p-1 text-xs font-medium shadow-xs">
+    <FilterPanel title="Range">
         {PRESETS.map((preset) => (
           <button
             key={preset.id}
             type="button"
             className={cn(
-              "rounded-xl px-3 py-1.5 font-semibold",
+              "rounded-md px-3 py-1.5 text-xs font-semibold",
               active === preset.id ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
             )}
             onClick={() => {
@@ -40,7 +40,6 @@ export function DateRangeBar({
             {preset.label}
           </button>
         ))}
-      </div>
       <label className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500">
         From
         <input
@@ -59,6 +58,6 @@ export function DateRangeBar({
           onChange={(event) => onChange(from, event.target.value < from ? from : event.target.value)}
         />
       </label>
-    </div>
+    </FilterPanel>
   )
 }

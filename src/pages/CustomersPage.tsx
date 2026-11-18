@@ -21,7 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { api, errorMessage, peek, type Page } from "@/lib/api"
+import { api, errorMessage, peek, plain, type Page } from "@/lib/api"
 import { useRefreshWhenShown } from "@/lib/visible"
 
 type Customer = {
@@ -326,23 +326,34 @@ export function CustomersPage() {
           </Table>
         </div>
       </div>
-      {focus ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm">
-          <p className="font-semibold text-gray-900">{rows.find((row) => row.id === focus)?.name}</p>
-          <p className="mt-2 text-xs font-bold uppercase text-gray-500">Open orders</p>
-          <ul className="mt-1 text-xs text-gray-700">
-            {orders.filter((order) => order.customer_id === focus && !["delivered", "cancelled"].includes(order.status)).length === 0
-              ? <li>None</li>
-              : orders.filter((order) => order.customer_id === focus && !["delivered", "cancelled"].includes(order.status)).map((order) => (
-                <li key={order.id}>{order.status} · {order.id.slice(0, 8)}</li>
-              ))}
-          </ul>
-          <p className="mt-3 text-xs font-bold uppercase text-gray-500">Unpaid</p>
-          <p className="text-xs text-gray-700">
-            ₹{invoices.filter((invoice) => invoice.customer_id === focus && invoice.status !== "paid").reduce((sum, invoice) => sum + Number(invoice.total_amount) - Number(invoice.amount_paid), 0).toFixed(2)}
-          </p>
-        </div>
-      ) : null}
+      <Dialog open={focus !== null} onOpenChange={(open) => { if (!open) setFocus(null) }}>
+        <DialogContent className="border-gray-200 bg-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-medium text-gray-900">{rows.find((row) => row.id === focus)?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">Open orders</p>
+              <ul className="mt-2 space-y-1 text-gray-800">
+                {orders.filter((order) => order.customer_id === focus && !["delivered", "cancelled"].includes(order.status)).length === 0
+                  ? <li>None</li>
+                  : orders.filter((order) => order.customer_id === focus && !["delivered", "cancelled"].includes(order.status)).map((order) => (
+                    <li key={order.id}>{order.status} · {order.id.slice(0, 8)}</li>
+                  ))}
+              </ul>
+            </div>
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">Unpaid</p>
+              <p className="mt-2 text-gray-900">
+                ₹{plain(invoices.filter((invoice) => invoice.customer_id === focus && invoice.status !== "paid").reduce((sum, invoice) => sum + Number(invoice.total_amount) - Number(invoice.amount_paid), 0).toFixed(2))}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" className="rounded-md" onClick={() => setFocus(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </>
       )}
     </div>

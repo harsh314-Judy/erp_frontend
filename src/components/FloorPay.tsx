@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { api, errorMessage } from "@/lib/api"
+import { api, errorMessage, rupees } from "@/lib/api"
 import { departmentLabel } from "@/lib/labels"
 
 type WageDay = { work_date: string; status: string }
@@ -48,8 +48,7 @@ function shiftMonth(cursor: { year: number; month: number }, delta: number) {
   return { year: next.getFullYear(), month: next.getMonth() + 1 }
 }
 
-const rupee = (value: string | number) =>
-  `₹${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+const rupee = (value: string | number) => rupees(value)
 
 export function FloorPay() {
   const [month, setMonth] = useState(() => indiaMonth())

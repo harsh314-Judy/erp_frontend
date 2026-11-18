@@ -510,10 +510,10 @@ function toggleStage(id: string, selected: string[], rows: Department[]) {
 
 function DepartmentFace({ selected, rows }: { selected: string[]; rows: Department[] }) {
   const chosen = rows.filter((row) => selected.includes(row.operation_id))
-  if (chosen.length === 0 || chosen.length === rows.length) return <>department: all</>
+  if (chosen.length === 0 || chosen.length === rows.length) return <>Department: All</>
   return (
     <span className="inline-flex min-w-0 items-center gap-1">
-      <span className="shrink-0">department:</span>
+      <span className="shrink-0">Department:</span>
       {chosen.map((row, index) => (
         <span key={row.operation_id} className="inline-flex min-w-0 items-center gap-1">
           {index > 0 ? <span className="text-[var(--ink-soft)]">;</span> : null}
@@ -530,9 +530,9 @@ function DepartmentDot({ name }: { name: string }) {
 }
 
 function staffFace(employment: string) {
-  if (employment === "permanent") return "staff: permanent"
-  if (employment === "temporary") return "staff: temporary"
-  return "staff: all"
+  if (employment === "permanent") return "Staff: Permanent"
+  if (employment === "temporary") return "Staff: Temporary"
+  return "Staff: All"
 }
 
 function FilterMenu({

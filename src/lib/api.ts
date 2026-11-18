@@ -61,6 +61,37 @@ function cacheKey(path: string) {
   return `GET ${path}`
 }
 
+const DECIMAL = /^-?\d+\.\d+$/
+
+export function rupees(value: string | number | null | undefined) {
+  const text = plain(Number(value || 0).toFixed(2))
+  const negative = text.startsWith("-")
+  const [whole, fraction] = (negative ? text.slice(1) : text).split(".")
+  const grouped = Number(whole || 0).toLocaleString("en-IN")
+  return `₹${negative ? "-" : ""}${fraction ? `${grouped}.${fraction}` : grouped}`
+}
+
+export function plain(value: string | number | null | undefined) {
+  if (value == null || value === "") return ""
+  const text = String(value).trim()
+  if (!DECIMAL.test(text)) return text
+  const negative = text.startsWith("-")
+  const [whole, fraction] = (negative ? text.slice(1) : text).split(".")
+  const kept = fraction.replace(/0+$/, "")
+  const body = kept ? `${whole}.${kept}` : whole
+  if (body === "0") return "0"
+  return negative ? `-${body}` : body
+}
+
+function trimDecimals(value: unknown): unknown {
+  if (typeof value === "string") return DECIMAL.test(value) ? plain(value) : value
+  if (Array.isArray(value)) return value.map(trimDecimals)
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, trimDecimals(item)]))
+  }
+  return value
+}
+
 export function peek<T>(path: string): T | undefined {
   const hit = memory.get(cacheKey(path))
   if (!hit || Date.now() - hit.at >= freshForMs) return undefined
@@ -174,7 +205,7 @@ async function request<T>(path: string, options: RequestOptions): Promise<T> {
   }
 
   if (response.status === 204) return undefined as T
-  return (await response.json()) as T
+  return trimDecimals(await response.json()) as T
 }
 
 export async function downloadFile(path: string, filename: string): Promise<void> {

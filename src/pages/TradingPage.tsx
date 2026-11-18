@@ -4,9 +4,10 @@ import { ArrowLeftRight } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
 import { PageLoading } from "@/components/PlantLoader"
-import { PageTitle, StatCard } from "@/components/plant-ui"
+import { FilterPanel, PageTitle, StatCard } from "@/components/plant-ui"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { api, errorMessage } from "@/lib/api"
+import { api, errorMessage, plain } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import { roleCan } from "@/lib/access"
 import { useRefreshWhenShown } from "@/lib/visible"
 
@@ -96,23 +97,32 @@ export function TradingPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard money label="Revenue this month" value={moneyVisible ? money(summary.revenue) : "—"} />
           <StatCard money label="Cost this month" value={moneyVisible ? money(summary.cost) : "—"} />
-          <StatCard money label="Profit / loss" value={moneyVisible ? money(summary.profit) : "—"} hint={summary.margin_pct != null ? `${Number(summary.margin_pct).toFixed(1)}% margin` : undefined} trend={moneyVisible ? { text: profit >= 0 ? "Profit" : "Loss", positive: profit >= 0 } : undefined} />
+          <StatCard money label="Profit / loss" value={moneyVisible ? money(summary.profit) : "—"} hint={summary.margin_pct != null ? `${plain(Number(summary.margin_pct).toFixed(1))}% margin` : undefined} trend={moneyVisible ? { text: profit >= 0 ? "Profit" : "Loss", positive: profit >= 0 } : undefined} />
           <StatCard label="Incoming" value={summary.incoming_orders} hint={`${Number(summary.incoming_qty)} units on open orders`} />
         </div>
       ) : null}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-        <label className="flex min-w-52 flex-col gap-1.5 text-[12px] text-[var(--ink-soft)]">
-          Show
-          <select className="h-10 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)]" value={tab} onChange={(event) => setTab(event.target.value as typeof tab)}>
-            <option value="all">All</option>
-            <option value="product">Purchased products</option>
-            <option value="raw_material">Raw materials</option>
-          </select>
-        </label>
-        <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-[12px] text-[var(--ink-soft)]">
-          Search
-          <input className="h-10 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 text-sm" placeholder="Name, SKU, supplier" value={query} onChange={(event) => setQuery(event.target.value)} />
-        </label>
+      <div className="grid items-start gap-3 md:grid-cols-2">
+        <FilterPanel title="Show">
+          {(
+            [
+              ["all", "All"],
+              ["product", "Purchased products"],
+              ["raw_material", "Raw materials"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              className={cn("h-10 px-2 text-sm font-medium", tab === id ? "text-[var(--scheme)]" : "text-[var(--ink-soft)]")}
+            >
+              {label}
+            </button>
+          ))}
+        </FilterPanel>
+        <FilterPanel title="Search">
+          <input className="h-10 w-full rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 text-sm" placeholder="Name, SKU, supplier" value={query} onChange={(event) => setQuery(event.target.value)} />
+        </FilterPanel>
       </div>
       {loading ? <PageLoading label="Loading traded goods" /> : (
         <Table>

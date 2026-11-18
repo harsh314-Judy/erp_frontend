@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { roleCan } from "@/lib/access"
 import { departmentLabel } from "@/lib/labels"
-import { api, downloadFile, errorMessage, peek } from "@/lib/api"
+import { api, downloadFile, errorMessage, peek, rupees } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 type Sales = { total_orders: number; pending_orders: number; total_sales?: string; gst_sales?: string; non_gst_sales?: string }
@@ -121,11 +121,11 @@ export function ReportsPage() {
         {money ? (
           <StatCard
             label="Total Sales Billing"
-            value={sales?.total_sales ? `₹${Number(sales.total_sales).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "–"}
+            value={sales?.total_sales ? rupees(sales.total_sales) : "–"}
             icon={TrendingUp}
             money
             color="emerald"
-            hint={`GST Component: ₹${sales?.gst_sales ?? "0.00"}`}
+            hint={`GST Component: ${rupees(sales?.gst_sales ?? 0)}`}
           />
         ) : null}
         <StatCard

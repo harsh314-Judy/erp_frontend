@@ -6,13 +6,12 @@ import {
   Pencil,
   PlusCircle,
   Search,
-  Tag,
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
 import { FormBusy, PageLoading } from "@/components/PlantLoader"
 import { ProductRecipeEditor, type Option, type RecipeLine, type RouteStep } from "@/components/ProductRecipeEditor"
-import { CategoryManager, Field, Notice, PageTitle, StatusBadge } from "@/components/plant-ui"
+import { Field, Notice, PageTitle, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -23,13 +22,14 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { api, errorMessage, peek, type Page } from "@/lib/api"
+import { api, errorMessage, peek, plain, type Page } from "@/lib/api"
 import { useFormBusy } from "@/lib/busy"
 import { useRefreshWhenShown } from "@/lib/visible"
 import { canSeePrices } from "@/lib/access"
 import { cn } from "@/lib/utils"
 
 type Named = { id: string; name: string }
+type Unit = Named & { abbreviation?: string | null }
 type Product = {
   id: string
   product_name: string
@@ -45,9 +45,14 @@ type Product = {
   measurement_unit_id: string
   category_id: string
   description: string | null
+  weight_per_piece?: string | null
+  make_days?: number
+  buy_days?: number
+  ship_days?: number
+  buffer_days?: number
 }
 type Component = RecipeLine & { id: string }
-type Mode = "create" | "edit" | "view"
+type Mode = "create" | "edit" | "view" | "detail"
 
 const selectClass =
   "h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 shadow-xs focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
@@ -63,6 +68,11 @@ const blankForm = {
   measurement_unit_id: "",
   category_id: "",
   description: "",
+  weight_per_piece: "",
+  make_days: "7",
+  buy_days: "7",
+  ship_days: "2",
+  buffer_days: "2",
 }
 
 export function ProductsPage() {
@@ -72,7 +82,7 @@ export function ProductsPage() {
   const [rows, setRows] = useState<Product[]>(
     () => peek<Page<Product>>("/api/products?page=1&page_size=100&q=")?.items ?? [],
   )
-  const [units, setUnits] = useState<Named[]>([])
+  const [units, setUnits] = useState<Unit[]>([])
   const [categories, setCategories] = useState<Named[]>([])
   const [materials, setMaterials] = useState<Option[]>([])
   const [productOptions, setProductOptions] = useState<Option[]>([])
@@ -86,6 +96,8 @@ export function ProductsPage() {
   const { busy, guard } = useFormBusy()
   const [mode, setMode] = useState<Mode | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [focus, setFocus] = useState<Product | null>(null)
+  const [removeArmed, setRemoveArmed] = useState(false)
   const [form, setForm] = useState(blankForm)
   const [recipeOn, setRecipeOn] = useState(true)
   const [recipeTouched, setRecipeTouched] = useState(false)
@@ -96,7 +108,7 @@ export function ProductsPage() {
     try {
       const [products, unitPage, categoryPage] = await Promise.all([
         api<Page<Product>>(`/api/products?page=1&page_size=100&q=${encodeURIComponent(search)}`),
-        api<Page<Named>>("/api/measurement-units?page=1&page_size=100"),
+        api<Page<Unit>>("/api/measurement-units?page=1&page_size=100"),
         api<Page<Named>>("/api/product-categories?page=1&page_size=100"),
       ])
       setRows(products.items)
@@ -133,32 +145,11 @@ export function ProductsPage() {
     }))
   }, [units, categories])
 
-  async function addNamed(path: string, name: string) {
-    setError("")
-    try {
-      const created = await api<{ id: string }>(path, { method: "POST", body: JSON.stringify({ name }) })
-      void load().catch((caught) => setError(errorMessage(caught)))
-      return created.id
-    } catch (caught) {
-      setError(errorMessage(caught))
-      return ""
-    }
-  }
-
-  async function removeCategory(id: string) {
-    setError("")
-    try {
-      await api(`/api/product-categories/${id}`, { method: "DELETE" })
-      setForm((current) => ({ ...current, category_id: current.category_id === id ? "" : current.category_id }))
-      void load().catch((caught) => setError(errorMessage(caught)))
-    } catch (caught) {
-      setError(errorMessage(caught))
-    }
-  }
-
   function openCreate() {
     setFormError("")
     setEditingId(null)
+    setFocus(null)
+    setRemoveArmed(false)
     setForm({
       ...blankForm,
       measurement_unit_id: units[0]?.id ?? "",
@@ -173,6 +164,8 @@ export function ProductsPage() {
 
   async function openExisting(row: Product, next: Mode) {
     setFormError("")
+    setRemoveArmed(false)
+    setFocus(row)
     setEditingId(row.id)
     setForm({
       product_name: row.product_name,
@@ -185,6 +178,11 @@ export function ProductsPage() {
       measurement_unit_id: row.measurement_unit_id,
       category_id: row.category_id,
       description: row.description ?? "",
+      weight_per_piece: row.weight_per_piece ?? "",
+      make_days: String(row.make_days ?? 7),
+      buy_days: String(row.buy_days ?? 7),
+      ship_days: String(row.ship_days ?? 2),
+      buffer_days: String(row.buffer_days ?? 2),
     })
     setLines([])
     setRoute([])
@@ -216,6 +214,27 @@ export function ProductsPage() {
     }
   }
 
+  function withUnit(amount: string | null | undefined, unitId: string) {
+    const value = plain(amount)
+    const abbreviation = units.find((unit) => unit.id === unitId)?.abbreviation
+    return abbreviation ? `${value} ${abbreviation}` : value
+  }
+
+  async function removeProduct() {
+    if (!editingId) return
+    setFormError("")
+    await guard(async () => {
+      try {
+        await api(`/api/products/${editingId}`, { method: "DELETE" })
+        setMode(null)
+        setFocus(null)
+        await load()
+      } catch (caught) {
+        setFormError(errorMessage(caught))
+      }
+    })
+  }
+
   function changeType(value: string) {
     setForm({ ...form, product_type: value })
     if (!recipeTouched) setRecipeOn(value !== "purchased")
@@ -237,6 +256,11 @@ export function ProductsPage() {
       setFormError("Every recipe input needs a quantity above zero.")
       return
     }
+    const weight = form.weight_per_piece.trim()
+    if (weight && !(Number(weight) >= 0)) {
+      setFormError("Weight per piece must be a number in kilograms.")
+      return
+    }
     await guard(async () => {
       try {
         const body = JSON.stringify({
@@ -246,6 +270,11 @@ export function ProductsPage() {
           sale_price_without_gst: form.sale_price_without_gst.trim() || "0",
           alert_quantity: form.alert_quantity.trim() || "0",
           description: form.description || null,
+          weight_per_piece: weight || null,
+          make_days: Number(form.make_days) || 0,
+          buy_days: Number(form.buy_days) || 0,
+          ship_days: Number(form.ship_days) || 0,
+          buffer_days: Number(form.buffer_days) || 0,
         })
         setMode(null)
         const saved =
@@ -306,7 +335,7 @@ export function ProductsPage() {
         }
       />
 
-      <Dialog open={mode !== null} onOpenChange={(open) => (open ? null : setMode(null))}>
+      <Dialog open={mode !== null} onOpenChange={(open) => { if (!open) { setMode(null); setRemoveArmed(false) } }}>
         <DialogContent className="sm:max-w-4xl border-gray-200 bg-white">
           <FormBusy show={busy} />
           <DialogHeader>
@@ -319,29 +348,63 @@ export function ProductsPage() {
           </DialogHeader>
 
           <div className="space-y-4 pt-2">
-            {readOnly ? null : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <MiniCreate
-                  label="Unit"
-                  onCreate={async (name) => {
-                    const id = await addNamed("/api/measurement-units", name)
-                    if (id) setForm((current) => ({ ...current, measurement_unit_id: id }))
-                  }}
-                />
-                <CategoryManager
-                  categories={categories}
-                  onAdd={async (name) => {
-                    const id = await addNamed("/api/product-categories", name)
-                    if (id) setForm((current) => ({ ...current, category_id: id }))
-                  }}
-                  onRemove={(id) => void removeCategory(id)}
-                />
-              </div>
-            )}
-
             {formError ? <Notice variant="error">{formError}</Notice> : null}
 
-            <form onSubmit={(event) => void saveProduct(event)}>
+            {mode === "detail" && focus ? (
+              <div className="space-y-4">
+                <dl className="grid gap-4 sm:grid-cols-3">
+                  <div><dt className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">SKU</dt><dd className="mt-1 font-mono text-sm text-gray-900">{focus.sku_number}</dd></div>
+                  <div><dt className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">Category</dt><dd className="mt-1 text-sm text-gray-900">{categories.find((category) => category.id === focus.category_id)?.name ?? "—"}</dd></div>
+                  <div><dt className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">Sourcing</dt><dd className="mt-1"><StatusBadge status={focus.product_type} /></dd></div>
+                  <div><dt className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">HSN</dt><dd className="mt-1 font-mono text-sm text-gray-900">{focus.hsn_code || "—"}</dd></div>
+                  <div><dt className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">Physical on hand</dt><dd className="mt-1 text-sm text-gray-900">{withUnit(focus.quantity, focus.measurement_unit_id)}</dd></div>
+                  <div><dt className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">Free / available</dt><dd className="mt-1 text-sm text-gray-900">{withUnit(focus.available ?? focus.quantity, focus.measurement_unit_id)}</dd></div>
+                  <div><dt className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">Stock level</dt><dd className="mt-1"><StatusBadge status={focus.stock_status ?? "normal"} /></dd></div>
+                  <div><dt className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">Unit</dt><dd className="mt-1 text-sm text-gray-900">{units.find((unit) => unit.id === focus.measurement_unit_id)?.name ?? "—"}</dd></div>
+                  <div><dt className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">Weight per piece</dt><dd className="mt-1 text-sm text-gray-900">{focus.weight_per_piece ? `${plain(focus.weight_per_piece)} kg` : "—"}</dd></div>
+                  <div><dt className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">Reorder at</dt><dd className="mt-1 text-sm text-gray-900">{withUnit(form.alert_quantity, focus.measurement_unit_id)}</dd></div>
+                  <div><dt className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">GST</dt><dd className="mt-1 text-sm text-gray-900">{plain(form.gst_percent)}%</dd></div>
+                  {prices ? <div><dt className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">Sale price</dt><dd className="mt-1 text-sm text-gray-900">{form.sale_price_without_gst ? `₹${plain(form.sale_price_without_gst)}` : "—"}</dd></div> : null}
+                  <div className="sm:col-span-3"><dt className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">Description</dt><dd className="mt-1 text-sm text-gray-900">{form.description || "—"}</dd></div>
+                </dl>
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">Recipe for 1 unit</p>
+                  {lines.length === 0 ? <p className="mt-1 text-sm text-gray-500">No inputs.</p> : (
+                    <ul className="mt-1 space-y-1 text-sm text-gray-900">
+                      {lines.map((line, index) => {
+                        const name = line.component_product_id
+                          ? productOptions.find((item) => item.id === line.component_product_id)?.label
+                          : materials.find((item) => item.id === line.component_raw_material_id)?.label
+                        return <li key={`${line.component_product_id ?? line.component_raw_material_id}-${index}`}>{plain(line.quantity_per_unit)} {name ?? "Input"}</li>
+                      })}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.4px] text-gray-500">Stage route</p>
+                  {route.length === 0 ? <p className="mt-1 text-sm text-gray-500">No stages.</p> : (
+                    <p className="mt-1 text-sm text-gray-900">{route.map((step) => operations.find((item) => item.id === step.operation_id)?.label ?? "Stage").join(" → ")}</p>
+                  )}
+                </div>
+                {removeArmed ? <Notice variant="warning">Remove {focus.product_name}? Orders and jobs that still use it will block this.</Notice> : null}
+                <DialogFooter className="mt-4 flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+                  <Button type="button" variant="outline" className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50" onClick={() => setMode(null)}>Close</Button>
+                  {editor && removeArmed ? (
+                    <Button type="button" variant="outline" className="rounded-xl border-gray-200 text-gray-700" onClick={() => setRemoveArmed(false)}>Keep</Button>
+                  ) : null}
+                  {editor ? (
+                    <Button type="button" variant="outline" className="rounded-xl border-gray-200 text-gray-700" disabled={busy} onClick={() => (removeArmed ? void removeProduct() : setRemoveArmed(true))}>
+                      {removeArmed ? "Remove product" : "Remove"}
+                    </Button>
+                  ) : null}
+                  {editor && !removeArmed ? (
+                    <Button type="button" className="rounded-xl bg-green-600 font-semibold text-white hover:bg-green-700" onClick={() => setMode("edit")}>Edit</Button>
+                  ) : null}
+                </DialogFooter>
+              </div>
+            ) : null}
+
+            {mode === "detail" ? null : <form onSubmit={(event) => void saveProduct(event)}>
               <fieldset disabled={readOnly} className="grid gap-4 sm:grid-cols-3">
                 <Field label="Product Name" required className="sm:col-span-2">
                   <Input
@@ -405,10 +468,30 @@ export function ProductsPage() {
                   >
                     {units.map((unit) => (
                       <option key={unit.id} value={unit.id}>
-                        {unit.name}
+                        {unit.abbreviation ? `${unit.name} (${unit.abbreviation})` : unit.name}
                       </option>
                     ))}
                   </select>
+                </Field>
+                <Field label="Weight per piece (kg)">
+                  <Input
+                    value={form.weight_per_piece}
+                    placeholder="e.g. 2.5"
+                    inputMode="decimal"
+                    onChange={(event) => setForm({ ...form, weight_per_piece: event.target.value })}
+                  />
+                </Field>
+                <Field label="Make days">
+                  <Input value={form.make_days} inputMode="numeric" onChange={(event) => setForm({ ...form, make_days: event.target.value })} />
+                </Field>
+                <Field label="Buy days">
+                  <Input value={form.buy_days} inputMode="numeric" onChange={(event) => setForm({ ...form, buy_days: event.target.value })} />
+                </Field>
+                <Field label="Ship days">
+                  <Input value={form.ship_days} inputMode="numeric" onChange={(event) => setForm({ ...form, ship_days: event.target.value })} />
+                </Field>
+                <Field label="Buffer days">
+                  <Input value={form.buffer_days} inputMode="numeric" onChange={(event) => setForm({ ...form, buffer_days: event.target.value })} />
                 </Field>
                 <Field label="Product Category">
                   <select
@@ -513,7 +596,7 @@ export function ProductsPage() {
                   </Button>
                 )}
               </DialogFooter>
-            </form>
+            </form>}
           </div>
         </DialogContent>
       </Dialog>
@@ -540,14 +623,6 @@ export function ProductsPage() {
           Search Catalog
         </Button>
       </div>
-
-      {editor ? (
-        <CategoryManager
-          categories={categories}
-          onAdd={(name) => addNamed("/api/product-categories", name)}
-          onRemove={(id) => void removeCategory(id)}
-        />
-      ) : null}
 
       {error ? <Notice variant="error">{error}</Notice> : null}
 
@@ -590,7 +665,11 @@ export function ProductsPage() {
                 ) : (
                   rows.map((row) => (
                     <TableRow key={row.id} className="border-b border-gray-100 hover:bg-gray-50/70 transition-colors">
-                      <TableCell className="font-semibold text-gray-900">{row.product_name}</TableCell>
+                      <TableCell className="font-semibold text-gray-900">
+                        <button type="button" className="text-left hover:text-[var(--scheme)] hover:underline" onClick={() => void openExisting(row, "detail")}>
+                          {row.product_name}
+                        </button>
+                      </TableCell>
                       <TableCell className="font-mono text-xs text-gray-500">{row.sku_number}</TableCell>
                       <TableCell className="text-gray-600">
                         {categories.find((category) => category.id === row.category_id)?.name ?? "—"}
@@ -599,16 +678,16 @@ export function ProductsPage() {
                         <StatusBadge status={row.product_type} />
                       </TableCell>
                       <TableCell className="font-mono text-xs text-gray-500">{row.hsn_code || "–"}</TableCell>
-                      <TableCell className="text-right font-medium text-gray-700">{row.quantity}</TableCell>
+                      <TableCell className="text-right font-medium text-gray-700">{withUnit(row.quantity, row.measurement_unit_id)}</TableCell>
                       <TableCell className="text-right font-bold text-green-600">
-                        {row.available ?? row.quantity}
+                        {withUnit(row.available ?? row.quantity, row.measurement_unit_id)}
                       </TableCell>
                       <TableCell className="text-center">
                         <StatusBadge status={row.stock_status ?? "normal"} />
                       </TableCell>
                       {prices ? (
                         <TableCell className="text-right font-semibold text-gray-900">
-                          {row.sale_price_without_gst ? `₹${row.sale_price_without_gst}` : "–"}
+                          {row.sale_price_without_gst ? `₹${plain(row.sale_price_without_gst)}` : "–"}
                         </TableCell>
                       ) : null}
                       <TableCell className="text-right">
@@ -632,34 +711,5 @@ export function ProductsPage() {
         </div>
       )}
     </div>
-  )
-}
-
-function MiniCreate({ label, onCreate }: { label: string; onCreate: (name: string) => void }) {
-  const [name, setName] = useState("")
-  return (
-    <form
-      className="flex items-end gap-2"
-      onSubmit={(event) => {
-        event.preventDefault()
-        if (!name.trim()) return
-        onCreate(name.trim())
-        setName("")
-      }}
-    >
-      <div className="flex-1">
-        <Field label={`Create ${label}`}>
-          <Input
-            value={name}
-            placeholder={`New ${label.toLowerCase()} name...`}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </Field>
-      </div>
-      <Button type="submit" variant="outline" size="sm" className="h-9 rounded-xl">
-        <Tag className="mr-1 size-3.5" />
-        Add
-      </Button>
-    </form>
   )
 }

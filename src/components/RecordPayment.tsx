@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { api } from "@/lib/api"
+import { api, plain } from "@/lib/api"
 
 export type PaymentLine = {
   id: string
@@ -20,7 +20,7 @@ const METHODS = [
 ]
 
 function money(value: number) {
-  return `₹${value.toFixed(2)}`
+  return `₹${plain(value.toFixed(2))}`
 }
 
 export function PaymentSummary({

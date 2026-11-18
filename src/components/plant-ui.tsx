@@ -224,44 +224,199 @@ export function StatusBadge({
   const norm = (status || "").toLowerCase().trim()
   const display = label ?? norm.replaceAll("_", " ")
 
-  const map: Record<string, { bg: string; dot: string }> = {
-    completed:        { bg: "tone tone-emerald", dot: "bg-white" },
-    done:             { bg: "tone tone-emerald", dot: "bg-white" },
-    paid:             { bg: "tone tone-emerald", dot: "bg-white" },
-    verified:         { bg: "tone tone-emerald", dot: "bg-white" },
-    delivered:        { bg: "tone tone-emerald", dot: "bg-white" },
-    normal:           { bg: "tone tone-emerald", dot: "bg-white" },
-    active:           { bg: "tone tone-emerald", dot: "bg-white" },
-    running:          { bg: "tone tone-blue",    dot: "bg-white" },
-    in_progress:      { bg: "tone tone-blue",    dot: "bg-white" },
-    dispatched:       { bg: "tone tone-blue",    dot: "bg-white" },
-    manufactured:     { bg: "tone tone-blue",    dot: "bg-white" },
-    initiated:        { bg: "tone tone-amber",   dot: "bg-white" },
-    process:          { bg: "tone tone-blue",    dot: "bg-white" },
-    in_delivery:      { bg: "tone tone-sky",     dot: "bg-white" },
-    ordered:          { bg: "tone tone-amber",   dot: "bg-white" },
-    awaiting_approval:{ bg: "tone tone-amber",   dot: "bg-white" },
-    arrived:          { bg: "tone tone-amber",   dot: "bg-white" },
-    partial:          { bg: "tone tone-amber",   dot: "bg-white" },
-    both:             { bg: "tone tone-amber",   dot: "bg-white" },
-    cancelled:        { bg: "tone tone-rose",    dot: "bg-white" },
-    rejected:         { bg: "tone tone-rose",    dot: "bg-white" },
-    low_stock:        { bg: "tone tone-rose",    dot: "bg-white" },
-    critical:         { bg: "tone tone-rose",    dot: "bg-white" },
-    unpaid:           { bg: "tone tone-rose",    dot: "bg-white" },
-    purchased:        { bg: "tone tone-violet",  dot: "bg-white" },
+  const map: Record<string, string> = {
+    completed: "tone tone-emerald",
+    done: "tone tone-emerald",
+    paid: "tone tone-emerald",
+    verified: "tone tone-emerald",
+    delivered: "tone tone-emerald",
+    normal: "tone tone-emerald",
+    active: "tone tone-emerald",
+    running: "tone tone-blue",
+    in_progress: "tone tone-blue",
+    dispatched: "tone tone-blue",
+    manufactured: "tone tone-blue",
+    initiated: "tone tone-amber",
+    process: "tone tone-blue",
+    in_delivery: "tone tone-sky",
+    ordered: "tone tone-amber",
+    awaiting_approval: "tone tone-amber",
+    arrived: "tone tone-amber",
+    partial: "tone tone-amber",
+    both: "tone tone-amber",
+    cancelled: "tone tone-rose",
+    rejected: "tone tone-rose",
+    low_stock: "tone tone-rose",
+    critical: "tone tone-rose",
+    unpaid: "tone tone-rose",
+    purchased: "tone tone-violet",
   }
-
-  const style = map[norm] ?? { bg: "tone tone-slate", dot: "bg-white" }
 
   return (
     <span className={cn(
-      "inline-flex items-center gap-1.5 rounded-none border px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider shadow-2xs",
-      style.bg, className
+      "inline-flex items-center rounded-none border px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider shadow-2xs",
+      map[norm] ?? "tone tone-slate",
+      className,
     )}>
-      <span className={cn("size-1.5 shrink-0 rounded-none", style.dot)} />
       {display}
     </span>
+  )
+}
+
+export function FilterPanel({
+  title,
+  children,
+  className,
+}: {
+  title: string
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <section className={cn("min-w-0 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-3", className)}>
+      <p className="text-[11px] font-medium tracking-[0.4px] text-[var(--ink-soft)]">{title}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">{children}</div>
+    </section>
+  )
+}
+
+const sortButton = "h-10 shrink-0 whitespace-nowrap px-2 text-sm font-medium"
+const dateSelect = "h-10 rounded-md border border-[var(--line)] bg-[var(--surface)] px-2 text-sm font-medium text-[var(--ink)]"
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+
+function daysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate()
+}
+
+function isoDay(year: number, month: number, day: number) {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+}
+
+export function DateSort({
+  quick,
+  value,
+  onChange,
+}: {
+  quick: { id: string; label: string }[]
+  value: string
+  onChange: (id: string) => void
+}) {
+  const today = new Date()
+  const years = Array.from({ length: 6 }, (_, index) => today.getFullYear() - index)
+  const [open, setOpen] = useState(false)
+  const [fromYear, setFromYear] = useState(today.getFullYear())
+  const [fromMonth, setFromMonth] = useState(today.getMonth())
+  const [fromDay, setFromDay] = useState(today.getDate())
+  const [toYear, setToYear] = useState(today.getFullYear())
+  const [toMonth, setToMonth] = useState(today.getMonth())
+  const [toDay, setToDay] = useState(today.getDate())
+  const customOn = value.startsWith("range:")
+
+  function apply() {
+    const startDay = Math.min(fromDay, daysInMonth(fromYear, fromMonth))
+    const endDay = Math.min(toDay, daysInMonth(toYear, toMonth))
+    const start = new Date(fromYear, fromMonth, startDay)
+    const end = new Date(toYear, toMonth, endDay)
+    const [first, second] = start <= end ? [start, end] : [end, start]
+    onChange(`range:${isoDay(first.getFullYear(), first.getMonth(), first.getDate())}:${isoDay(second.getFullYear(), second.getMonth(), second.getDate())}`)
+  }
+
+  function dateFields(year: number, month: number, day: number, setYear: (value: number) => void, setMonth: (value: number) => void, setDay: (value: number) => void) {
+    const limit = daysInMonth(year, month)
+    return (
+      <span className="flex items-center gap-1">
+        <select className={dateSelect} value={month} onChange={(event) => setMonth(Number(event.target.value))} aria-label="Select month">
+          {MONTHS.map((name, index) => <option key={name} value={index}>{name}</option>)}
+        </select>
+        <select className={dateSelect} value={Math.min(day, limit)} onChange={(event) => setDay(Number(event.target.value))} aria-label="Select date">
+          {Array.from({ length: limit }, (_, index) => index + 1).map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+        <select className={dateSelect} value={year} onChange={(event) => setYear(Number(event.target.value))} aria-label="Select year">
+          {years.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+      </span>
+    )
+  }
+
+  return (
+    <FilterPanel title="Date">
+      <div className="flex w-full flex-nowrap items-center gap-1">
+        {quick.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              onChange(item.id)
+            }}
+            className={cn(sortButton, value === item.id ? "text-[var(--scheme)]" : "text-[var(--ink-soft)]")}
+          >
+            {item.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+          className={cn(sortButton, open || customOn ? "text-[var(--scheme)]" : "text-[var(--ink-soft)]")}
+        >
+          Custom range
+        </button>
+      </div>
+      <div className={cn("grid w-full basis-full transition-[grid-template-rows] duration-300 ease-out", open ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+        <div className="overflow-hidden">
+          <div className="flex flex-wrap items-end gap-2 pt-2">
+            <label className="flex flex-col gap-1 text-[11px] font-medium text-[var(--ink-soft)]">
+              From
+              {dateFields(fromYear, fromMonth, fromDay, setFromYear, setFromMonth, setFromDay)}
+            </label>
+            <span className="pb-2 text-sm font-medium text-[var(--ink-soft)]">to</span>
+            <label className="flex flex-col gap-1 text-[11px] font-medium text-[var(--ink-soft)]">
+              To
+              {dateFields(toYear, toMonth, toDay, setToYear, setToMonth, setToDay)}
+            </label>
+            <button type="button" className="h-10 rounded-md bg-[var(--scheme)] px-3 text-sm font-medium text-white hover:bg-[var(--scheme-hover)]" onClick={apply}>
+              Apply
+            </button>
+          </div>
+        </div>
+      </div>
+    </FilterPanel>
+  )
+}
+
+export function SearchPill({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+}) {
+  const [open, setOpen] = useState(Boolean(value))
+  return (
+    <div className="ml-auto flex h-10 shrink-0 items-center justify-end">
+      <div className={cn("grid transition-[grid-template-columns] duration-300 ease-out", open ? "grid-cols-[15rem]" : "grid-cols-[0rem]")}>
+        <div className="overflow-hidden">
+          <input
+            value={value}
+            placeholder={placeholder}
+            onChange={(event) => onChange(event.target.value)}
+            className="mr-2 h-10 w-[14.5rem] rounded-full border border-[var(--line)] bg-[var(--surface)] px-4 text-sm text-[var(--ink)] outline-none focus:ring-2 focus:ring-[var(--scheme)]"
+          />
+        </div>
+      </div>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className="inline-flex h-10 items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface)] px-3.5 text-sm font-medium text-[var(--ink)]"
+      >
+        <Search className="size-3.5" />
+        Search
+      </button>
+    </div>
   )
 }
 

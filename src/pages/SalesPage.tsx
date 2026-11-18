@@ -5,19 +5,17 @@ import {
   FileText,
   PackageCheck,
   PlusCircle,
-  Search,
   Send,
   Truck,
-  Undo2,
   UserRound,
-  X,
 } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
 import { CustomerFields, customerPayload, emptyCustomer } from "@/components/CustomerFields"
 import { Link } from "react-router-dom"
 import { PageLoading } from "@/components/PlantLoader"
-import { Field, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
+import { Field, FilterPanel, Notice, PageTitle, SearchPill, SearchSelect, StatusBadge } from "@/components/plant-ui"
+import { SlipUpload } from "@/components/SlipUpload"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -29,13 +27,26 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { canSeePrices, roleCan } from "@/lib/access"
-import { api, downloadFile, errorMessage, peek, type Page } from "@/lib/api"
+import { api, downloadFile, errorMessage, peek, plain, type Page } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { useRefreshWhenShown } from "@/lib/visible"
 
 type Option = { id: string; label: string }
 type Customer = { id: string; name: string }
-type Product = { id: string; product_name: string; product_type: string }
+type Product = {
+  id: string
+  product_name: string
+  product_type: string
+  available?: string | null
+  quantity?: string | null
+  measurement_unit_id?: string
+  gst_percent?: number
+  sale_price_without_gst?: string | null
+  make_days?: number
+  buy_days?: number
+  ship_days?: number
+  buffer_days?: number
+}
 type User = { id: string; first_name: string; last_name: string | null }
 type Line = {
   id?: string
@@ -46,6 +57,8 @@ type Line = {
   held_quantity?: string
   unit_price?: string | null
   shortfall_choice?: string | null
+  custom_unit?: string | null
+  gst?: boolean
   source_purchase_order_id?: string | null
 }
 type Order = {
@@ -58,6 +71,11 @@ type Order = {
   notes?: string | null
   dispatch_by?: string | null
   gst_billing?: boolean
+  transport_mode?: string | null
+  driver_name?: string | null
+  carrier_phone?: string | null
+  vehicle_plate?: string | null
+  receipt_attachment_id?: string | null
   invoice_id: string | null
   invoice_has_pdf: boolean
   invoice_total?: string | null
@@ -69,7 +87,25 @@ type Order = {
   problem_reason?: string | null
   lines: Line[]
 }
-type FormLine = { key: string; product_id: string; quantity: string; shortfall_choice: string }
+type Catalog = Option & {
+  type: string
+  available: number
+  unitId: string
+  gstPercent: number
+  salePrice: string
+  makeDays: number
+  buyDays: number
+  shipDays: number
+  bufferDays: number
+}
+type FormLine = {
+  key: string
+  product_id: string
+  quantity: string
+  shortfall_choice: string
+  custom_unit: string
+  gst: boolean
+}
 type DraftLine = {
   line_id: string
   product_name: string
@@ -159,7 +195,7 @@ function OrderFlow({ status }: { status: string }) {
 }
 
 function blankLine(productId = ""): FormLine {
-  return { key: crypto.randomUUID(), product_id: productId, quantity: "1", shortfall_choice: "make" }
+  return { key: crypto.randomUUID(), product_id: productId, quantity: "1", shortfall_choice: "make", custom_unit: "", gst: true }
 }
 
 export function SalesPage() {
@@ -167,8 +203,10 @@ export function SalesPage() {
   const prices = canSeePrices(user?.role_name)
   const [orders, setOrders] = useState<Order[]>(() => peek<Order[]>("/api/sales/orders") ?? [])
   const [customers, setCustomers] = useState<Option[]>([])
-  const [products, setProducts] = useState<(Option & { type: string })[]>([])
+  const [products, setProducts] = useState<Catalog[]>([])
   const [people, setPeople] = useState<Option[]>([])
+  const [packagingIds, setPackagingIds] = useState<Set<string>>(new Set())
+  const [unitNames, setUnitNames] = useState<Record<string, string>>({})
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(() => peek<Order[]>("/api/sales/orders") === undefined)
   const [searchQuery, setSearchQuery] = useState("")
@@ -203,7 +241,11 @@ export function SalesPage() {
     notes: "",
     turnaround: "7",
     dispatch_by: "",
-    gst_billing: true,
+    transport_mode: "truck",
+    driver_name: "",
+    carrier_phone: "",
+    vehicle_plate: "",
+    pickup_user_id: "",
   })
   const [purchaseOrders, setPurchaseOrders] = useState<{ id: string; supplier_name: string | null; stock_received: boolean; lines: { product_id: string | null; quantity: string }[] }[]>([])
   const [sources, setSources] = useState<Record<string, string>>({})
@@ -215,16 +257,29 @@ export function SalesPage() {
     const [orderRows, customerPage, productPage, userPage, unitPage, categoryPage] = await Promise.all([
       api<Order[]>("/api/sales/orders"),
       api<Page<Customer>>("/api/customers/?page=1&page_size=100"),
-      api<Page<Product>>("/api/products?page=1&page_size=100&brief=true"),
+      api<Page<Product>>("/api/products?page=1&page_size=200"),
       api<User[]>("/api/users/options"),
-      editor ? api<Page<{ id: string; name: string }>>("/api/measurement-units?page=1&page_size=100") : Promise.resolve(null),
+      api<Page<{ id: string; name: string; abbreviation?: string | null }>>("/api/measurement-units?page=1&page_size=100"),
       editor ? api<Page<{ id: string; name: string }>>("/api/product-categories?page=1&page_size=100") : Promise.resolve(null),
     ])
-    if (unitPage) setUnits(unitPage.items.map((item) => ({ id: item.id, label: item.name })))
+    setUnitNames(Object.fromEntries(unitPage.items.map((item) => [item.id, item.abbreviation || item.name])))
+    setUnits(unitPage.items.map((item) => ({ id: item.id, label: item.abbreviation ? `${item.name} (${item.abbreviation})` : item.name })))
     if (categoryPage) setCategories(categoryPage.items.map((item) => ({ id: item.id, label: item.name })))
     setOrders(orderRows)
     const customerOptions = customerPage.items.map((item) => ({ id: item.id, label: item.name }))
-    const productOptions = productPage.items.map((item) => ({ id: item.id, label: item.product_name, type: item.product_type }))
+    const productOptions: Catalog[] = productPage.items.map((item) => ({
+      id: item.id,
+      label: item.product_name,
+      type: item.product_type,
+      available: Number(item.available ?? item.quantity ?? 0),
+      unitId: item.measurement_unit_id || "",
+      gstPercent: item.gst_percent ?? 0,
+      salePrice: item.sale_price_without_gst || "0",
+      makeDays: item.make_days ?? 7,
+      buyDays: item.buy_days ?? 7,
+      shipDays: item.ship_days ?? 2,
+      bufferDays: item.buffer_days ?? 2,
+    }))
     const peopleOptions = userPage.map((item) => ({
       id: item.id,
       label: [item.first_name, item.last_name].filter(Boolean).join(" "),
@@ -232,6 +287,15 @@ export function SalesPage() {
     setCustomers(customerOptions)
     setProducts(productOptions)
     setPeople(peopleOptions)
+    void Promise.all([
+      api<Page<{ id: string; name: string }>>("/api/operations?page=1&page_size=100"),
+      api<Page<{ operation_id: string; user_id: string }>>("/api/user-operations?page=1&page_size=200"),
+    ]).then(([ops, links]) => {
+      const packaging = ops.items.find((item) => item.name.trim().toLowerCase() === "packaging")
+      if (!packaging) return
+      const ids = links.items.filter((row) => row.operation_id === packaging.id).map((row) => row.user_id)
+      if (ids.length) setPackagingIds(new Set(ids))
+    }).catch(() => {})
     setForm((current) => ({
       ...current,
       customer_id: current.customer_id || customerOptions[0]?.id || "",
@@ -295,7 +359,19 @@ export function SalesPage() {
           description: null,
         }),
       })
-      setProducts((current) => [...current, { id: saved.id, label: saved.product_name, type: saved.product_type }])
+      setProducts((current) => [...current, {
+        id: saved.id,
+        label: saved.product_name,
+        type: saved.product_type,
+        available: Number(saved.quantity || 0),
+        unitId: saved.measurement_unit_id || "",
+        gstPercent: saved.gst_percent ?? 0,
+        salePrice: saved.sale_price_without_gst || "0",
+        makeDays: saved.make_days ?? 7,
+        buyDays: saved.buy_days ?? 7,
+        shipDays: saved.ship_days ?? 2,
+        bufferDays: saved.buffer_days ?? 2,
+      }])
       setLines((current) => current.map((line) => (line.key === lineKey ? { ...line, product_id: saved.id } : line)))
       setProductKey(null)
     } catch (caught) {
@@ -324,6 +400,34 @@ export function SalesPage() {
     }
     setOrders((current) => [optimistic, ...current])
     setShowCreate(false)
+    if (form.transport_mode === "truck" && (!form.vehicle_plate.trim() || !form.driver_name.trim())) {
+      setOrders((current) => current.filter((order) => order.id !== tempId))
+      setShowCreate(true)
+      setError("A truck needs the licence plate and the driver's name.")
+      return
+    }
+    if (form.transport_mode === "handcart" && (!form.driver_name.trim() || !form.carrier_phone.trim())) {
+      setOrders((current) => current.filter((order) => order.id !== tempId))
+      setShowCreate(true)
+      setError("A hand cart needs the person's name and phone.")
+      return
+    }
+    if (form.transport_mode === "staff_vehicle" && !form.pickup_user_id) {
+      setOrders((current) => current.filter((order) => order.id !== tempId))
+      setShowCreate(true)
+      setError("Choose the staff member who will take the company vehicle.")
+      return
+    }
+    const short = lines.find((line) => {
+      const product = products.find((item) => item.id === line.product_id)
+      return product && Number(line.quantity) > product.available && !line.shortfall_choice
+    })
+    if (short) {
+      setOrders((current) => current.filter((order) => order.id !== tempId))
+      setShowCreate(true)
+      setError("Choose make or buy for every line that is short of stock.")
+      return
+    }
     try {
       const created = await api<Order>("/api/sales/orders", {
         method: "POST",
@@ -333,15 +437,22 @@ export function SalesPage() {
           packaging_user_id: form.packaging_user_id || null,
           turnaround_days: form.turnaround === "custom" ? null : Number(form.turnaround),
           dispatch_by: form.turnaround === "custom" ? (form.dispatch_by ? new Date(form.dispatch_by).toISOString() : null) : new Date(Date.now() + Number(form.turnaround) * 86400000).toISOString(),
-          gst_billing: form.gst_billing,
-          lines: lines.map((line) => ({
-            product_id: line.product_id,
-            quantity: line.quantity,
-            shortfall_choice:
-              products.find((item) => item.id === line.product_id)?.type === "both"
-                ? line.shortfall_choice || "make"
-                : null,
-          })),
+          transport_mode: form.transport_mode,
+          driver_name: form.driver_name.trim() || null,
+          carrier_phone: form.carrier_phone.trim() || null,
+          vehicle_plate: form.transport_mode === "handcart" ? null : form.vehicle_plate.trim().toUpperCase() || null,
+          pickup_user_id: form.pickup_user_id || null,
+          lines: lines.map((line) => {
+            const product = products.find((item) => item.id === line.product_id)
+            const gap = product ? Number(line.quantity) - product.available : 0
+            return {
+              product_id: line.product_id,
+              quantity: line.quantity,
+              custom_unit: line.custom_unit.trim() || null,
+              gst: line.gst,
+              shortfall_choice: gap > 0 ? line.shortfall_choice : null,
+            }
+          }),
         }),
       })
       setOrders((current) => current.map((order) => (order.id === tempId ? created : order)))
@@ -569,16 +680,22 @@ export function SalesPage() {
                   ) : null}
                 </div>
                 <SearchSelect
-                  label="Packaging Staff Assigned"
-                  options={people}
+                  label="Packaging staff"
+                  options={packagingIds.size ? people.filter((person) => packagingIds.has(person.id)) : people}
                   value={form.packaging_user_id}
                   onChange={(packaging_user_id) => setForm({ ...form, packaging_user_id })}
                 />
                 <div className="grid gap-3 sm:col-span-2">
                   {lines.map((line, index) => {
-                    const lineType = products.find((item) => item.id === line.product_id)?.type
+                    const product = products.find((item) => item.id === line.product_id)
+                    const unit = product ? unitNames[product.unitId] || "" : ""
+                    const gap = product ? Math.max(0, Number(line.quantity) - product.available) : 0
+                    const makeCenter = product ? product.makeDays + product.shipDays : 0
+                    const buyCenter = product ? product.buyDays + product.shipDays : 0
+                    const buffer = product?.bufferDays ?? 2
+                    const range = (center: number) => `${Math.max(0, center - buffer)}–${center + buffer} days`
                     return (
-                      <div key={line.key} className="grid gap-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3 sm:grid-cols-2">
+                      <div key={line.key} className="grid gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:grid-cols-2">
                         <SearchSelect
                           label={index === 0 ? "Product" : `Product ${index + 1}`}
                           options={products}
@@ -626,10 +743,11 @@ export function SalesPage() {
                             ) : null}
                           </div>
                         ) : null}
-                        <Field label="Order Quantity" required>
+                        <Field label="Quantity" required>
                           <Input
                             type="number"
-                            min="1"
+                            min="0.001"
+                            step="0.001"
                             value={line.quantity}
                             onChange={(event) =>
                               setLines((current) =>
@@ -638,23 +756,53 @@ export function SalesPage() {
                             }
                           />
                         </Field>
-                        {lineType === "both" ? (
-                          <Field label="If Stock is Short">
-                            <select
-                              className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 shadow-2xs focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
-                              value={line.shortfall_choice}
-                              onChange={(event) =>
-                                setLines((current) =>
-                                  current.map((item) =>
-                                    item.key === line.key ? { ...item, shortfall_choice: event.target.value } : item,
-                                  ),
-                                )
-                              }
-                            >
-                              <option value="make">Make it (Launch Production Job)</option>
-                              <option value="buy">Buy it (Create Purchase Request)</option>
-                            </select>
-                          </Field>
+                        <p className="self-end pb-2 text-sm font-medium text-gray-700">
+                          {line.quantity || "0"} {unit}
+                          {product ? ` · ${plain(product.available)} ${unit} free` : ""}
+                        </p>
+                        <Field label="Custom unit for this order">
+                          <Input
+                            value={line.custom_unit}
+                            placeholder="Optional label, only on this line"
+                            onChange={(event) =>
+                              setLines((current) => current.map((item) => (item.key === line.key ? { ...item, custom_unit: event.target.value } : item)))
+                            }
+                          />
+                        </Field>
+                        <Field label="Tax on this line">
+                          <select
+                            className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm"
+                            value={line.gst ? "gst" : "non"}
+                            onChange={(event) =>
+                              setLines((current) => current.map((item) => (item.key === line.key ? { ...item, gst: event.target.value === "gst" } : item)))
+                            }
+                          >
+                            <option value="non">Non-GST</option>
+                            <option value="gst">GST {product ? `${plain(product.gstPercent)}% on top` : ""}</option>
+                          </select>
+                        </Field>
+                        {gap > 0 && product ? (
+                          <div className="grid gap-2 sm:col-span-2">
+                            <p className="text-xs text-gray-600">
+                              Short by {plain(gap)} {unit}. Make in-house {range(makeCenter)}. Buy and resell {range(buyCenter)}.
+                            </p>
+                            <Field label="Path for the missing quantity">
+                              <select
+                                className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900"
+                                value={line.shortfall_choice}
+                                onChange={(event) =>
+                                  setLines((current) =>
+                                    current.map((item) =>
+                                      item.key === line.key ? { ...item, shortfall_choice: event.target.value } : item,
+                                    ),
+                                  )
+                                }
+                              >
+                                <option value="make">Make in-house ({range(makeCenter)})</option>
+                                <option value="buy">Buy and resell ({range(buyCenter)})</option>
+                              </select>
+                            </Field>
+                          </div>
                         ) : null}
                         {lines.length > 1 ? (
                           <div className="flex items-end">
@@ -693,12 +841,35 @@ export function SalesPage() {
                     <Input type="datetime-local" value={form.dispatch_by} onChange={(event) => setForm({ ...form, dispatch_by: event.target.value })} />
                   </Field>
                 ) : null}
-                <Field label="Billing">
-                  <select className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm" value={form.gst_billing ? "gst" : "non"} onChange={(event) => setForm({ ...form, gst_billing: event.target.value === "gst" })}>
-                    <option value="gst">GST</option>
-                    <option value="non">Non-GST</option>
+                <Field label="How it travels">
+                  <select className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm" value={form.transport_mode} onChange={(event) => setForm({ ...form, transport_mode: event.target.value })}>
+                    <option value="truck">Truck</option>
+                    <option value="handcart">Hand cart</option>
+                    <option value="staff_vehicle">Staff vehicle</option>
                   </select>
                 </Field>
+                {form.transport_mode !== "handcart" ? (
+                  <Field label="Licence plate" required={form.transport_mode === "truck"} hint={form.transport_mode === "staff_vehicle" ? "Optional" : undefined}>
+                    <Input value={form.vehicle_plate} onChange={(event) => setForm({ ...form, vehicle_plate: event.target.value.toUpperCase() })} />
+                  </Field>
+                ) : null}
+                {form.transport_mode === "staff_vehicle" ? (
+                  <Field label="Staff member">
+                    <select className="h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm" value={form.pickup_user_id} onChange={(event) => setForm({ ...form, pickup_user_id: event.target.value })}>
+                      <option value="">Choose staff</option>
+                      {people.map((person) => <option key={person.id} value={person.id}>{person.label}</option>)}
+                    </select>
+                  </Field>
+                ) : (
+                  <Field label={form.transport_mode === "truck" ? "Driver name" : "Person name"} required>
+                    <Input value={form.driver_name} onChange={(event) => setForm({ ...form, driver_name: event.target.value })} />
+                  </Field>
+                )}
+                {form.transport_mode === "handcart" ? (
+                  <Field label="Phone" required>
+                    <Input value={form.carrier_phone} onChange={(event) => setForm({ ...form, carrier_phone: event.target.value })} />
+                  </Field>
+                ) : null}
                 <Field label="Order Instructions" className="sm:col-span-2">
                   <Input
                     placeholder="e.g. Export bubble packaging"
@@ -727,8 +898,9 @@ export function SalesPage() {
 
       {error ? <Notice variant="error">{error}</Notice> : null}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-gray-200/90 bg-white p-1.5 text-xs font-medium shadow-xs">
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+        <FilterPanel title="Status">
           {(
             [
               ["all", `All (${counts.total})`, "bg-emerald-700"],
@@ -737,41 +909,44 @@ export function SalesPage() {
               ["in_delivery", `In Delivery (${counts.inDelivery})`, "bg-sky-600"],
               ["delivered", `Delivered (${counts.delivered})`, "bg-emerald-600"],
               ["cancelled", `Cancelled (${counts.cancelled})`, "bg-rose-600"],
-              ["traded", "Traded goods", "bg-violet-600"],
-              ["made", "Made in-house", "bg-blue-700"],
             ] as const
           ).map(([id, label, active]) => (
             <button
               key={id}
               type="button"
               className={cn(
-                "rounded-xl px-3 py-1.5 font-semibold transition-all",
-                (id === "traded" || id === "made" ? goodsFilter === id : statusFilter === id) ? `${active} text-white shadow-xs` : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
+                "rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+                statusFilter === id ? `${active} text-white shadow-xs` : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
               )}
-                onClick={() => (id === "traded" || id === "made" ? setGoodsFilter(goodsFilter === id ? "all" : id) : chooseStatus(id))}
+              onClick={() => chooseStatus(id)}
             >
               {label}
             </button>
           ))}
-        </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search client, product, packer..."
-            className="rounded-xl border-gray-200 bg-white pl-9 text-xs"
-          />
-          {searchQuery ? (
+        </FilterPanel>
+        <FilterPanel title="Goods">
+          {(
+            [
+              ["all", "All goods"],
+              ["traded", "Traded goods"],
+              ["made", "Made in-house"],
+            ] as const
+          ).map(([id, label]) => (
             <button
+              key={id}
               type="button"
-              className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              onClick={() => setSearchQuery("")}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+                goodsFilter === id ? "bg-violet-600 text-white shadow-xs" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
+              )}
+              onClick={() => setGoodsFilter(id)}
             >
-              <X className="size-3.5" />
+              {label}
             </button>
-          ) : null}
+          ))}
+        </FilterPanel>
         </div>
+        <SearchPill value={searchQuery} onChange={setSearchQuery} placeholder="Client, product, packer" />
       </div>
 
       {loading ? (
@@ -794,9 +969,9 @@ export function SalesPage() {
             const current = stage(order.status)
             const packer = order.packaging_name || packerName(order.packaging_user_id) || "Unassigned"
             const next =
-              current === "initiated" ? "process" : current === "process" ? "in_delivery" : current === "in_delivery" ? "delivered" : ""
+              current === "initiated" ? "process" : current === "process" ? "in_delivery" : ""
             const nextLabel =
-              current === "initiated" ? "Start packing" : current === "process" ? "Mark In Delivery" : current === "in_delivery" ? "Dispatch Order" : ""
+              current === "initiated" ? "Start packing" : current === "process" ? "Mark In Delivery" : ""
             return (
               <article
                 key={order.id}
@@ -830,7 +1005,7 @@ export function SalesPage() {
                         <span>
                           {order.lines.length} {order.lines.length === 1 ? "product" : "products"}
                         </span>
-                        {prices ? <span>Delivery ₹{Number(order.delivery_charge).toFixed(2)}</span> : null}
+                        {prices ? <span>Delivery ₹{plain(Number(order.delivery_charge).toFixed(2))}</span> : null}
                       </p>
                     </div>
                   </div>
@@ -851,7 +1026,7 @@ export function SalesPage() {
                         to={`/accountant/payments?invoice=${order.invoice_id}`}
                         className="inline-flex h-8 items-center rounded-xl border border-[var(--line)] bg-white px-2.5 text-xs font-semibold text-[var(--ink)]"
                       >
-                        Paid ₹{Number(order.invoice_amount_paid || 0).toFixed(2)} · Due ₹{Math.max(0, Number(order.invoice_total || 0) - Number(order.invoice_amount_paid || 0)).toFixed(2)}
+                        Paid ₹{plain(Number(order.invoice_amount_paid || 0).toFixed(2))} · Due ₹{plain(Math.max(0, Number(order.invoice_total || 0) - Number(order.invoice_amount_paid || 0)).toFixed(2))}
                       </Link>
                     ) : null}
                     {order.invoice_has_pdf && order.invoice_id ? (
@@ -871,17 +1046,21 @@ export function SalesPage() {
                         {billFileName(order.customer_name).replace(/\.pdf$/, "")}
                       </Button>
                     ) : null}
-                    {current === "in_delivery" ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 rounded-xl border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                        onClick={() => void advance(order, "process")}
-                      >
-                        <Undo2 className="mr-1 size-3.5" />
-                        Step back
-                      </Button>
+                    {current !== "delivered" && current !== "cancelled" && !order.receipt_attachment_id ? (
+                      <div className="min-w-56">
+                        <SlipUpload
+                          label="Receipt"
+                          files={[]}
+                          onUploaded={(file) => {
+                            void api<Order>(`/api/sales/orders/${order.id}/receipt`, {
+                              method: "POST",
+                              body: JSON.stringify({ attachment_id: file.attachment_id }),
+                            })
+                              .then((saved) => setOrders((current) => current.map((row) => (row.id === saved.id ? saved : row))))
+                              .catch((caught) => setError(errorMessage(caught)))
+                          }}
+                        />
+                      </div>
                     ) : null}
                     {next ? (
                       <Button
@@ -991,7 +1170,7 @@ export function SalesPage() {
                       <p className="text-sm font-semibold text-gray-900">{line.product_name}</p>
                       <p className="text-xs text-gray-500">Qty {line.quantity} {line.unit}</p>
                     </div>
-                    <Field label="Price (₹)" required hint={line.catalog_price ? `Catalog ₹${Number(line.catalog_price).toFixed(2)}` : undefined}>
+                    <Field label="Price (₹)" required hint={line.catalog_price ? `Catalog ₹${plain(Number(line.catalog_price).toFixed(2))}` : undefined}>
                       <Input
                         type="number"
                         min="0"
@@ -1041,18 +1220,18 @@ export function SalesPage() {
               </div>
               {preview ? (
                 <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 text-xs text-gray-600">
-                  <div className="flex justify-between"><span>Taxable</span><span className="font-semibold text-gray-900">₹{preview.taxable.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span>Taxable</span><span className="font-semibold text-gray-900">₹{plain(preview.taxable.toFixed(2))}</span></div>
                   {draft.same_state ? (
                     <>
-                      <div className="mt-1 flex justify-between"><span>CGST</span><span>₹{preview.cgst.toFixed(2)}</span></div>
-                      <div className="mt-1 flex justify-between"><span>SGST</span><span>₹{preview.sgst.toFixed(2)}</span></div>
+                      <div className="mt-1 flex justify-between"><span>CGST</span><span>₹{plain(preview.cgst.toFixed(2))}</span></div>
+                      <div className="mt-1 flex justify-between"><span>SGST</span><span>₹{plain(preview.sgst.toFixed(2))}</span></div>
                     </>
                   ) : (
-                    <div className="mt-1 flex justify-between"><span>IGST</span><span>₹{preview.igst.toFixed(2)}</span></div>
+                    <div className="mt-1 flex justify-between"><span>IGST</span><span>₹{plain(preview.igst.toFixed(2))}</span></div>
                   )}
-                  <div className="mt-1 flex justify-between"><span>Delivery</span><span>₹{Number(draft.delivery_charge).toFixed(2)}</span></div>
+                  <div className="mt-1 flex justify-between"><span>Delivery</span><span>₹{plain(Number(draft.delivery_charge).toFixed(2))}</span></div>
                   <div className="mt-2 flex justify-between border-t border-gray-200 pt-2 text-sm font-bold text-gray-900">
-                    <span>Total</span><span>₹{previewTotal.toFixed(2)}</span>
+                    <span>Total</span><span>₹{plain(previewTotal.toFixed(2))}</span>
                   </div>
                 </div>
               ) : null}
