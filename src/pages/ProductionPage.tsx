@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react"
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type MouseEvent } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import {
   Boxes,
@@ -16,12 +16,11 @@ import { StageDesk } from "@/components/StageDesk"
 import { MultiWorkerPicker } from "@/components/WorkerPicker"
 import { DateRangeBar } from "@/components/floor/DateRangeBar"
 import { FloorEntryDialog } from "@/components/floor/FloorEntryDialog"
-import { StatusDropright } from "@/components/floor/StatusDropright"
 import { TimelineJump } from "@/components/floor/TimelineJump"
 import { istToday } from "@/components/floor/dates"
 import { amount, dayLabel, scrapLabel, totals, type FloorEntry, type FloorSummary } from "@/components/floor/format"
 import { FormBusy, PageLoading } from "@/components/PlantLoader"
-import { Field, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
+import { Field, FilterPanel, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -337,6 +336,7 @@ export function ProductionPage() {
   const [stageScrap, setStageScrap] = useState("")
   const [held, setHeld] = useState(false)
   const hold = useRef(false)
+  const holdScroll = useRef<number | null>(null)
   const [editJob, setEditJob] = useState<Job | null>(null)
   const [editForm, setEditForm] = useState({
     quantity: "",
@@ -388,10 +388,26 @@ export function ProductionPage() {
     setShowCreate(true)
   }
 
+  useLayoutEffect(() => {
+    if (holdScroll.current == null) return
+    window.scrollTo(0, holdScroll.current)
+    holdScroll.current = null
+  })
+
+  function keepPlace(update: () => void) {
+    holdScroll.current = window.scrollY
+    update()
+    requestAnimationFrame(() => {
+      if (holdScroll.current == null) return
+      window.scrollTo(0, holdScroll.current)
+      holdScroll.current = null
+    })
+  }
+
   function setQuery(partial: Record<string, string>) {
     const next = new URLSearchParams(searchParams)
     for (const [key, value] of Object.entries(partial)) next.set(key, value)
-    setSearchParams(next, { replace: true })
+    keepPlace(() => setSearchParams(next, { replace: true, preventScrollReset: true }))
   }
 
   function reloadFloor() {
@@ -858,11 +874,11 @@ export function ProductionPage() {
         <PageLoading label="Loading production jobs" variant="table" cols={4} count={5} />
       ) : (
         <div className="space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-gray-200/90 bg-white p-1.5 text-xs font-medium shadow-xs">
+        <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_auto_16rem]">
+          <FilterPanel title="Department">
             <button
               type="button"
-              className={cn("rounded-xl px-3 py-1.5 font-semibold", dept === "all" ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50")}
+              className={cn("rounded-md px-3 py-1.5 text-xs font-semibold", dept === "all" ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50")}
               onClick={() => setQuery({ dept: "all" })}
             >
               All
@@ -874,7 +890,7 @@ export function ProductionPage() {
                 <button
                   key={operation.id}
                   type="button"
-                  className={cn("inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 font-semibold", on ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50")}
+                  className={cn("inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold", on ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-50")}
                   onClick={() => setQuery({ dept: operation.id })}
                 >
                   <span className="size-1.5 rounded-full" style={{ background: stageColor(operation.name) }} />
@@ -882,11 +898,11 @@ export function ProductionPage() {
                 </button>
               )
             })}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <TimelineJump />
+          </FilterPanel>
+          <TimelineJump />
+          <FilterPanel title="Sort">
             <select
-              className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700"
+              className="h-10 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 text-xs font-medium text-[var(--ink)]"
               value={sortBy}
               onChange={(event) => setSortBy(event.target.value)}
             >
@@ -897,7 +913,7 @@ export function ProductionPage() {
               <option value="stage">Workflow stage</option>
               <option value="complete">Most complete first</option>
             </select>
-          </div>
+          </FilterPanel>
         </div>
         <DateRangeBar from={rangeFrom} to={rangeTo} onChange={(from, to) => setQuery({ from, to })} />
         {dept === "all" ? (
@@ -981,45 +997,54 @@ export function ProductionPage() {
             </div>
           </section>
         )}
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-center gap-4 rounded-2xl border border-gray-200/90 bg-white px-4 py-3 text-center shadow-xs">
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-700">
-              Production Queue
-            </span>
-            <span className="text-xs text-gray-400">Open a job to work the stage</span>
+        <section className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)]">
+          <div className="border-b border-[var(--line)] px-4 py-3 text-center">
+            <p className="text-xs font-medium tracking-[0.4px] text-[var(--ink-soft)]">Production queue</p>
+            <p className="mt-1 text-xs text-[var(--ink-soft)]">Open a job to work the stage</p>
           </div>
-          <StatusDropright
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={[
-              { id: "all", label: `All (${counts.all})`, tone: "bg-emerald-700" },
-              { id: "pending", label: `Pending (${counts.pending})`, tone: "bg-slate-600" },
-              { id: "in_progress", label: `In Progress (${counts.in_progress})`, tone: "bg-blue-600" },
-              { id: "awaiting_approval", label: `Awaiting (${counts.awaiting_approval})`, tone: "bg-amber-600" },
-              { id: "completed", label: `Completed (${counts.completed})`, tone: "bg-emerald-600" },
-              { id: "cancelled", label: `Cancelled (${counts.cancelled})`, tone: "bg-rose-600" },
-            ]}
-          />
-          <div className="h-px bg-gray-200" />
-          <div className="space-y-2.5">
+          <div className="border-b border-[var(--line)] px-4 py-3">
+            <p className="text-[11px] font-medium tracking-[0.4px] text-[var(--ink-soft)]">Status</p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {(
+                [
+                  ["all", `All (${counts.all})`, "bg-emerald-700"],
+                  ["pending", `Pending (${counts.pending})`, "bg-slate-600"],
+                  ["in_progress", `In Progress (${counts.in_progress})`, "bg-blue-600"],
+                  ["awaiting_approval", `Awaiting (${counts.awaiting_approval})`, "bg-amber-600"],
+                  ["completed", `Completed (${counts.completed})`, "bg-emerald-600"],
+                  ["cancelled", `Cancelled (${counts.cancelled})`, "bg-rose-600"],
+                ] as const
+              ).map(([id, label, tone]) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-xs font-semibold",
+                    statusFilter === id ? `${tone} text-white` : "text-[var(--ink-soft)] hover:bg-[var(--hover)] hover:text-[var(--ink)]",
+                  )}
+                  onClick={() => keepPlace(() => setStatusFilter(id))}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex min-h-[28rem] flex-col">
                 {visibleJobs.length === 0 ? (
-                  <p className="px-4 py-8 text-center text-xs text-gray-400">
-                    {dept === "all" ? "No production jobs active. Create one above to get started." : `No jobs in ${departmentLabel(selectedOp?.name) || "this department"} right now.`}
+                  <p className="flex flex-1 items-center justify-center px-4 text-center text-xs text-[var(--ink-soft)]">
+                    No active jobs
                   </p>
                 ) : (
-                  visibleJobs.map((job, index) => {
+                  visibleJobs.map((job) => {
                     const isSelected = selected?.id === job.id
                     const ink = job.current_operation_name && (job.status === "in_progress" || job.status === "active")
                       ? stageInk(job.current_operation_name)
                       : undefined
                     return (
                       <Fragment key={job.id}>
-                      {index > 0 ? <div className="mx-6 h-px bg-gray-200" /> : null}
                       {isSelected ? null : (
                       <div
-                        className={cn(
-                          "grid cursor-pointer grid-cols-[minmax(0,1.1fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_auto] items-center gap-x-8 rounded-2xl border border-gray-200/90 bg-white px-5 py-4 shadow-xs transition-all duration-300 hover:bg-gray-50/70",
-                        )}
+                        className="grid cursor-pointer grid-cols-[minmax(0,1.1fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_auto] items-center gap-x-8 px-5 py-4 hover:bg-[var(--hover)]"
                         onClick={() => void toggle(job.id)}
                       >
                         <span className="truncate text-[15px] font-semibold text-gray-900">{job.product_name ?? "Custom Job"}</span>
@@ -1053,7 +1078,7 @@ export function ProductionPage() {
                           <div className={cn("grid transition-[grid-template-rows] duration-500 ease-out", isSelected ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
                             <div className={cn("min-h-0 overflow-hidden", isSelected && "py-3")}>
                               {isSelected && selected ? (
-          <section className={cn("relative z-10 @container space-y-4 rounded-2xl border border-gray-200 bg-white p-4 text-gray-900 shadow-xs", held && "pointer-events-none")}>
+          <section className={cn("relative z-10 @container space-y-4 bg-[var(--surface-2)] p-4 text-gray-900", held && "pointer-events-none")}>
             {held ? (
               <p className="text-xs font-medium text-emerald-700">Recorded. Other actions stay locked until the plant confirms it.</p>
             ) : null}
@@ -1492,7 +1517,7 @@ export function ProductionPage() {
                   })
                 )}
           </div>
-        </div>
+        </section>
         </div>
       )}
       {editJob ? (

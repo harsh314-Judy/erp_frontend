@@ -3,7 +3,7 @@ import { Boxes, Pencil, PlusCircle, Search } from "lucide-react"
 
 import { useAuth } from "@/auth/AuthContext"
 import { FormBusy, PageLoading } from "@/components/PlantLoader"
-import { CategoryManager, Field, Notice, PageTitle, StatusBadge } from "@/components/plant-ui"
+import { Field, Notice, PageTitle, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -110,31 +110,6 @@ export function MaterialsPage() {
     void load("").catch((caught) => setError(errorMessage(caught)))
   }, [])
   useRefreshWhenShown("/materials", () => load(), (caught) => setError(errorMessage(caught)))
-
-  async function addCategory(name: string) {
-    setError("")
-    try {
-      const created = await api<Named>("/api/raw-materials/categories", {
-        method: "POST",
-        body: JSON.stringify({ name }),
-      })
-      setForm((current) => ({ ...current, category_id: created.id }))
-      void load().catch((caught) => setError(errorMessage(caught)))
-    } catch (caught) {
-      setError(errorMessage(caught))
-    }
-  }
-
-  async function removeCategory(id: string) {
-    setError("")
-    try {
-      await api(`/api/raw-materials/categories/${id}`, { method: "DELETE" })
-      setForm((current) => ({ ...current, category_id: current.category_id === id ? "" : current.category_id }))
-      void load().catch((caught) => setError(errorMessage(caught)))
-    } catch (caught) {
-      setError(errorMessage(caught))
-    }
-  }
 
   function payload() {
     return {
@@ -268,8 +243,6 @@ export function MaterialsPage() {
                   submitLabel="Save Material to Inventory"
                   onSubmit={create}
                   onCancel={() => setShowCreate(false)}
-                  onAddCategory={addCategory}
-                  onRemoveCategory={removeCategory}
                   busy={busy}
                 />
               </DialogContent>
@@ -279,11 +252,6 @@ export function MaterialsPage() {
       />
 
       <div className="flex flex-wrap items-start gap-3">
-        {can("edit_inventory") ? (
-          <div className="min-w-64 flex-1">
-            <CategoryManager categories={categories} onAdd={addCategory} onRemove={(id) => void removeCategory(id)} />
-          </div>
-        ) : null}
         <div className="flex h-fit flex-wrap gap-1 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
           {([
             ["core", "Raw Material", rows.filter((row) => (row.stock_group || "core") === "core").length],
@@ -422,8 +390,6 @@ export function MaterialsPage() {
             submitLabel="Save changes"
             onSubmit={saveEdit}
             onCancel={() => setEditing(null)}
-            onAddCategory={addCategory}
-            onRemoveCategory={removeCategory}
             busy={busy}
             counted={{ delta: adjustQty, reason: adjustReason, onDelta: setAdjustQty, onReason: setAdjustReason }}
           />
@@ -443,8 +409,6 @@ function MaterialForm({
   submitLabel,
   onSubmit,
   onCancel,
-  onAddCategory,
-  onRemoveCategory,
   busy,
   counted,
 }: {
@@ -457,16 +421,11 @@ function MaterialForm({
   submitLabel: string
   onSubmit: (event: FormEvent) => void
   onCancel: () => void
-  onAddCategory: (name: string) => void
-  onRemoveCategory: (id: string) => void
   busy: boolean
   counted?: { delta: string; reason: string; onDelta: (value: string) => void; onReason: (value: string) => void }
 }) {
   return (
     <form className="mt-2 grid gap-4 sm:grid-cols-2" onSubmit={(event) => void onSubmit(event)}>
-      <div className="sm:col-span-2">
-        <CategoryManager categories={categories} onAdd={onAddCategory} onRemove={onRemoveCategory} />
-      </div>
       <Field label="Material Name" required className="sm:col-span-2">
         <Input
           value={form.name}

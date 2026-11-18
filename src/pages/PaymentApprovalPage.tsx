@@ -5,8 +5,8 @@ import { Receipt } from "lucide-react"
 import { useAuth } from "@/auth/AuthContext"
 import { PaymentSummary, RecordPayment, type PaymentLine } from "@/components/RecordPayment"
 import { PageLoading } from "@/components/PlantLoader"
-import { Notice, PageTitle } from "@/components/plant-ui"
-import { api, errorMessage } from "@/lib/api"
+import { DateSort, FilterPanel, Notice, PageTitle } from "@/components/plant-ui"
+import { api, errorMessage, plain } from "@/lib/api"
 
 type Bill = {
   key: string
@@ -40,6 +40,7 @@ type PurchaseLine = { quantity: string; unit_price: string | null }
 type Purchase = {
   id: string
   supplier_name: string | null
+  status: string
   stock_received: boolean
   amount_paid?: string | null
   lines: PurchaseLine[]
@@ -86,7 +87,22 @@ function matchesSort(when: Date, sort: string, now: Date) {
   if (sort === "month") return when.getFullYear() === now.getFullYear() && when.getMonth() === now.getMonth()
   if (sort.startsWith("month:")) return when.getFullYear() === now.getFullYear() && when.getMonth() === Number(sort.slice(6))
   if (sort.startsWith("year:")) return when.getFullYear() === Number(sort.slice(5))
+  if (sort.startsWith("range:")) {
+    const [, from, to] = sort.split(":")
+    const start = startOfDay(new Date(`${from}T00:00:00`))
+    const end = startOfDay(new Date(`${to}T00:00:00`))
+    return day >= start && day <= end
+  }
   return true
+}
+
+function chosenLabel(sort: string, choices: { id: string; label: string }[]) {
+  if (sort.startsWith("range:")) {
+    const [, from, to] = sort.split(":")
+    const stamp = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+    return `${stamp(from)} – ${stamp(to)}`
+  }
+  return choices.find((item) => item.id === sort)?.label ?? "Payments"
 }
 
 function groupLabel(when: Date, now: Date) {
@@ -126,7 +142,7 @@ function OpenBill({ bill, focused, canPay, onPaid }: { bill: Bill; focused: bool
         </div>
       </div>
       {canPay ? (
-        <RecordPayment due={Math.max(0, bill.total - bill.paid).toFixed(2)} payUrl={bill.payUrl} onPreview={setPreview} onDone={onPaid} />
+        <RecordPayment due={plain(Math.max(0, bill.total - bill.paid).toFixed(2))} payUrl={bill.payUrl} onPreview={setPreview} onDone={onPaid} />
       ) : null}
     </article>
   )
@@ -169,7 +185,7 @@ export function PaymentApprovalPage() {
         payments: invoice.payments ?? [],
         payUrl: `/api/invoices/${invoice.id}/payments`,
       })),
-      ...purchases.filter((order) => order.stock_received).map((order) => {
+      ...purchases.filter((order) => order.status !== "cancelled").map((order) => {
         const total = purchaseTotal(order)
         const paid = Number(order.amount_paid || 0)
         const status = total <= 0 || paid >= total ? "paid" : paid > 0 ? "partial" : "unpaid"
@@ -228,13 +244,11 @@ export function PaymentApprovalPage() {
     return items
   }, [bills, now])
   const quickSorts = choices.filter((item) => ["all", "today", "yesterday", "week", "month"].includes(item.id))
-  const customSorts = choices.filter((item) => !["all", "today", "yesterday", "week", "month"].includes(item.id))
-  const customValue = customSorts.some((item) => item.id === sort) ? sort : ""
   const groups = useMemo(() => {
     const order: string[] = []
     const buckets = new Map<string, LogLine[]>()
     for (const line of lines) {
-      const label = sort === "all" ? groupLabel(new Date(line.payment.created_at), now) : choices.find((item) => item.id === sort)?.label ?? "Payments"
+      const label = sort === "all" ? groupLabel(new Date(line.payment.created_at), now) : chosenLabel(sort, choices)
       if (!buckets.has(label)) {
         buckets.set(label, [])
         order.push(label)
@@ -284,49 +298,24 @@ export function PaymentApprovalPage() {
         badge={`${open.length} Open`}
       />
       {error ? <Notice variant="error">{error}</Notice> : null}
-      <div className="grid items-start gap-6 md:grid-cols-2">
-        <div className="min-w-0">
-          <p className="text-xs font-medium tracking-[0.4px] text-[var(--ink-soft)]">Sort by</p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-            {quickSorts.map((item) => (
+      <div className="grid items-start gap-4 md:grid-cols-[minmax(0,1.75fr)_minmax(11rem,0.65fr)]">
+        <DateSort quick={quickSorts} value={sort} onChange={setSort} />
+        <FilterPanel title="Party">
+          {PARTIES.map((item) => {
+            const selected = item.id ? parties.includes(item.id) : parties.length === 0
+            return (
               <button
-                key={item.id}
+                key={item.id || "all"}
                 type="button"
-                onClick={() => setSort(item.id)}
-                className={`h-10 px-2 text-sm font-medium ${sort === item.id ? "text-[var(--scheme)]" : "text-[var(--ink-soft)]"}`}
+                aria-pressed={selected}
+                onClick={() => toggleParty(item.id)}
+                className={`h-10 px-2 text-sm font-medium ${selected ? "text-[var(--scheme)]" : "text-[var(--ink-soft)]"}`}
               >
                 {item.label}
               </button>
-            ))}
-            <select
-              className="h-10 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)]"
-              value={customValue}
-              onChange={(event) => setSort(event.target.value || "all")}
-            >
-              <option value="">Custom range</option>
-              {customSorts.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-medium tracking-[0.4px] text-[var(--ink-soft)]">Party</p>
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-            {PARTIES.map((item) => {
-              const selected = item.id ? parties.includes(item.id) : parties.length === 0
-              return (
-                <button
-                  key={item.id || "all"}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => toggleParty(item.id)}
-                  className={`h-10 px-2 text-sm font-medium ${selected ? "text-[var(--scheme)]" : "text-[var(--ink-soft)]"}`}
-                >
-                  {item.label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
+            )
+          })}
+        </FilterPanel>
       </div>
       {loading ? <PageLoading label="Loading payments" variant="cards" count={2} /> : (
         <>
@@ -359,7 +348,7 @@ export function PaymentApprovalPage() {
                           <div>
                             <p className="text-sm font-medium text-[var(--ink)]">{line.bill.partyName} · {line.bill.title}</p>
                             <p className="text-[11px] text-[var(--ink-soft)]">
-                              {new Date(line.payment.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} · {line.bill.party} · {methodLabel(line.payment.method)} · ₹{Number(line.payment.amount).toFixed(2)}
+                              {new Date(line.payment.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} · {line.bill.party} · {methodLabel(line.payment.method)} · ₹{plain(Number(line.payment.amount).toFixed(2))}
                               {line.payment.note ? ` · ${line.payment.note}` : ""}
                             </p>
                           </div>

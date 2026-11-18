@@ -6,11 +6,9 @@ import {
   FileText,
   Pencil,
   PlusCircle,
-  Search,
   ShoppingCart,
   Sparkles,
   Truck,
-  Undo2,
   X,
   XCircle,
   Zap,
@@ -19,7 +17,7 @@ import {
 import { useAuth } from "@/auth/AuthContext"
 import { SlipUpload, type SlipFile } from "@/components/SlipUpload"
 import { CardListSkeleton, FormBusy } from "@/components/PlantLoader"
-import { CategoryManager, Field, Notice, PageTitle, SearchSelect, StatusBadge } from "@/components/plant-ui"
+import { Field, FilterPanel, Notice, PageTitle, SearchPill, SearchSelect, StatusBadge } from "@/components/plant-ui"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -31,12 +29,12 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { canSeePrices } from "@/lib/access"
-import { api, errorMessage, peek, type Page } from "@/lib/api"
+import { api, errorMessage, peek, plain, rupees, type Page } from "@/lib/api"
 import { useFormBusy } from "@/lib/busy"
 import { useRefreshWhenShown } from "@/lib/visible"
 import { cn } from "@/lib/utils"
 
-type Named = { id: string; name: string }
+type Named = { id: string; name: string; abbreviation?: string | null }
 type Option = { id: string; label: string }
 type Supplier = {
   id: string
@@ -45,8 +43,8 @@ type Supplier = {
   raw_material_ids?: string[]
   product_ids?: string[]
 }
-type Material = { id: string; name: string; category_id: string | null }
-type Product = { id: string; product_name: string; category_id: string }
+type Material = { id: string; name: string; category_id: string | null; measurement_unit_id?: string; price?: string | null; purchase_price?: string | null }
+type Product = { id: string; product_name: string; category_id: string; measurement_unit_id?: string; gst?: boolean; gst_percent?: number; sale_price_without_gst?: string | null; last_purchase_price?: string | null }
 type Line = {
   id?: string
   item_name?: string | null
@@ -54,6 +52,11 @@ type Line = {
   raw_material_id: string | null
   quantity: string
   unit_price: string | null
+  purchase_rate?: string | null
+  selling_rate?: string | null
+  gst?: boolean
+  gst_percent?: number
+  measurement_unit_id?: string | null
   product_type?: string | null
 }
 type OrderFile = SlipFile & { kind: string }
@@ -68,6 +71,12 @@ type Order = {
   receipt_fail_reason?: string | null
   receipt_fail_note?: string | null
   expected_vehicle_plate: string | null
+  transport_mode?: string | null
+  driver_name?: string | null
+  carrier_phone?: string | null
+  pickup_user_id?: string | null
+  cancel_reason?: string | null
+  status_before_cancel?: string | null
   lines: Line[]
   attachments?: OrderFile[]
 }
@@ -77,19 +86,30 @@ type DraftLine = {
   category_id: string
   item_id: string
   quantity: string
-  unit_price: string
+  unit_id: string
+  purchase_rate: string
+  selling_rate: string
+  gst: boolean
+  gst_percent: string
 }
 
-const STATUSES = [
-  { id: "initiated", label: "Initiated", desc: "PO logged, awaiting vendor processing" },
-  { id: "process", label: "In Process", desc: "Supplier is packaging / fabricating items" },
-  { id: "in_delivery", label: "In Delivery", desc: "Dispatched from supplier, en route to plant" },
-  { id: "delivered", label: "Delivered", desc: "Received at gate & auto-added to stock inventory" },
-  { id: "cancelled", label: "Cancelled", desc: "Order voided. Stock will not be credited." },
+const FLOW = [
+  { id: "arrived", label: "Arrived" },
+  { id: "accounted", label: "Material accounted" },
+  { id: "paid", label: "Payment done" },
 ]
 
+function purchaseStage(order: { status: string; stock_received: boolean; amount_paid?: string | null; lines: { quantity: string; unit_price: string | null }[] }) {
+  if (order.status === "cancelled") return "cancelled"
+  const total = order.lines.reduce((sum, line) => sum + (Number(line.quantity) || 0) * (Number(line.unit_price) || 0), 0)
+  const paid = Number(order.amount_paid || 0)
+  if (order.stock_received && total > 0 && paid >= total - 0.009) return "paid"
+  if (order.stock_received) return "accounted"
+  return "arrived"
+}
+
 function OrderFlow({ status, compact = false }: { status: string; compact?: boolean }) {
-  const steps = STATUSES.filter((step) => step.id !== "cancelled")
+  const steps = FLOW
   const current = steps.findIndex((step) => step.id === status)
   const cancelled = status === "cancelled"
   return (
@@ -103,7 +123,7 @@ function OrderFlow({ status, compact = false }: { status: string; compact?: bool
         return (
           <li key={step.id} className="flex items-center gap-1">
             <span
-              title={step.desc}
+              title={step.label}
               className={cn(
                 "px-1.5 py-0.5 text-[10px] font-semibold",
                 active && "bg-gray-900 text-white",
@@ -136,7 +156,25 @@ const emptySupplier = {
 }
 
 function blankLine(kind: DraftLine["kind"] = "material"): DraftLine {
-  return { key: crypto.randomUUID(), kind, category_id: "", item_id: "", quantity: "1", unit_price: "0" }
+  return {
+    key: crypto.randomUUID(),
+    kind,
+    category_id: "",
+    item_id: "",
+    quantity: "1",
+    unit_id: "",
+    purchase_rate: "",
+    selling_rate: "",
+    gst: false,
+    gst_percent: "18",
+  }
+}
+
+function billedRate(line: DraftLine) {
+  const rate = Number(line.purchase_rate) || 0
+  if (!line.gst) return rate
+  const percent = Number(line.gst_percent) || 0
+  return Math.round(rate * (100 + percent)) / 100
 }
 
 export function PurchasesPage() {
@@ -172,20 +210,24 @@ export function PurchasesPage() {
   const [header, setHeader] = useState({
     supplier_id: "",
     expected_vehicle_plate: "",
-    status: "initiated",
+    status: "received",
     notes: "",
+    transport_mode: "truck",
+    driver_name: "",
+    carrier_phone: "",
+    pickup_user_id: "",
   })
+  const [pickupStaff, setPickupStaff] = useState<Array<{ id: string; first_name: string; last_name: string | null }>>([])
   const [lines, setLines] = useState<DraftLine[]>([blankLine()])
-  const [dispatchSlips, setDispatchSlips] = useState<SlipFile[]>([])
-  const [platePhotos, setPlatePhotos] = useState<SlipFile[]>([])
   const [invoicePhotos, setInvoicePhotos] = useState<SlipFile[]>([])
-  const [cargoPhotos, setCargoPhotos] = useState<SlipFile[]>([])
   const [receiveOrder, setReceiveOrder] = useState<Order | null>(null)
   const [failOrder, setFailOrder] = useState<Order | null>(null)
   const [failReason, setFailReason] = useState("wrong thickness")
   const [failNote, setFailNote] = useState("")
   const [challanNumber, setChallanNumber] = useState("")
   const [challanNote, setChallanNote] = useState("")
+  const [cancelTarget, setCancelTarget] = useState<Order | null>(null)
+  const [cancelReason, setCancelReason] = useState("")
 
   // Quick update modal
   const [quickOrder, setQuickOrder] = useState<Order | null>(null)
@@ -197,13 +239,14 @@ export function PurchasesPage() {
       const orderRows = await api<Order[]>("/api/purchase-orders")
       setOrders(orderRows)
       if (!can("manage_purchasing")) return
-      const [supplierPage, materialPage, productPage, materialCategoryPage, productCategoryPage, unitPage] = await Promise.all([
+      const [supplierPage, materialPage, productPage, materialCategoryPage, productCategoryPage, unitPage, people] = await Promise.all([
         api<Page<Supplier>>("/api/suppliers?page=1&page_size=500"),
         api<Page<Material>>("/api/raw-materials/?page=1&page_size=500&brief=true"),
         api<Page<Product>>("/api/products?page=1&page_size=500&brief=true"),
         api<Page<Named>>("/api/raw-materials/categories?page=1&page_size=100"),
         api<Page<Named>>("/api/product-categories?page=1&page_size=100"),
         api<Page<Named>>("/api/measurement-units?page=1&page_size=100"),
+        api<Array<{ id: string; first_name: string; last_name: string | null }>>("/api/users/options"),
       ])
       setSuppliers(supplierPage.items)
       setMaterials(materialPage.items)
@@ -211,6 +254,7 @@ export function PurchasesPage() {
       setMaterialCategories(materialCategoryPage.items)
       setProductCategories(productCategoryPage.items)
       setUnits(unitPage.items)
+      setPickupStaff(people)
       setDraftMaterial((current) => ({
         ...current,
         category_id: current.category_id || materialCategoryPage.items[0]?.id || "",
@@ -256,8 +300,12 @@ export function PurchasesPage() {
     setHeader({
       supplier_id: supplier?.id || "",
       expected_vehicle_plate: "",
-      status: "initiated",
+      status: "received",
       notes: "",
+      transport_mode: "truck",
+      driver_name: "",
+      carrier_phone: "",
+      pickup_user_id: "",
     })
     setLines([{ ...blankLine(kind), item_id: item }])
     setShowCreate(true)
@@ -275,22 +323,42 @@ export function PurchasesPage() {
     return "both"
   }, [currentSupplier])
 
-  function optionsFor(line: DraftLine): Option[] {
+  function optionsFor(): Option[] {
     if (!currentSupplier) return []
     const rawIds = Array.isArray(currentSupplier.raw_material_ids) ? currentSupplier.raw_material_ids : []
     const prodIds = Array.isArray(currentSupplier.product_ids) ? currentSupplier.product_ids : []
-
-    if (line.kind === "product") {
-      return products
-        .filter((item) => prodIds.includes(item.id))
-        .filter((item) => !line.category_id || item.category_id === line.category_id)
-        .map((item) => ({ id: item.id, label: item.product_name }))
-    }
-
-    return materials
+    const materialOptions = allowedKind === "product" ? [] : materials
       .filter((item) => rawIds.includes(item.id))
-      .filter((item) => !line.category_id || item.category_id === line.category_id)
       .map((item) => ({ id: item.id, label: item.name }))
+    const productOptions = allowedKind === "material" ? [] : products
+      .filter((item) => prodIds.includes(item.id))
+      .map((item) => ({ id: item.id, label: item.product_name }))
+    return [...materialOptions, ...productOptions]
+  }
+
+  function fillFromItem(line: DraftLine, itemId: string): Partial<DraftLine> {
+    const product = products.find((item) => item.id === itemId)
+    if (product) {
+      return {
+        kind: "product",
+        item_id: itemId,
+        category_id: product.category_id,
+        unit_id: product.measurement_unit_id || "",
+        purchase_rate: product.last_purchase_price ?? line.purchase_rate,
+        selling_rate: product.sale_price_without_gst ?? line.selling_rate,
+        gst: Boolean(product.gst),
+        gst_percent: String(product.gst_percent || 18),
+      }
+    }
+    const material = materials.find((item) => item.id === itemId)
+    return {
+      kind: "material",
+      item_id: itemId,
+      category_id: material?.category_id || "",
+      unit_id: material?.measurement_unit_id || "",
+      purchase_rate: material?.purchase_price ?? line.purchase_rate,
+      selling_rate: material?.price ?? line.selling_rate,
+    }
   }
 
   function updateLine(key: string, patch: Partial<DraftLine>) {
@@ -307,8 +375,12 @@ export function PurchasesPage() {
     setHeader({
       supplier_id: initialSupplierId,
       expected_vehicle_plate: "",
-      status: "initiated",
+      status: "received",
       notes: "",
+      transport_mode: "truck",
+      driver_name: "",
+      carrier_phone: "",
+      pickup_user_id: "",
     })
     setLines([blankLine(kind)])
     setShowCreate(true)
@@ -322,6 +394,10 @@ export function PurchasesPage() {
       expected_vehicle_plate: order.expected_vehicle_plate || "",
       status: order.status,
       notes: order.notes || "",
+      transport_mode: order.transport_mode || "truck",
+      driver_name: order.driver_name || "",
+      carrier_phone: order.carrier_phone || "",
+      pickup_user_id: order.pickup_user_id || "",
     })
     setLines(
       order.lines.length > 0
@@ -331,7 +407,11 @@ export function PurchasesPage() {
             category_id: "",
             item_id: line.product_id || line.raw_material_id || "",
             quantity: String(line.quantity),
-            unit_price: String(line.unit_price ?? "0"),
+            unit_id: line.measurement_unit_id || "",
+            purchase_rate: String(line.purchase_rate ?? line.unit_price ?? ""),
+            selling_rate: line.selling_rate == null ? "" : String(line.selling_rate),
+            gst: Boolean(line.gst),
+            gst_percent: String(line.gst_percent ?? 0),
           }))
         : [blankLine()],
     )
@@ -341,7 +421,7 @@ export function PurchasesPage() {
   function openQuickUpdate(order: Order) {
     setQuickOrder(order)
     setQuickForm({
-      status: order.status,
+      status: purchaseStage(order) === "cancelled" ? "arrived" : purchaseStage(order),
       expected_vehicle_plate: order.expected_vehicle_plate || "",
     })
   }
@@ -349,18 +429,15 @@ export function PurchasesPage() {
   async function handleQuickSave(event: FormEvent) {
     event.preventDefault()
     if (!quickOrder) return
-    if (quickForm.status === "delivered" && !quickOrder.stock_received) {
-      setReceiveOrder(quickOrder)
-      setQuickOrder(null)
-      return
-    }
     setError("")
     setQuickSaving(true)
     try {
+        if (quickForm.status === "accounted" && !quickOrder.stock_received) {
+          await api(`/api/purchase-orders/${quickOrder.id}/account`, { method: "POST" })
+        }
         await api(`/api/purchase-orders/${quickOrder.id}`, {
           method: "PATCH",
           body: JSON.stringify({
-            status: quickForm.status,
             expected_vehicle_plate: quickForm.expected_vehicle_plate.trim().toUpperCase() || null,
           }),
         })
@@ -372,29 +449,6 @@ export function PurchasesPage() {
     } finally {
       setQuickSaving(false)
     }
-  }
-
-  async function quickAdvanceStatus(order: Order, nextStatus: string) {
-    if (nextStatus === "delivered") {
-      setPlatePhotos((order.attachments ?? []).filter((file) => file.kind === "vehicle_plate"))
-      setInvoicePhotos((order.attachments ?? []).filter((file) => file.kind === "supplier_invoice" || file.kind === "received_slip"))
-      setCargoPhotos((order.attachments ?? []).filter((file) => file.kind === "cargo_photo"))
-      setReceiveOrder(order)
-      return
-    }
-    setError("")
-    remember(order.id)
-    await guard(async () => {
-      try {
-        await api(`/api/purchase-orders/${order.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ status: nextStatus }),
-        })
-        void load().catch((caught) => setError(errorMessage(caught)))
-      } catch (caught) {
-        setError(errorMessage(caught))
-      }
-    })
   }
 
   async function linkFile(order: Order, file: SlipFile, kind: string) {
@@ -425,31 +479,15 @@ export function PurchasesPage() {
 
   async function confirmReceive() {
     if (!receiveOrder) return
-    if (!platePhotos.length || !invoicePhotos.length || !cargoPhotos.length) return
+    if (!invoicePhotos.length) return
     setError("")
     await guard(async () => {
       try {
-        for (const file of platePhotos) {
-          if (!(receiveOrder.attachments ?? []).some((row) => row.attachment_id === file.attachment_id)) {
-            await api(`/api/purchase-orders/${receiveOrder.id}/attachments`, {
-              method: "POST",
-              body: JSON.stringify({ attachment_id: file.attachment_id, kind: "vehicle_plate" }),
-            })
-          }
-        }
         for (const file of invoicePhotos) {
           if (!(receiveOrder.attachments ?? []).some((row) => row.attachment_id === file.attachment_id)) {
             await api(`/api/purchase-orders/${receiveOrder.id}/attachments`, {
               method: "POST",
               body: JSON.stringify({ attachment_id: file.attachment_id, kind: "supplier_invoice" }),
-            })
-          }
-        }
-        for (const file of cargoPhotos) {
-          if (!(receiveOrder.attachments ?? []).some((row) => row.attachment_id === file.attachment_id)) {
-            await api(`/api/purchase-orders/${receiveOrder.id}/attachments`, {
-              method: "POST",
-              body: JSON.stringify({ attachment_id: file.attachment_id, kind: "cargo_photo" }),
             })
           }
         }
@@ -596,7 +634,12 @@ export function PurchasesPage() {
       product_id: line.kind === "product" ? line.item_id : null,
       raw_material_id: line.kind === "material" ? line.item_id : null,
       quantity: line.quantity,
-      unit_price: line.unit_price,
+      purchase_rate: line.purchase_rate.trim() || "0",
+      selling_rate: line.selling_rate.trim() ? line.selling_rate.trim() : null,
+      gst: line.gst,
+      gst_percent: line.gst ? Number(line.gst_percent) || 0 : 0,
+      measurement_unit_id: line.unit_id || null,
+      unit_price: String(billedRate(line)),
     }))
   }
 
@@ -610,22 +653,33 @@ export function PurchasesPage() {
     await guard(async () => {
       try {
         const attachments = [
-          ...dispatchSlips.map((file) => ({ attachment_id: file.attachment_id, kind: "dispatch_slip" })),
-          ...platePhotos.map((file) => ({ attachment_id: file.attachment_id, kind: "vehicle_plate" })),
           ...invoicePhotos.map((file) => ({ attachment_id: file.attachment_id, kind: "supplier_invoice" })),
-          ...cargoPhotos.map((file) => ({ attachment_id: file.attachment_id, kind: "cargo_photo" })),
         ]
-        if (header.status === "delivered" && (!platePhotos.length || !invoicePhotos.length || !cargoPhotos.length)) {
-          setError("Upload the licence plate, the unloaded shipment, and the supplier invoice before stocking.")
+        if (!editing && !invoicePhotos.length) {
+          setError("Upload the receipt photo.")
+          return
+        }
+        if (header.transport_mode === "truck" && (!header.expected_vehicle_plate.trim() || !header.driver_name.trim())) {
+          setError("A truck needs the licence plate and the driver's name.")
+          return
+        }
+        if (header.transport_mode === "handcart" && (!header.driver_name.trim() || !header.carrier_phone.trim())) {
+          setError("A hand cart needs the person's name and phone.")
+          return
+        }
+        if (header.transport_mode === "staff_vehicle" && !header.pickup_user_id) {
+          setError("Choose the staff member who will pick this up.")
           return
         }
         const body = {
           supplier_id: header.supplier_id,
           notes: header.notes || null,
-          status: header.status,
-          expected_vehicle_plate: header.expected_vehicle_plate.trim().toUpperCase() || null,
-          challan_number: header.status === "delivered" ? challanNumber || null : null,
-          challan_note: header.status === "delivered" ? challanNote || null : null,
+          status: editing ? header.status : "received",
+          transport_mode: header.transport_mode,
+          driver_name: header.driver_name.trim() || null,
+          carrier_phone: header.carrier_phone.trim() || null,
+          pickup_user_id: header.pickup_user_id || null,
+          expected_vehicle_plate: header.transport_mode === "handcart" ? null : header.expected_vehicle_plate.trim().toUpperCase() || null,
           lines: payloadLines(),
           attachments,
         }
@@ -644,15 +698,47 @@ export function PurchasesPage() {
     })
   }
 
-  async function cancelOrder(order: Order) {
-    if (!window.confirm("Cancel this purchase order? Stock will not be credited.")) return
+  async function confirmCancel() {
+    if (!cancelTarget) return
+    const reason = cancelReason.trim()
+    if (!reason) {
+      setError("Write why this order is being cancelled.")
+      return
+    }
+    const order = cancelTarget
     remember(order.id)
     await guard(async () => {
       try {
         await api(`/api/purchase-orders/${order.id}`, {
           method: "PATCH",
-          body: JSON.stringify({ status: "cancelled" }),
+          body: JSON.stringify({ status: "cancelled", cancel_reason: reason }),
         })
+        setCancelTarget(null)
+        setCancelReason("")
+        void load().catch((caught) => setError(errorMessage(caught)))
+      } catch (caught) {
+        setError(errorMessage(caught))
+      }
+    })
+  }
+
+  async function restoreOrder(order: Order) {
+    remember(order.id)
+    await guard(async () => {
+      try {
+        await api(`/api/purchase-orders/${order.id}/restore`, { method: "POST" })
+        void load().catch((caught) => setError(errorMessage(caught)))
+      } catch (caught) {
+        setError(errorMessage(caught))
+      }
+    })
+  }
+
+  async function accountMaterials(order: Order) {
+    remember(order.id)
+    await guard(async () => {
+      try {
+        await api(`/api/purchase-orders/${order.id}/account`, { method: "POST" })
         void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
         setError(errorMessage(caught))
@@ -664,7 +750,7 @@ export function PurchasesPage() {
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       const matchesStatus =
-        statusFilter === "all" || order.status === statusFilter || kept.includes(order.id)
+        statusFilter === "all" || purchaseStage(order) === statusFilter || kept.includes(order.id)
       if (!matchesStatus) return false
       const traded = order.lines.some((line) => line.product_type === "purchased")
       const material = order.lines.some((line) => line.raw_material_id)
@@ -694,12 +780,11 @@ export function PurchasesPage() {
   // Count metrics
   const counts = useMemo(() => {
     const total = orders.length
-    const initiated = orders.filter((o) => o.status === "initiated").length
-    const process = orders.filter((o) => o.status === "process").length
-    const inDelivery = orders.filter((o) => o.status === "in_delivery").length
-    const delivered = orders.filter((o) => o.status === "delivered").length
-    const cancelled = orders.filter((o) => o.status === "cancelled").length
-    return { total, initiated, process, inDelivery, delivered, cancelled }
+    const arrived = orders.filter((order) => purchaseStage(order) === "arrived").length
+    const accounted = orders.filter((order) => purchaseStage(order) === "accounted").length
+    const paid = orders.filter((order) => purchaseStage(order) === "paid").length
+    const cancelled = orders.filter((order) => purchaseStage(order) === "cancelled").length
+    return { total, arrived, accounted, paid, cancelled }
   }, [orders])
 
   return (
@@ -746,13 +831,13 @@ export function PurchasesPage() {
       {error ? <Notice variant="error">{error}</Notice> : null}
 
       {/* Filter Tabs and Search Bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Status Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-gray-200/90 bg-white p-1.5 text-xs font-medium shadow-xs">
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+        <FilterPanel title="Status">
           <button
             type="button"
             className={cn(
-              "rounded-xl px-3 py-1.5 transition-all font-semibold",
+              "rounded-md px-3 py-1.5 text-sm font-medium transition-all",
               statusFilter === "all"
                 ? "bg-green-600 text-white shadow-xs"
                 : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
@@ -761,58 +846,27 @@ export function PurchasesPage() {
           >
             All ({counts.total})
           </button>
+          {([
+            ["arrived", `Arrived (${counts.arrived})`],
+            ["accounted", `Material accounted (${counts.accounted})`],
+            ["paid", `Payment done (${counts.paid})`],
+          ] as const).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+                statusFilter === id ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
+              )}
+              onClick={() => chooseStatus(id)}
+            >
+              {label}
+            </button>
+          ))}
           <button
             type="button"
             className={cn(
-              "rounded-xl px-3 py-1.5 transition-all font-semibold",
-              statusFilter === "initiated"
-                ? "bg-amber-600 text-white shadow-xs"
-                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
-            )}
-            onClick={() => chooseStatus("initiated")}
-          >
-            Initiated ({counts.initiated})
-          </button>
-          <button
-            type="button"
-            className={cn(
-              "rounded-xl px-3 py-1.5 transition-all font-semibold",
-              statusFilter === "process"
-                ? "bg-blue-600 text-white shadow-xs"
-                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
-            )}
-            onClick={() => chooseStatus("process")}
-          >
-            Process ({counts.process})
-          </button>
-          <button
-            type="button"
-            className={cn(
-              "rounded-xl px-3 py-1.5 transition-all font-semibold",
-              statusFilter === "in_delivery"
-                ? "bg-sky-600 text-white shadow-xs"
-                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
-            )}
-            onClick={() => chooseStatus("in_delivery")}
-          >
-            In Delivery ({counts.inDelivery})
-          </button>
-          <button
-            type="button"
-            className={cn(
-              "rounded-xl px-3 py-1.5 transition-all font-semibold",
-              statusFilter === "delivered"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
-            )}
-            onClick={() => chooseStatus("delivered")}
-          >
-            Delivered ({counts.delivered})
-          </button>
-          <button
-            type="button"
-            className={cn(
-              "rounded-xl px-3 py-1.5 transition-all font-semibold",
+              "rounded-md px-3 py-1.5 text-sm font-medium transition-all",
               statusFilter === "cancelled"
                 ? "bg-rose-600 text-white shadow-xs"
                 : "text-gray-500 hover:text-gray-900 hover:bg-gray-50",
@@ -821,39 +875,21 @@ export function PurchasesPage() {
           >
             Cancelled ({counts.cancelled})
           </button>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium">
+        </FilterPanel>
+        <FilterPanel title="Items">
           {([
             ["all", "All items", orders.length],
             ["traded", "Traded products", orders.filter((order) => order.lines.some((line) => line.product_type === "purchased")).length],
             ["material", "Raw materials", orders.filter((order) => order.lines.some((line) => line.raw_material_id)).length],
             ["other", "Other products", orders.filter((order) => order.lines.some((line) => line.product_id && line.product_type !== "purchased")).length],
           ] as const).filter(([id, , count]) => id !== "other" || count > 0).map(([id, label, count]) => (
-            <button key={id} type="button" className={cn("rounded-xl px-3 py-1.5 font-semibold", goodsFilter === id ? "bg-violet-700 text-white" : "bg-white text-gray-600")} onClick={() => setGoodsFilter(id)}>
+            <button key={id} type="button" className={cn("rounded-md px-3 py-1.5 text-sm font-medium", goodsFilter === id ? "bg-violet-700 text-white" : "text-gray-600 hover:bg-gray-50")} onClick={() => setGoodsFilter(id)}>
               {label} ({count})
             </button>
           ))}
+        </FilterPanel>
         </div>
-
-        {/* Search */}
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search supplier, item, vehicle..."
-            className="pl-9 text-xs rounded-xl border-gray-200 bg-white text-gray-900 placeholder:text-gray-400 focus:border-green-600 focus:ring-2 focus:ring-green-500/20"
-          />
-          {searchQuery ? (
-            <button
-              type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              onClick={() => setSearchQuery("")}
-            >
-              <X className="size-3.5" />
-            </button>
-          ) : null}
-        </div>
+        <SearchPill value={searchQuery} onChange={setSearchQuery} placeholder="Supplier, item, vehicle" />
       </div>
 
       {/* Orders List / Loading Skeleton */}
@@ -928,7 +964,7 @@ export function PurchasesPage() {
                         {order.lines.length} {order.lines.length === 1 ? "line item" : "line items"}
                         {prices && orderTotal > 0 ? (
                           <span className="text-green-600 font-semibold">
-                            {" "}· Total: ₹{orderTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                            {" "}· Total: {rupees(orderTotal)}
                           </span>
                         ) : null}
                       </p>
@@ -936,66 +972,24 @@ export function PurchasesPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2.5">
-                    <StatusBadge status={order.status} />
+                    <StatusBadge status={purchaseStage(order) === "paid" ? "paid" : purchaseStage(order) === "accounted" ? "delivered" : purchaseStage(order)} label={FLOW.find((step) => step.id === purchaseStage(order))?.label || "Cancelled"} />
 
-                    {/* Quick advance shortcut */}
-                    {can("manage_purchasing") && !locked ? (
-                      order.status === "initiated" ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="rounded-xl h-8 border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 text-xs font-semibold"
-                          onClick={() => void quickAdvanceStatus(order, "in_delivery")}
-                          disabled={busy}
-                        >
-                          <Truck className="mr-1 size-3.5" />
-                          Mark In Delivery
-                        </Button>
-                      ) : order.status === "in_delivery" ? (
-                        <>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-8 rounded-xl border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                            onClick={() => void quickAdvanceStatus(order, "initiated")}
-                            disabled={busy}
-                          >
-                            <Undo2 className="mr-1 size-3.5" />
-                            Step back
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="rounded-xl h-8 bg-green-600 font-semibold text-white shadow-xs text-xs hover:bg-green-700"
-                            onClick={() => void quickAdvanceStatus(order, "delivered")}
-                            disabled={busy}
-                          >
-                            <CheckCircle2 className="mr-1 size-3.5" />
-                            Pass
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8 rounded-xl text-xs font-semibold"
-                            disabled={busy}
-                            onClick={() => {
-                              setFailReason(order.receipt_fail_reason || "wrong thickness")
-                              setFailNote(order.receipt_fail_note || "")
-                              setFailOrder(order)
-                            }}
-                          >
-                            Fail
-                          </Button>
-                        </>
-                      ) : null
+                    {can("manage_purchasing") && !order.stock_received && order.status !== "cancelled" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="rounded-xl h-8 bg-[var(--scheme)] text-xs font-semibold text-white hover:bg-[var(--scheme-hover)]"
+                        onClick={() => void accountMaterials(order)}
+                        disabled={busy}
+                      >
+                        <CheckCircle2 className="mr-1 size-3.5" />
+                        Account materials
+                      </Button>
                     ) : null}
                   </div>
                 </div>
 
-                <OrderFlow status={order.status} />
+                <OrderFlow status={purchaseStage(order)} />
                 {order.status === "in_delivery" && order.receipt_fail_reason ? (
                   <p className="px-5 pt-3 text-xs text-rose-700">
                     Failed inspection: {order.receipt_fail_reason}
@@ -1021,6 +1015,7 @@ export function PurchasesPage() {
                         {order.lines.map((line, idx) => {
                           const qty = Number(line.quantity) || 0
                           const price = Number(line.unit_price) || 0
+                          const unitName = units.find((unit) => unit.id === line.measurement_unit_id)?.abbreviation
                           const subtotal = qty * price
                           const isProduct = Boolean(line.product_id)
 
@@ -1042,7 +1037,7 @@ export function PurchasesPage() {
                                 </span>
                               </td>
                               <td className="px-4 py-2.5 text-right font-bold text-gray-900">
-                                {line.quantity}
+                                {plain(line.quantity)}{unitName ? ` ${unitName}` : ""}
                               </td>
                               {prices ? (
                                 <td className="px-4 py-2.5 text-right text-slate-300">
@@ -1051,7 +1046,7 @@ export function PurchasesPage() {
                               ) : null}
                               {prices ? (
                                 <td className="px-4 py-2.5 text-right font-semibold text-emerald-400">
-                                  ₹{subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                                  {rupees(subtotal)}
                                 </td>
                               ) : null}
                             </tr>
@@ -1093,10 +1088,8 @@ export function PurchasesPage() {
                         <span className="text-xs text-gray-400">Vehicle not assigned</span>
                       )}
 
-                      <div className="grid w-full gap-2 rounded-xl border border-gray-100 p-3 sm:grid-cols-3">
-                        <SlipUpload label="Licence plate" files={(order.attachments ?? []).filter((file) => file.kind === "vehicle_plate")} onUploaded={(file) => linkFile(order, file, "vehicle_plate")} />
-                        <SlipUpload label="Unloaded shipment" files={(order.attachments ?? []).filter((file) => file.kind === "cargo_photo")} onUploaded={(file) => linkFile(order, file, "cargo_photo")} />
-                        <SlipUpload label="Supplier invoice" files={(order.attachments ?? []).filter((file) => file.kind === "supplier_invoice" || file.kind === "received_slip")} onUploaded={(file) => linkFile(order, file, "supplier_invoice")} />
+                      <div className="grid w-full gap-2 rounded-xl border border-gray-100 p-3 sm:grid-cols-1">
+                        <SlipUpload label="Receipt" files={(order.attachments ?? []).filter((file) => file.kind === "supplier_invoice" || file.kind === "received_slip")} onUploaded={(file) => linkFile(order, file, "supplier_invoice")} />
                       </div>
                       {order.stock_received ? (
                         <span className="tone tone-emerald inline-flex items-center gap-1.5 rounded-xl px-3 py-1 font-semibold">
@@ -1104,7 +1097,7 @@ export function PurchasesPage() {
                           <span>Inventory Stock Credited</span>
                           <span>Verified · {(order.attachments ?? []).filter((file) => file.kind === "cargo_photo").length} cargo photos</span>
                           <Link className="font-semibold text-[var(--scheme)]" to={`/accountant/payments?purchase=${order.id}`}>
-                            Paid ₹{Number(order.amount_paid || 0).toFixed(2)} · Due ₹{Math.max(0, order.lines.reduce((sum, line) => sum + Number(line.quantity) * Number(line.unit_price || 0), 0) - Number(order.amount_paid || 0)).toFixed(2)}
+                            Paid ₹{plain(Number(order.amount_paid || 0).toFixed(2))} · Due ₹{plain(Math.max(0, order.lines.reduce((sum, line) => sum + Number(line.quantity) * Number(line.unit_price || 0), 0) - Number(order.amount_paid || 0)).toFixed(2))}
                           </Link>
                         </span>
                       ) : null}
@@ -1143,7 +1136,10 @@ export function PurchasesPage() {
                           size="sm"
                           className="rounded-xl border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs h-8"
                           disabled={busy}
-                          onClick={() => void cancelOrder(order)}
+                          onClick={() => {
+                            setCancelReason("")
+                            setCancelTarget(order)
+                          }}
                         >
                           <XCircle className="mr-1 size-3.5" />
                           Cancel
@@ -1154,12 +1150,19 @@ export function PurchasesPage() {
 
                   {/* Cancelled Notice Banner */}
                   {order.status === "cancelled" ? (
-                    <div className="flex items-center gap-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-800">
-                      <XCircle className="size-4 shrink-0 text-rose-500" />
-                      <div>
-                        <p className="font-semibold text-rose-900">Purchase Order Cancelled</p>
-                        <p className="text-[11px] text-rose-700">This procurement request was voided. No stock will be delivered or credited to inventory.</p>
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-800">
+                      <div className="flex items-start gap-2.5">
+                        <XCircle className="mt-0.5 size-4 shrink-0 text-rose-500" />
+                        <div>
+                          <p className="font-semibold text-rose-900">Purchase order cancelled</p>
+                          <p className="text-[11px] text-rose-700">{order.cancel_reason || "No reason was recorded."}</p>
+                        </div>
                       </div>
+                      {can("manage_purchasing") ? (
+                        <Button type="button" variant="outline" size="sm" className="h-8 rounded-xl border-rose-200 bg-white text-xs text-rose-800" disabled={busy} onClick={() => void restoreOrder(order)}>
+                          Restore previous step
+                        </Button>
+                      ) : null}
                     </div>
                   ) : null}
 
@@ -1204,15 +1207,15 @@ export function PurchasesPage() {
 
               <OrderFlow status={quickForm.status} compact />
 
-              <Field label="Status Stage" hint="Selecting 'Delivered' automatically credits warehouse stock">
+              <Field label="Step">
                 <select
                   className={selectClass}
                   value={quickForm.status}
                   onChange={(e) => setQuickForm({ ...quickForm, status: e.target.value })}
                 >
-                  {STATUSES.map((status) => (
+                  {FLOW.map((status) => (
                     <option key={status.id} value={status.id}>
-                      {status.label} — {status.desc}
+                      {status.label}
                     </option>
                   ))}
                 </select>
@@ -1259,6 +1262,27 @@ export function PurchasesPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={cancelTarget !== null} onOpenChange={(open) => { if (!open) setCancelTarget(null) }}>
+        <DialogContent className="sm:max-w-md border-gray-200 bg-white">
+          <DialogHeader>
+            <DialogTitle>Cancel this purchase</DialogTitle>
+            <DialogDescription>The order stays cancelled until you restore it. Stock is not credited.</DialogDescription>
+          </DialogHeader>
+          <Field label="Reason" required>
+            <textarea
+              className="min-h-20 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              placeholder="Why is this arrival being cancelled?"
+            />
+          </Field>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setCancelTarget(null)}>Keep the order</Button>
+            <Button type="button" className="bg-rose-700 text-white" disabled={busy || !cancelReason.trim()} onClick={() => void confirmCancel()}>Cancel the order</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={failOrder !== null} onOpenChange={(open) => { if (!open) setFailOrder(null) }}>
         <DialogContent className="sm:max-w-md border-gray-200 bg-white">
           <DialogHeader>
@@ -1286,19 +1310,17 @@ export function PurchasesPage() {
           {error ? <Notice variant="error">{error}</Notice> : null}
           <DialogHeader>
             <DialogTitle>Receive Goods</DialogTitle>
-            <DialogDescription>Upload the licence plate, the unloaded shipment, and the supplier invoice. Stock is credited now. The bill stays open for payment.</DialogDescription>
+            <DialogDescription>The first payment on Payment approval credits the full quantity. This step only keeps the receipt with the bill.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
-            <SlipUpload label="Licence plate" required files={platePhotos} onUploaded={(file) => setPlatePhotos((current) => [...current, file])} />
-            <SlipUpload label="Unloaded shipment" required files={cargoPhotos} onUploaded={(file) => setCargoPhotos((current) => [...current, file])} />
-            <SlipUpload label="Supplier invoice" required files={invoicePhotos} onUploaded={(file) => setInvoicePhotos((current) => [...current, file])} />
+            <SlipUpload label="Receipt" required files={invoicePhotos} onUploaded={(file) => setInvoicePhotos((current) => [...current, file])} />
             <Field label="Challan / slip number"><Input value={challanNumber} onChange={(event) => setChallanNumber(event.target.value)} /></Field>
             <Field label="Note from the slip"><Input value={challanNote} onChange={(event) => setChallanNote(event.target.value)} /></Field>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setReceiveOrder(null)}>Cancel</Button>
-            <Button type="button" disabled={!platePhotos.length || !invoicePhotos.length || !cargoPhotos.length || busy} onClick={() => void confirmReceive()}>
-              Confirm & stock
+            <Button type="button" disabled={!invoicePhotos.length || busy} onClick={() => void confirmReceive()}>
+              Save receipt
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1321,7 +1343,7 @@ export function PurchasesPage() {
                 <DialogDescription className="text-xs text-gray-500">
                   {editing
                     ? "Modify ordered items, supplier credentials, or shipment status."
-                    : "Add multiple items in one order form. Stock will be held and verified on delivery."}
+                    : "One arrival, every line on that shipment. Stock is credited once, when the first payment is recorded."}
                 </DialogDescription>
               </div>
             </div>
@@ -1427,32 +1449,59 @@ export function PurchasesPage() {
                 </div>
               ) : null}
 
-              <Field label="Expected Delivery Vehicle" hint="Optional">
-                <Input
-                  value={header.expected_vehicle_plate}
-                  placeholder="e.g. MH-12-AB-1234"
-                  onChange={(event) => setHeader({ ...header, expected_vehicle_plate: event.target.value.toUpperCase() })}
-                />
-              </Field>
-
-              <Field label="Order Status Stage" hint="'Delivered' adds goods directly to inventory">
+              <Field label="How it arrived">
                 <select
                   className={selectClass}
-                  value={header.status}
-                  onChange={(event) => setHeader({ ...header, status: event.target.value })}
+                  value={header.transport_mode}
+                  onChange={(event) => setHeader({ ...header, transport_mode: event.target.value })}
                 >
-                  {(STATUSES.some((status) => status.id === header.status)
-                    ? STATUSES
-                    : [{ id: header.status, label: header.status.replaceAll("_", " "), desc: "" }, ...STATUSES]
-                  ).map((status) => (
-                    <option key={status.id} value={status.id}>
-                      {status.label}
-                    </option>
-                  ))}
+                  <option value="truck">Truck</option>
+                  <option value="handcart">Hand cart</option>
+                  <option value="staff_vehicle">Staff pickup</option>
                 </select>
               </Field>
+              {header.transport_mode !== "handcart" ? (
+                <Field label="Licence plate" hint={header.transport_mode === "staff_vehicle" ? "Optional" : "Required"}>
+                  <Input
+                    value={header.expected_vehicle_plate}
+                    placeholder="MH12AB1234"
+                    onChange={(event) => setHeader({ ...header, expected_vehicle_plate: event.target.value.toUpperCase() })}
+                  />
+                </Field>
+              ) : null}
+              {header.transport_mode !== "staff_vehicle" ? (
+                <Field label={header.transport_mode === "truck" ? "Driver name" : "Person name"} required>
+                  <Input
+                    value={header.driver_name}
+                    onChange={(event) => setHeader({ ...header, driver_name: event.target.value })}
+                  />
+                </Field>
+              ) : (
+                <Field label="Staff member" required>
+                  <select
+                    className={selectClass}
+                    value={header.pickup_user_id}
+                    onChange={(event) => setHeader({ ...header, pickup_user_id: event.target.value })}
+                  >
+                    <option value="">Choose staff</option>
+                    {pickupStaff.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {[person.first_name, person.last_name].filter(Boolean).join(" ")}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+              {header.transport_mode === "handcart" ? (
+                <Field label="Phone" required>
+                  <Input
+                    value={header.carrier_phone}
+                    onChange={(event) => setHeader({ ...header, carrier_phone: event.target.value })}
+                  />
+                </Field>
+              ) : null}
 
-              <Field label="PO Instructions / Notes" className="sm:col-span-2">
+              <Field label="Notes" className="sm:col-span-2">
                 <textarea
                   className="min-h-16 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-600 focus:ring-2 focus:ring-green-500/20 focus:outline-none"
                   value={header.notes}
@@ -1487,24 +1536,6 @@ export function PurchasesPage() {
             {/* Mini-create raw material panel */}
             {panel === "material" ? (
               <section className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4.5 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <CategoryManager
-                    categories={materialCategories}
-                    onAdd={(name) =>
-                      void api<Named>("/api/raw-materials/categories", { method: "POST", body: JSON.stringify({ name }) })
-                        .then((created) => {
-                          setDraftMaterial((current) => ({ ...current, category_id: created.id }))
-                          return load()
-                        })
-                        .catch((caught) => setError(errorMessage(caught)))
-                    }
-                    onRemove={(id) =>
-                      void api(`/api/raw-materials/categories/${id}`, { method: "DELETE" })
-                        .then(load)
-                        .catch((caught) => setError(errorMessage(caught)))
-                    }
-                  />
-                </div>
                 <Field label="Category" required>
                   <select
                     className={selectClass}
@@ -1550,24 +1581,6 @@ export function PurchasesPage() {
             {/* Mini-create product panel */}
             {panel === "product" ? (
               <section className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4.5 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <CategoryManager
-                    categories={productCategories}
-                    onAdd={(name) =>
-                      void api<Named>("/api/product-categories", { method: "POST", body: JSON.stringify({ name }) })
-                        .then((created) => {
-                          setDraftProduct((current) => ({ ...current, category_id: created.id }))
-                          return load()
-                        })
-                        .catch((caught) => setError(errorMessage(caught)))
-                    }
-                    onRemove={(id) =>
-                      void api(`/api/product-categories/${id}`, { method: "DELETE" })
-                        .then(load)
-                        .catch((caught) => setError(errorMessage(caught)))
-                    }
-                  />
-                </div>
                 <Field label="Category" required>
                   <select
                     className={selectClass}
@@ -1659,43 +1672,22 @@ export function PurchasesPage() {
                     ) : null}
                   </div>
 
-                  <Field label="Item Classification">
-                    <select
-                      className={selectClass}
-                      value={line.kind}
-                      onChange={(event) =>
-                        updateLine(line.key, { kind: event.target.value as DraftLine["kind"], item_id: "" })
-                      }
-                    >
-                      {allowedKind !== "product" ? <option value="material">Raw Material (Sheet/Coil)</option> : null}
-                      {allowedKind !== "material" ? <option value="product">Finished Product / Part</option> : null}
-                    </select>
-                  </Field>
-
-                  <Field label="Category Filter">
-                    <select
-                      className={selectClass}
-                      value={line.category_id}
-                      onChange={(event) => updateLine(line.key, { category_id: event.target.value, item_id: "" })}
-                    >
-                      <option value="">All Categories</option>
-                      {(line.kind === "product" ? productCategories : materialCategories).map((category) => (
-                        <option key={category.id} value={category.id}>{category.name}</option>
-                      ))}
-                    </select>
-                  </Field>
-
                   <div className="sm:col-span-2">
                     <SearchSelect
-                      label={line.kind === "product" ? "Select Product" : "Select Raw Material"}
-                      options={optionsFor(line)}
+                      label="Item"
+                      options={optionsFor()}
                       value={line.item_id}
-                      onChange={(item_id) => updateLine(line.key, { item_id })}
+                      onChange={(item_id) => updateLine(line.key, fillFromItem(line, item_id))}
                       required
                     />
                   </div>
+                  <p className="text-xs text-gray-500 sm:col-span-2">
+                    {line.item_id
+                      ? `${line.kind === "product" ? "Product" : "Raw material"} · ${(line.kind === "product" ? productCategories : materialCategories).find((category) => category.id === line.category_id)?.name || "Uncategorised"} · ${units.find((unit) => unit.id === line.unit_id)?.abbreviation || units.find((unit) => unit.id === line.unit_id)?.name || "unit locked"}`
+                      : "Choose the item first. Kind, category, and unit fill in and stay locked."}
+                  </p>
 
-                  <Field label="Order Quantity" required>
+                  <Field label="Quantity" required>
                     <Input
                       type="number"
                       min="0.001"
@@ -1705,13 +1697,49 @@ export function PurchasesPage() {
                       required
                     />
                   </Field>
-
+                  <p className="self-end pb-2 text-sm font-medium text-gray-700">
+                    {line.quantity || "0"} {units.find((unit) => unit.id === line.unit_id)?.abbreviation || units.find((unit) => unit.id === line.unit_id)?.name || ""}
+                  </p>
                   {prices ? (
-                    <Field label="Negotiated Unit Price (₹)">
+                    <Field label="Purchase rate (₹)">
                       <Input
-                        value={line.unit_price}
-                        placeholder="0.00"
-                        onChange={(event) => updateLine(line.key, { unit_price: event.target.value })}
+                        value={line.purchase_rate}
+                        placeholder="0"
+                        onChange={(event) => updateLine(line.key, { purchase_rate: event.target.value })}
+                      />
+                    </Field>
+                  ) : null}
+                  {prices ? (
+                    <Field label="Selling rate (₹)">
+                      <Input
+                        value={line.selling_rate}
+                        placeholder="0"
+                        onChange={(event) => updateLine(line.key, { selling_rate: event.target.value })}
+                      />
+                    </Field>
+                  ) : null}
+                  {prices ? (
+                    <p className="text-xs text-gray-500 sm:col-span-2">
+                      {line.gst
+                        ? `GST ${plain(line.gst_percent) || 0}% changes the purchase rate to ${rupees(billedRate(line))}. The selling rate stays as entered.`
+                        : "Non-GST leaves the purchase rate unchanged. The selling rate is never adjusted."}
+                    </p>
+                  ) : null}
+                  <Field label="Tax">
+                    <select
+                      className={selectClass}
+                      value={line.gst ? "gst" : "non"}
+                      onChange={(event) => updateLine(line.key, { gst: event.target.value === "gst" })}
+                    >
+                      <option value="non">Non-GST</option>
+                      <option value="gst">GST</option>
+                    </select>
+                  </Field>
+                  {line.gst ? (
+                    <Field label="GST percent">
+                      <Input
+                        value={line.gst_percent}
+                        onChange={(event) => updateLine(line.key, { gst_percent: event.target.value })}
                       />
                     </Field>
                   ) : null}
@@ -1719,15 +1747,8 @@ export function PurchasesPage() {
               ))}
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <SlipUpload label="Supplier Dispatch Slip" files={dispatchSlips} onUploaded={(file) => setDispatchSlips((current) => [...current, file])} />
-              {header.status === "delivered" ? (
-                <>
-                  <SlipUpload label="Licence plate" required files={platePhotos} onUploaded={(file) => setPlatePhotos((current) => [...current, file])} />
-                  <SlipUpload label="Unloaded shipment" required files={cargoPhotos} onUploaded={(file) => setCargoPhotos((current) => [...current, file])} />
-                  <SlipUpload label="Supplier invoice" required files={invoicePhotos} onUploaded={(file) => setInvoicePhotos((current) => [...current, file])} />
-                </>
-              ) : null}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <SlipUpload label="Receipt photo" required files={invoicePhotos} onUploaded={(file) => setInvoicePhotos((current) => [...current, file])} />
             </div>
             <DialogFooter className="border-t border-gray-100 pt-4">
               <Button type="button" variant="outline" className="rounded-xl border-gray-200 text-gray-700 hover:bg-gray-50" onClick={() => setShowCreate(false)}>
@@ -1738,7 +1759,7 @@ export function PurchasesPage() {
                 disabled={busy}
                 className="rounded-xl bg-green-600 font-semibold text-white shadow-sm shadow-green-600/20 hover:bg-green-700 transition-all"
               >
-                {editing ? "Save Purchase Order" : lines.length > 1 ? `Place ${lines.length} Purchase Orders` : "Place Purchase Order"}
+                {editing ? "Save Purchase Order" : "Record arrival"}
               </Button>
             </DialogFooter>
           </form>
