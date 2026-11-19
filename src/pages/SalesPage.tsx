@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import {
   CheckCircle2,
   Download,
@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { canSeePrices, roleCan } from "@/lib/access"
-import { api, downloadFile, errorMessage, peek, plain, type Page } from "@/lib/api"
+import { api, downloadFile, errorMessage, peek, plain, rupees, type Page } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { useRefreshWhenShown } from "@/lib/visible"
 
@@ -231,6 +231,8 @@ export function SalesPage() {
     category_id: "",
   })
   const [kept, setKept] = useState<string[]>([])
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const saving = useRef(new Set<string>())
   const [showCreate, setShowCreate] = useState(false)
   const [billFor, setBillFor] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -382,39 +384,15 @@ export function SalesPage() {
   async function create(event: FormEvent) {
     event.preventDefault()
     setError("")
-    const tempId = crypto.randomUUID()
-    const optimistic: Order = {
-      id: tempId,
-      customer_name: customers.find((item) => item.id === form.customer_id)?.label ?? null,
-      status: "initiated",
-      delivery_charge: "0",
-      packaging_user_id: form.packaging_user_id || null,
-      packaging_name: packerName(form.packaging_user_id) ?? null,
-      invoice_id: null,
-      invoice_has_pdf: false,
-      lines: lines.map((line) => ({
-        product_id: line.product_id,
-        product_name: products.find((item) => item.id === line.product_id)?.label ?? null,
-        quantity: line.quantity,
-      })),
-    }
-    setOrders((current) => [optimistic, ...current])
-    setShowCreate(false)
     if (form.transport_mode === "truck" && (!form.vehicle_plate.trim() || !form.driver_name.trim())) {
-      setOrders((current) => current.filter((order) => order.id !== tempId))
-      setShowCreate(true)
       setError("A truck needs the licence plate and the driver's name.")
       return
     }
     if (form.transport_mode === "handcart" && (!form.driver_name.trim() || !form.carrier_phone.trim())) {
-      setOrders((current) => current.filter((order) => order.id !== tempId))
-      setShowCreate(true)
       setError("A hand cart needs the person's name and phone.")
       return
     }
     if (form.transport_mode === "staff_vehicle" && !form.pickup_user_id) {
-      setOrders((current) => current.filter((order) => order.id !== tempId))
-      setShowCreate(true)
       setError("Choose the staff member who will take the company vehicle.")
       return
     }
@@ -423,8 +401,6 @@ export function SalesPage() {
       return product && Number(line.quantity) > product.available && !line.shortfall_choice
     })
     if (short) {
-      setOrders((current) => current.filter((order) => order.id !== tempId))
-      setShowCreate(true)
       setError("Choose make or buy for every line that is short of stock.")
       return
     }
@@ -455,10 +431,9 @@ export function SalesPage() {
           }),
         }),
       })
-      setOrders((current) => current.map((order) => (order.id === tempId ? created : order)))
+      setOrders((current) => [created, ...current])
+      setShowCreate(false)
     } catch (caught) {
-      setOrders((current) => current.filter((order) => order.id !== tempId))
-      setShowCreate(true)
       setError(errorMessage(caught))
     }
   }
@@ -484,25 +459,24 @@ export function SalesPage() {
     if (!billFor || !draft) return
     setError("")
     const orderId = billFor
-    const body = JSON.stringify({
-      lines: draft.lines.map((line) => ({
-        line_id: line.line_id,
-        mrp: rates[line.line_id]?.mrp,
-        gst_percent: rates[line.line_id]?.gst,
-      })),
-    })
-    setBillFor(null)
-    setDraft(null)
     try {
       const saved = await api<SavedInvoice>(`/api/sales/orders/${orderId}/invoice`, {
         method: "POST",
-        body,
+        body: JSON.stringify({
+          lines: draft.lines.map((line) => ({
+            line_id: line.line_id,
+            mrp: rates[line.line_id]?.mrp,
+            gst_percent: rates[line.line_id]?.gst,
+          })),
+        }),
       })
       setOrders((current) =>
         current.map((order) =>
           order.id === orderId ? { ...order, invoice_id: saved.id, invoice_has_pdf: saved.has_pdf } : order,
         ),
       )
+      setBillFor(null)
+      setDraft(null)
     } catch (caught) {
       setError(errorMessage(caught))
     }
@@ -538,9 +512,10 @@ export function SalesPage() {
       setError("Choose the purchase this traded item came from")
       return
     }
+    if (saving.current.has(order.id)) return
     setError("")
-    remember(order.id)
-    setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: next } : item)))
+    saving.current.add(order.id)
+    setSavingId(order.id)
     try {
       const updated =
         next === "delivered"
@@ -557,15 +532,13 @@ export function SalesPage() {
               method: "PATCH",
               body: JSON.stringify({ status: next }),
             })
+      remember(updated.id)
       setOrders((current) => current.map((item) => (item.id === updated.id ? updated : item)))
     } catch (caught) {
-      try {
-        await load()
-      } catch (loadError) {
-        setError(errorMessage(loadError))
-        return
-      }
       setError(errorMessage(caught))
+    } finally {
+      saving.current.delete(order.id)
+      setSavingId((current) => (current === order.id ? null : current))
     }
   }
 
@@ -1046,27 +1019,12 @@ export function SalesPage() {
                         {billFileName(order.customer_name).replace(/\.pdf$/, "")}
                       </Button>
                     ) : null}
-                    {current !== "delivered" && current !== "cancelled" && !order.receipt_attachment_id ? (
-                      <div className="min-w-56">
-                        <SlipUpload
-                          label="Receipt"
-                          files={[]}
-                          onUploaded={(file) => {
-                            void api<Order>(`/api/sales/orders/${order.id}/receipt`, {
-                              method: "POST",
-                              body: JSON.stringify({ attachment_id: file.attachment_id }),
-                            })
-                              .then((saved) => setOrders((current) => current.map((row) => (row.id === saved.id ? saved : row))))
-                              .catch((caught) => setError(errorMessage(caught)))
-                          }}
-                        />
-                      </div>
-                    ) : null}
                     {next ? (
                       <Button
                         type="button"
                         size="sm"
                         className="h-8 rounded-xl bg-green-600 text-xs font-semibold text-white shadow-xs hover:bg-green-700"
+                        disabled={savingId === order.id}
                         onClick={() => void advance(order, next)}
                       >
                         {current === "in_delivery" ? <CheckCircle2 className="mr-1 size-3.5" /> : current === "process" ? <Truck className="mr-1 size-3.5" /> : <Send className="mr-1 size-3.5" />}
@@ -1089,25 +1047,29 @@ export function SalesPage() {
                   </div>
                 </div>
                 <OrderFlow status={current} />
-                <div className="p-5">
+                <div className="space-y-4 p-5">
                   <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
                     <table className="w-full text-left text-xs">
                       <thead className="border-b border-gray-100 bg-gray-50/50 text-[10px] font-semibold tracking-wider text-gray-500 uppercase">
                         <tr>
-                          <th className="px-4 py-2.5">Product</th>
-                          <th className="px-4 py-2.5 text-right">Ordered</th>
+                          <th className="px-4 py-2.5">Item Ordered</th>
+                          <th className="px-4 py-2.5 text-center">Type</th>
+                          <th className="px-4 py-2.5 text-right">Quantity</th>
                           <th className="px-4 py-2.5 text-right">Held</th>
-                          {prices ? <th className="px-4 py-2.5 text-right">Unit price</th> : null}
+                          {prices ? <th className="px-4 py-2.5 text-right">Unit Price</th> : null}
+                          {prices ? <th className="px-4 py-2.5 text-right">Subtotal</th> : null}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 text-gray-700">
-                        {order.lines.map((line, index) => (
-                          <tr key={`${line.product_id}-${index}`}>
+                        {order.lines.map((line, index) => {
+                          const catalog = products.find((item) => item.id === line.product_id)
+                          const unit = line.custom_unit || (catalog ? unitNames[catalog.unitId] : "")
+                          const qty = Number(line.quantity) || 0
+                          const price = Number(line.unit_price) || 0
+                          return (
+                          <tr key={`${line.product_id}-${index}`} className="hover:bg-gray-50/60">
                             <td className="px-4 py-2.5 font-semibold text-gray-900">
                               {line.product_name ?? "Steel Product"}
-                              {line.product_type === "purchased" ? (
-                                <span className="tone tone-violet ml-2 rounded-md px-1.5 py-0.5 text-[10px] font-bold">TRADED</span>
-                              ) : null}
                               {line.product_type === "purchased" && order.status !== "delivered" && order.status !== "cancelled" ? (
                                 <select className="mt-1 block h-8 max-w-56 rounded-lg border border-gray-200 bg-white px-2 text-[11px]" value={sources[line.id ?? ""] || line.source_purchase_order_id || ""} onChange={(event) => setSources((current) => ({ ...current, [line.id ?? ""]: event.target.value }))}>
                                   <option value="">Source purchase</option>
@@ -1122,13 +1084,56 @@ export function SalesPage() {
                                 </span>
                               ) : null}
                             </td>
-                            <td className="px-4 py-2.5 text-right">{line.quantity}</td>
+                            <td className="px-4 py-2.5 text-center">
+                              <span className={cn("inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase", line.product_type === "purchased" ? "tone tone-violet" : "tone tone-blue")}>
+                                {line.product_type === "purchased" ? "Traded" : "Made"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-bold text-gray-900">{plain(line.quantity)}{unit ? ` ${unit}` : ""}</td>
                             <td className="px-4 py-2.5 text-right text-blue-700">{line.held_quantity ?? line.quantity}</td>
-                            {prices ? <td className="px-4 py-2.5 text-right">{line.unit_price ? `₹${line.unit_price}` : "—"}</td> : null}
+                            {prices ? <td className="px-4 py-2.5 text-right">{line.unit_price ? `₹${plain(line.unit_price)}` : "–"}</td> : null}
+                            {prices ? <td className="px-4 py-2.5 text-right font-semibold text-emerald-700">{line.unit_price ? rupees(qty * price) : "–"}</td> : null}
                           </tr>
-                        ))}
+                          )
+                        })}
                       </tbody>
                     </table>
+                  </div>
+                  <div className="flex flex-wrap items-start gap-3 text-xs">
+                    {order.vehicle_plate ? (
+                      <div className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1 font-semibold text-gray-800">
+                        <Truck className="size-3.5" />
+                        <span>Vehicle: <strong>{order.vehicle_plate}</strong></span>
+                      </div>
+                    ) : order.driver_name ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1 font-semibold text-gray-800">
+                        <Truck className="size-3.5" />
+                        {order.transport_mode === "handcart" ? "Hand cart" : "Driver"}: {order.driver_name}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">Vehicle not assigned</span>
+                    )}
+                    {current !== "delivered" && current !== "cancelled" && !order.receipt_attachment_id ? (
+                      <div className="grid min-w-56 flex-1 gap-2 rounded-xl border border-[var(--scheme)] bg-[var(--scheme-soft)] p-3 shadow-[0_0_0_3px_var(--scheme-soft)]">
+                        <SlipUpload
+                          label="Receipt"
+                          required
+                          files={[]}
+                          onUploaded={(file) => {
+                            void api<Order>(`/api/sales/orders/${order.id}/receipt`, {
+                              method: "POST",
+                              body: JSON.stringify({ attachment_id: file.attachment_id }),
+                            })
+                              .then((saved) => setOrders((currentRows) => currentRows.map((row) => (row.id === saved.id ? saved : row))))
+                              .catch((caught) => setError(errorMessage(caught)))
+                          }}
+                        />
+                      </div>
+                    ) : order.receipt_attachment_id ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1 font-semibold text-gray-800">
+                        Receipt on file
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </article>

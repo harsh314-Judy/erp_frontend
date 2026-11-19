@@ -113,7 +113,7 @@ function OrderFlow({ status, compact = false }: { status: string; compact?: bool
   const current = steps.findIndex((step) => step.id === status)
   const cancelled = status === "cancelled"
   return (
-    <ol className={cn("flex flex-wrap items-center gap-1", compact ? "py-1" : "border-b border-gray-100 bg-white px-5 py-2")}>
+    <ol className={cn("flex min-w-0 flex-1 flex-wrap items-center gap-1", compact ? "py-1" : "px-5 py-2")}>
       {cancelled ? (
         <li className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-rose-700">Cancelled</li>
       ) : null}
@@ -193,6 +193,7 @@ export function PurchasesPage() {
   const [productCategories, setProductCategories] = useState<Named[]>([])
   const [units, setUnits] = useState<Named[]>([])
   const [error, setError] = useState("")
+  const [receiptNotice, setReceiptNotice] = useState<{ id: string; message: string } | null>(null)
 
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState("")
@@ -456,6 +457,7 @@ export function PurchasesPage() {
       method: "POST",
       body: JSON.stringify({ attachment_id: file.attachment_id, kind }),
     })
+    setReceiptNotice((current) => (current?.id === order.id ? null : current))
     void load().catch((caught) => setError(errorMessage(caught)))
   }
 
@@ -739,9 +741,16 @@ export function PurchasesPage() {
     await guard(async () => {
       try {
         await api(`/api/purchase-orders/${order.id}/account`, { method: "POST" })
+        setReceiptNotice((current) => (current?.id === order.id ? null : current))
         void load().catch((caught) => setError(errorMessage(caught)))
       } catch (caught) {
-        setError(errorMessage(caught))
+        const message = errorMessage(caught)
+        if (message.toLowerCase().includes("receipt")) {
+          setReceiptNotice({ id: order.id, message })
+          setError("")
+        } else {
+          setError(message)
+        }
       }
     })
   }
@@ -945,51 +954,57 @@ export function PurchasesPage() {
                     : "border-gray-200/90 hover:border-gray-300",
                 )}
               >
-                {/* Order Card Header */}
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/60 px-5 py-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-white px-5 py-3.5">
                   <div className="flex items-center gap-3">
                     <div className="tone tone-emerald grid size-9 place-items-center rounded-xl">
                       <Building2 className="size-4.5" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-sm font-bold text-gray-900">
                           {staff ? "Incoming Material Shipment" : (order.supplier_name || "General Supplier")}
                         </h3>
+                        <p className="text-[11px] text-gray-500">
+                          {order.lines.some((line) => line.gst) ? "GST" : "NON-GST"}
+                          {order.transport_mode === "handcart"
+                            ? ` · Hand cart${order.driver_name ? ` · ${order.driver_name}` : ""}`
+                            : order.transport_mode === "staff_vehicle"
+                              ? ` · Staff vehicle${order.driver_name ? ` · ${order.driver_name}` : ""}`
+                              : order.transport_mode === "truck"
+                                ? ` · Truck${order.driver_name ? ` · ${order.driver_name}` : ""}`
+                                : ""}
+                          {order.carrier_phone ? ` · ${order.carrier_phone}` : ""}
+                        </p>
                         <span className="font-mono text-[11px] font-medium text-gray-500">
                           #{order.id.slice(0, 8).toUpperCase()}
                         </span>
                       </div>
-                      <p className="text-[11px] text-gray-500">
-                        {order.lines.length} {order.lines.length === 1 ? "line item" : "line items"}
-                        {prices && orderTotal > 0 ? (
-                          <span className="text-green-600 font-semibold">
-                            {" "}· Total: {rupees(orderTotal)}
-                          </span>
-                        ) : null}
+                      <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-gray-500">
+                        <span>
+                          {order.lines.length} {order.lines.length === 1 ? "line item" : "line items"}
+                        </span>
+                        {prices && orderTotal > 0 ? <span>Total {rupees(orderTotal)}</span> : null}
+                        {order.expected_vehicle_plate ? <span>Vehicle {order.expected_vehicle_plate}</span> : null}
                       </p>
                     </div>
                   </div>
-
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <StatusBadge status={purchaseStage(order) === "paid" ? "paid" : purchaseStage(order) === "accounted" ? "delivered" : purchaseStage(order)} label={FLOW.find((step) => step.id === purchaseStage(order))?.label || "Cancelled"} />
-
-                    {can("manage_purchasing") && !order.stock_received && order.status !== "cancelled" ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="rounded-xl h-8 bg-[var(--scheme)] text-xs font-semibold text-white hover:bg-[var(--scheme-hover)]"
-                        onClick={() => void accountMaterials(order)}
-                        disabled={busy}
-                      >
-                        <CheckCircle2 className="mr-1 size-3.5" />
-                        Account materials
-                      </Button>
-                    ) : null}
-                  </div>
+                  <StatusBadge status={purchaseStage(order) === "paid" ? "paid" : purchaseStage(order) === "accounted" ? "delivered" : purchaseStage(order)} label={FLOW.find((step) => step.id === purchaseStage(order))?.label || "Cancelled"} />
                 </div>
 
-                <OrderFlow status={purchaseStage(order)} />
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-white">
+                  <OrderFlow status={purchaseStage(order)} />
+                  {can("manage_purchasing") && !order.stock_received && order.status !== "cancelled" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="mr-3 h-7 rounded-md bg-[var(--scheme)] px-2.5 text-[11px] font-semibold text-white hover:bg-[var(--scheme-hover)]"
+                      onClick={() => void accountMaterials(order)}
+                      disabled={busy}
+                    >
+                      Mark stage done
+                    </Button>
+                  ) : null}
+                </div>
                 {order.status === "in_delivery" && order.receipt_fail_reason ? (
                   <p className="px-5 pt-3 text-xs text-rose-700">
                     Failed inspection: {order.receipt_fail_reason}
@@ -997,9 +1012,45 @@ export function PurchasesPage() {
                   </p>
                 ) : null}
 
-                {/* Order Body */}
-                <div className="p-5 space-y-4">
-                  {/* Line items table */}
+                <div className="flex items-start gap-4 p-5">
+                  {can("manage_purchasing") && !locked ? (
+                    <div className="flex w-28 shrink-0 flex-col gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-7 w-full justify-start rounded-md border border-green-200 bg-green-50 px-2 text-[11px] font-semibold text-green-700 hover:bg-green-100"
+                        onClick={() => openQuickUpdate(order)}
+                      >
+                        <Zap className="mr-1 size-3 text-amber-500" />
+                        Quick Update
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 w-full justify-start rounded-md border-gray-200 bg-white px-2 text-[11px] text-gray-700 hover:bg-gray-50"
+                        onClick={() => openEdit(order)}
+                      >
+                        <Pencil className="mr-1 size-3" />
+                        Full Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 w-full justify-start rounded-md border-rose-200 bg-rose-50 px-2 text-[11px] text-rose-700 hover:bg-rose-100"
+                        disabled={busy}
+                        onClick={() => {
+                          setCancelReason("")
+                          setCancelTarget(order)
+                        }}
+                      >
+                        <XCircle className="mr-1 size-3" />
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : null}
+                  <div className="min-w-0 flex-1 space-y-4">
                   <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
                     <table className="w-full text-left text-xs">
                       <thead className="border-b border-gray-100 bg-gray-50/50 text-gray-500 uppercase tracking-wider text-[10px] font-semibold">
@@ -1056,18 +1107,17 @@ export function PurchasesPage() {
                     </table>
                   </div>
 
-                  {/* Delivery Info & Metadata Bar */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-                    <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-start gap-3 text-xs">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-start gap-2">
                       {/* Vehicle Number pill */}
                       {order.expected_vehicle_plate ? (
-                        <div className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 font-semibold text-cyan-300">
+                        <div className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1 font-semibold text-gray-800">
                           <Truck className="size-3.5" />
                           <span>Vehicle: <strong>{order.expected_vehicle_plate}</strong></span>
                           {can("manage_purchasing") && !locked ? (
                             <button
                               type="button"
-                              className="ml-1 text-cyan-400 hover:text-white"
+                              className="ml-1 text-gray-500 hover:text-gray-900"
                               onClick={() => openQuickUpdate(order)}
                               title="Update Vehicle Number"
                             >
@@ -1088,9 +1138,25 @@ export function PurchasesPage() {
                         <span className="text-xs text-gray-400">Vehicle not assigned</span>
                       )}
 
-                      <div className="grid w-full gap-2 rounded-xl border border-gray-100 p-3 sm:grid-cols-1">
-                        <SlipUpload label="Receipt" files={(order.attachments ?? []).filter((file) => file.kind === "supplier_invoice" || file.kind === "received_slip")} onUploaded={(file) => linkFile(order, file, "supplier_invoice")} />
-                      </div>
+                      {(() => {
+                        const receipts = (order.attachments ?? []).filter((file) => file.kind === "supplier_invoice" || file.kind === "received_slip")
+                        const needsReceipt = !order.stock_received && order.status !== "cancelled" && receipts.length === 0
+                        return (
+                          <div className="grid min-w-56 flex-1 gap-2">
+                            <div
+                              className={cn(
+                                "grid gap-2 rounded-xl border p-3",
+                                needsReceipt
+                                  ? "border-[var(--scheme)] bg-[var(--scheme-soft)] shadow-[0_0_0_3px_var(--scheme-soft)]"
+                                  : "border-gray-100",
+                              )}
+                            >
+                              <SlipUpload label="Receipt" files={receipts} onUploaded={(file) => linkFile(order, file, "supplier_invoice")} required={needsReceipt} />
+                            </div>
+                            {receiptNotice?.id === order.id ? <Notice variant="error">{receiptNotice.message}</Notice> : null}
+                          </div>
+                        )
+                      })()}
                       {order.stock_received ? (
                         <span className="tone tone-emerald inline-flex items-center gap-1.5 rounded-xl px-3 py-1 font-semibold">
                           <CheckCircle2 className="size-3.5" />
@@ -1102,50 +1168,6 @@ export function PurchasesPage() {
                         </span>
                       ) : null}
                     </div>
-
-                    {/* Order Action Buttons */}
-                    {can("manage_purchasing") && !locked ? (
-                      <div className="flex items-center gap-2">
-                        {/* Quick Update Button */}
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="rounded-xl border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 font-semibold text-xs h-8"
-                          onClick={() => openQuickUpdate(order)}
-                        >
-                          <Zap className="mr-1 size-3.5 text-amber-500" />
-                          Quick Update
-                        </Button>
-
-                        {/* Full Edit */}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="rounded-xl border-gray-200 bg-white text-xs h-8 text-gray-700 hover:bg-gray-50"
-                          onClick={() => openEdit(order)}
-                        >
-                          <Pencil className="mr-1 size-3.5" />
-                          Full Edit
-                        </Button>
-
-                        {/* Cancel */}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="rounded-xl border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs h-8"
-                          disabled={busy}
-                          onClick={() => {
-                            setCancelReason("")
-                            setCancelTarget(order)
-                          }}
-                        >
-                          <XCircle className="mr-1 size-3.5" />
-                          Cancel
-                        </Button>
-                      </div>
-                    ) : null}
                   </div>
 
                   {/* Cancelled Notice Banner */}
@@ -1172,6 +1194,7 @@ export function PurchasesPage() {
                       <span>{order.notes}</span>
                     </div>
                   ) : null}
+                  </div>
                 </div>
               </article>
             )

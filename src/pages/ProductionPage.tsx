@@ -331,7 +331,6 @@ export function ProductionPage() {
   const [entryOpen, setEntryOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<FloorEntry | null>(null)
   const [stageWorkers, setStageWorkers] = useState<string[]>([])
-  const [stageLabels, setStageLabels] = useState<string[]>([])
   const [stageQty, setStageQty] = useState("")
   const [stageScrap, setStageScrap] = useState("")
   const [held, setHeld] = useState(false)
@@ -485,148 +484,31 @@ export function ProductionPage() {
     })
   }
 
-  function actorName() {
-    return [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "You"
-  }
-
-  function preview(path: string, body: unknown, job: Detail): Detail {
-    const stamp = new Date().toISOString()
-    const note = (detail: string, action: string, stage: string | null, worker?: string | null): Detail => ({
-      ...job,
-      events: [{ at: stamp, user_name: actorName(), action, stage, detail, worker: worker ?? null }, ...job.events],
-    })
-    if (path === "/start") {
-      const stages = job.stages.map((stage, index) =>
-        index === 0 ? { ...stage, status: "active" } : stage,
-      )
-      return {
-        ...note("Stock held and the first stage opened", "started", stages[0]?.operation_name ?? null),
-        status: "in_progress",
-        stages,
-        current_operation_name: stages[0]?.operation_name ?? job.current_operation_name,
-      }
-    }
-    if (path.endsWith("/complete")) {
-      const payload = (body as { polish_type?: string; worker_name?: string; quantity?: string } | undefined) ?? {}
-      const polish = payload.polish_type ?? null
-      const by = stageLabels.filter(Boolean).join(", ") || payload.worker_name || "the chosen person"
-      const stages = job.stages.map((stage) => ({ ...stage }))
-      const active = stages.find((stage) => stage.status === "active")
-      if (!active) return job
-      const made = payload.quantity != null ? Number(payload.quantity) : Math.max(0, Number(job.quantity) - Number(active.good_quantity || 0) - Number(active.outside_quantity || 0))
-      const good = Number(active.good_quantity || 0) + made
-      active.good_quantity = String(good)
-      active.polish_type = polish
-      if (good < Number(job.quantity)) {
-        return {
-          ...note(`Recorded ${made} good. ${good} of ${job.quantity} so far · by ${by}`, "advanced", active.operation_name, by),
-          stages,
-        }
-      }
-      active.status = "done"
-      active.completed_at = stamp
-      const upcoming = stages.find((stage) => stage.status === "pending")
-      if (upcoming) upcoming.status = "active"
-      const moved = upcoming ? upcoming.operation_name ?? "the next stage" : "awaiting approval"
-      return {
-        ...note(
-          `Finished ${active.operation_name ?? "stage"}${polish ? ` (${polish})` : ""} → ${moved} · by ${by}`,
-          "advanced",
-          active.operation_name,
-          by,
-        ),
-        status: upcoming ? "in_progress" : "awaiting_approval",
-        stages,
-        current_operation_name: upcoming?.operation_name ?? job.current_operation_name,
-      }
-    }
-    if (path === "/revert") {
-      const stages = job.stages.map((stage) => ({ ...stage }))
-      const done = stages.filter((stage) => stageDone(stage.status))
-      const previous = done[done.length - 1]
-      if (!previous) return job
-      const active = stages.find((stage) => stage.status === "active")
-      if (active) active.status = "pending"
-      const was = previous.polish_type
-      previous.status = "active"
-      previous.polish_type = null
-      previous.completed_at = null
-      return {
-        ...note(
-          `Stepped back to ${previous.operation_name ?? "stage"}${was ? ` (was ${was})` : ""}`,
-          "reverted",
-          previous.operation_name,
-        ),
-        status: "in_progress",
-        stages,
-        current_operation_name: previous.operation_name,
-      }
-    }
-    if (path === "/variances") {
-      const row = body as { kind: string; item_name: string; quantity: string; note: string }
-      const label = row.kind === "extra_made" ? "Made extra" : row.kind === "extra_used" ? "Used extra" : "Wasted"
-      const stage = job.stages.find((item) => item.status === "active")?.operation_name ?? null
-      return {
-        ...note(`${label} ${row.quantity} ${row.item_name} — ${row.note}`, "variance", stage),
-        variances: [
-          {
-            at: stamp,
-            user_name: actorName(),
-            kind: row.kind,
-            item_name: row.item_name,
-            quantity: row.quantity,
-            note: row.note,
-            stage,
-          },
-          ...job.variances,
-        ],
-      }
-    }
-    if (path === "/requirements") {
-      const lines = (body as { inputs: { input_id: string; planned_quantity: string }[] }).inputs
-      const inputs = job.inputs.map((input) => {
-        const next = lines.find((line) => line.input_id === input.id)
-        return next ? { ...input, planned_quantity: String(next.planned_quantity) } : input
-      })
-      return { ...note("Requirements updated", "requirement", job.current_operation_name), inputs }
-    }
-    if (path === "/approve") {
-      const made = (body as { produced_quantity?: string } | undefined)?.produced_quantity ?? job.quantity
-      return { ...note(`Approved · produced ${Number(made)} (target ${Number(job.quantity)})`, "approved", null), status: "completed" }
-    }
-    if (path === "/cancel") return { ...note("Job cancelled", "cancelled", null), status: "cancelled" }
-    return job
-  }
-
   async function act(path: string, body?: unknown) {
     if (!selected || hold.current) return false
     hold.current = true
     setHeld(true)
     setError("")
-    const before = selected
-    const optimistic = preview(path, body, selected)
-    show(optimistic)
-    setJobs((current) =>
-      current.map((job) =>
-        job.id === optimistic.id
-          ? {
-              ...job,
-              status: optimistic.status,
-              quantity: optimistic.quantity,
-              current_operation_name: optimistic.current_operation_name,
-            }
-          : job,
-      ),
-    )
     try {
       const job = await api<Detail>(`/api/production-jobs/${selected.id}${path}`, {
         method: "POST",
         body: body ? JSON.stringify(body) : undefined,
       })
       show(job)
+      setJobs((current) =>
+        current.map((row) =>
+          row.id === job.id
+            ? {
+                ...row,
+                status: job.status,
+                quantity: job.quantity,
+                current_operation_name: job.current_operation_name,
+              }
+            : row,
+        ),
+      )
       if (path.includes("/complete")) {
         setStageWorkers([])
-        setStageLabels([])
         setStageScrap("")
         setStageQty(String(Number(job.quantity)))
       }
@@ -634,8 +516,6 @@ export function ProductionPage() {
       void reloadFloor().catch((caught) => setError(errorMessage(caught)))
       return true
     } catch (caught) {
-      show(before)
-      setJobs((current) => current.map((job) => (job.id === before.id ? { ...job, status: before.status } : job)))
       setError(errorMessage(caught))
       return false
     } finally {
@@ -727,17 +607,13 @@ export function ProductionPage() {
   }
 
   async function toggle(id: string) {
-    if (hold.current) {
-      setError("Still confirming the previous action")
-      return
-    }
+    if (hold.current) return
     try {
       if (selected?.id === id) {
         setSelected(null)
         return
       }
       setStageWorkers([])
-      setStageLabels([])
       setStageScrap("")
       setStageQty("")
       await open(id)
@@ -1079,9 +955,6 @@ export function ProductionPage() {
                             <div className={cn("min-h-0 overflow-hidden", isSelected && "py-3")}>
                               {isSelected && selected ? (
           <section className={cn("relative z-10 @container space-y-4 bg-[var(--surface-2)] p-4 text-gray-900", held && "pointer-events-none")}>
-            {held ? (
-              <p className="text-xs font-medium text-emerald-700">Recorded. Other actions stay locked until the plant confirms it.</p>
-            ) : null}
             <div
               className="flex cursor-pointer flex-wrap items-start justify-between gap-3 border-b border-gray-300 pb-4"
               onClick={() => void toggle(selected.id)}
@@ -1379,9 +1252,8 @@ export function ProductionPage() {
                     <MultiWorkerPicker
                       operationId={active.operation_id}
                       value={stageWorkers}
-                      onChange={(ids, labels) => {
+                      onChange={(ids) => {
                         setStageWorkers(ids)
-                        setStageLabels(labels)
                       }}
                     />
                   ) : null}
