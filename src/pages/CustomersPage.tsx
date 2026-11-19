@@ -114,25 +114,7 @@ export function CustomersPage() {
     event.preventDefault()
     setError("")
     const body = payload()
-    const previous = rows
-    const draft = form
     const currentEdit = editing
-    const tempId = currentEdit?.id ?? crypto.randomUUID()
-    const optimistic: Customer = {
-      id: tempId,
-      name: form.name,
-      state: form.state,
-      phone_number: form.phone_number,
-      email: form.email,
-      gst_number: form.gst_number || null,
-      whatsapp_mode: form.whatsapp_mode,
-      whatsapp_number: form.whatsapp_mode === "separate" ? form.whatsapp_number || null : null,
-      address: form.address,
-    }
-    setRows((current) =>
-      currentEdit ? current.map((row) => (row.id === currentEdit.id ? optimistic : row)) : [optimistic, ...current],
-    )
-    closeForm()
     try {
       const saved = currentEdit
         ? await api<Customer>(`/api/customers/${currentEdit.id}`, {
@@ -140,12 +122,11 @@ export function CustomersPage() {
             body: JSON.stringify(body),
           })
         : await api<Customer>("/api/customers/", { method: "POST", body: JSON.stringify(body) })
-      setRows((current) => current.map((row) => (row.id === tempId ? saved : row)))
+      setRows((current) =>
+        currentEdit ? current.map((row) => (row.id === saved.id ? saved : row)) : [saved, ...current],
+      )
+      closeForm()
     } catch (caught) {
-      setRows(previous)
-      setForm(draft)
-      setEditing(currentEdit)
-      setShowCreate(true)
       setError(errorMessage(caught))
     }
   }
@@ -153,12 +134,10 @@ export function CustomersPage() {
   async function remove(row: Customer) {
     if (!window.confirm(`Delete ${row.name}?`)) return
     setError("")
-    const previous = rows
-    setRows((current) => current.filter((item) => item.id !== row.id))
     try {
       await api(`/api/customers/${row.id}`, { method: "DELETE" })
+      setRows((current) => current.filter((item) => item.id !== row.id))
     } catch (caught) {
-      setRows(previous)
       setError(errorMessage(caught))
     }
   }
